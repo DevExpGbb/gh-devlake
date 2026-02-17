@@ -178,6 +178,7 @@ func runInitLocal(cmd *cobra.Command, args []string) error {
 	// Use defaults for local deploy
 	deployLocalDir = "."
 	deployLocalVersion = "latest"
+	deployLocalQuiet = true // wizard handles next steps
 
 	if err := runDeployLocal(cmd, args); err != nil {
 		return err
@@ -207,12 +208,17 @@ func runInitLocal(cmd *cobra.Command, args []string) error {
 
 // runInitAzure handles the Azure deployment path of the wizard.
 func runInitAzure(cmd *cobra.Command, args []string) error {
+	deployAzureQuiet = true // wizard handles next steps
+
 	// Ask whether to use official images or a custom build
 	imageChoices := []string{
 		"official - Apache DevLake images from Docker Hub (recommended)",
 		"custom  - Build from a DevLake repository (fork or clone)",
 	}
 	imgChoice := prompt.Select("Which DevLake images to use?", imageChoices)
+	if imgChoice == "" {
+		return fmt.Errorf("image choice is required")
+	}
 	if strings.HasPrefix(imgChoice, "official") {
 		azureOfficial = true
 	} else {

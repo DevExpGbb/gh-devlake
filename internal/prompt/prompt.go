@@ -56,7 +56,68 @@ func Select(label string, items []string) string {
 
 // SelectWithOther displays a numbered list with an optional "Other" entry.
 // If allowOther is true, an extra option lets the user type a custom value.
+// The user can enter a number, or type text directly:
+//   - With allowOther: non-numeric text is accepted as a freeform value.
+//   - Without allowOther: text is matched (case-insensitive) against the first
+//     word of each item (e.g. typing "local" matches "local - Docker Compose...").
 func SelectWithOther(label string, items []string, allowOther bool) string {
+	maxAttempts := 3
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if attempt == 0 {
+			// Show the menu only on the first attempt (or after invalid input)
+			printMenu(label, items, allowOther)
+		}
+		fmt.Fprint(os.Stderr, "Enter choice: ")
+		if !scanner.Scan() {
+			return ""
+		}
+		input := strings.TrimSpace(scanner.Text())
+		if input == "" {
+			fmt.Fprintln(os.Stderr, "  Invalid choice, try again.")
+			printMenu(label, items, allowOther)
+			continue
+		}
+
+		// Try numeric selection first.
+		if idx, err := strconv.Atoi(input); err == nil {
+			if idx >= 1 && idx <= len(items) {
+				return items[idx-1]
+			}
+			if allowOther && idx == len(items)+1 {
+				return ReadLine("Enter value")
+			}
+			fmt.Fprintln(os.Stderr, "  Invalid choice, try again.")
+			printMenu(label, items, allowOther)
+			continue
+		}
+
+		// Non-numeric input: if allowOther, accept as freeform value.
+		if allowOther {
+			return input
+		}
+
+		// Try matching against the first word of each item (case-insensitive).
+		inputLower := strings.ToLower(input)
+		var match string
+		matches := 0
+		for _, item := range items {
+			firstWord := strings.ToLower(strings.SplitN(item, " ", 2)[0])
+			if firstWord == inputLower {
+				match = item
+				matches++
+			}
+		}
+		if matches == 1 {
+			return match
+		}
+
+		fmt.Fprintln(os.Stderr, "  Invalid choice, try again.")
+		printMenu(label, items, allowOther)
+	}
+	return ""
+}
+
+func printMenu(label string, items []string, allowOther bool) {
 	fmt.Fprintf(os.Stderr, "%s:\n", label)
 	for i, item := range items {
 		fmt.Fprintf(os.Stderr, "  [%d] %s\n", i+1, item)
@@ -64,21 +125,6 @@ func SelectWithOther(label string, items []string, allowOther bool) string {
 	if allowOther {
 		fmt.Fprintf(os.Stderr, "  [%d] Other (enter manually)\n", len(items)+1)
 	}
-	fmt.Fprint(os.Stderr, "\nEnter number: ")
-	if !scanner.Scan() {
-		return ""
-	}
-	idx, err := strconv.Atoi(strings.TrimSpace(scanner.Text()))
-	if err != nil || idx < 1 {
-		return ""
-	}
-	if allowOther && idx == len(items)+1 {
-		return ReadLine("Enter value")
-	}
-	if idx > len(items) {
-		return ""
-	}
-	return items[idx-1]
 }
 
 // ReadLine prompts for a single line of text input.

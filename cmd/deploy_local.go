@@ -18,6 +18,7 @@ import (
 var (
 	deployLocalDir     string
 	deployLocalVersion string
+	deployLocalQuiet   bool // suppress summary when called from init wizard
 )
 
 func newDeployLocalCmd() *cobra.Command {
@@ -144,20 +145,22 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 	}
 
 	// ── Summary ──
-	fmt.Println("\n========================================")
-	fmt.Println("  ✅ Setup Complete!")
-	fmt.Println("========================================")
-	fmt.Printf("\nFiles created in: %s\n", absDir)
-	fmt.Println("  • docker-compose.yml")
-	fmt.Println("  • .env (with ENCRYPTION_SECRET)")
-	fmt.Println("\nNext steps:")
-	fmt.Printf("  1. cd %s\n", absDir)
-	fmt.Println("  2. docker compose up -d")
-	fmt.Println("  3. Wait 2-3 minutes for services to start")
-	fmt.Println("  4. Open Config UI: http://localhost:4000")
-	fmt.Println("  5. Open Grafana:   http://localhost:3002 (admin/admin)")
-	fmt.Println("\nTo stop DevLake:")
-	fmt.Println("  docker compose down")
+	if !deployLocalQuiet {
+		fmt.Println("\n========================================")
+		fmt.Println("  ✅ Setup Complete!")
+		fmt.Println("========================================")
+		fmt.Printf("\nFiles created in: %s\n", absDir)
+		fmt.Println("  • docker-compose.yml")
+		fmt.Println("  • .env (with ENCRYPTION_SECRET)")
+		fmt.Println("\nNext steps:")
+		fmt.Printf("  1. cd %s\n", absDir)
+		fmt.Println("  2. docker compose up -d")
+		fmt.Println("  3. Wait 2-3 minutes for services to start")
+		fmt.Println("  4. Open Config UI: http://localhost:4000")
+		fmt.Println("  5. Open Grafana:   http://localhost:3002 (admin/admin)")
+		fmt.Println("\nTo stop DevLake:")
+		fmt.Println("  docker compose down")
+	}
 
 	return nil
 }

@@ -23,6 +23,7 @@ var (
 	azureSkipImageBuild bool
 	azureRepoURL        string
 	azureOfficial       bool
+	deployAzureQuiet    bool // suppress "Next Steps" when called from init wizard
 )
 
 func newDeployAzureCmd() *cobra.Command {
@@ -325,11 +326,13 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 		fmt.Printf("\n💾 State saved to %s\n", stateFile)
 	}
 
-	fmt.Println("\nNext Steps:")
-	fmt.Println("  1. Wait 2-3 minutes for containers to start")
-	fmt.Printf("  2. Open Config UI: %s\n", deployment.ConfigUIEndpoint)
-	fmt.Println("  3. Configure your data sources")
-	fmt.Printf("\nTo cleanup: gh devlake cleanup --azure\n")
+	if !deployAzureQuiet {
+		fmt.Println("\nNext Steps:")
+		fmt.Println("  1. Wait 2-3 minutes for containers to start")
+		fmt.Printf("  2. Open Config UI: %s\n", deployment.ConfigUIEndpoint)
+		fmt.Println("  3. Configure your data sources")
+		fmt.Printf("\nTo cleanup: gh devlake cleanup --azure\n")
+	}
 
 	return nil
 }
