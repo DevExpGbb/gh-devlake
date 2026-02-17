@@ -1,0 +1,21 @@
+# Binaries
+gh-devlake
+gh-devlake.exe
+*.exe
+dist/
+
+# Go
+vendor/
+
+# DevLake secrets & state
+.devlake.env
+.devlake-*.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
