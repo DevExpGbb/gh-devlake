@@ -7,6 +7,7 @@ import (
 
 	"github.com/DevExpGBB/gh-devlake/internal/devlake"
 	"github.com/DevExpGBB/gh-devlake/internal/envfile"
+	"github.com/DevExpGBB/gh-devlake/internal/prompt"
 	"github.com/DevExpGBB/gh-devlake/internal/token"
 	"github.com/spf13/cobra"
 )
@@ -32,16 +33,23 @@ Token resolution order:
 }
 
 func init() {
-	configureConnectionsCmd.Flags().StringVar(&connOrg, "org", "", "GitHub organization name (required)")
+	configureConnectionsCmd.Flags().StringVar(&connOrg, "org", "", "GitHub organization name")
 	configureConnectionsCmd.Flags().StringVar(&connEnterprise, "enterprise", "", "GitHub enterprise slug (optional, needed for Copilot enterprise metrics)")
 	configureConnectionsCmd.Flags().StringVar(&connToken, "token", "", "GitHub PAT (if not using .devlake.env or env vars)")
 	configureConnectionsCmd.Flags().StringVar(&connEnvFile, "env-file", ".devlake.env", "Path to env file containing GITHUB_PAT")
 	configureConnectionsCmd.Flags().BoolVar(&connSkipClean, "skip-cleanup", false, "Do not delete .devlake.env after successful setup")
-	_ = configureConnectionsCmd.MarkFlagRequired("org")
 	configureCmd.AddCommand(configureConnectionsCmd)
 }
 
 func runConfigureConnections(cmd *cobra.Command, args []string) error {
+	// ── Interactive prompt for missing org ──
+	if connOrg == "" {
+		connOrg = prompt.ReadLine("GitHub organization slug")
+		if connOrg == "" {
+			return fmt.Errorf("--org is required")
+		}
+	}
+
 	// ── Step 1: Discover DevLake ──
 	fmt.Println("🔍 Discovering DevLake instance...")
 	disc, err := devlake.Discover(cfgURL)

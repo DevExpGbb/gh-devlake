@@ -12,6 +12,7 @@ import (
 	"github.com/DevExpGBB/gh-devlake/internal/azure"
 	"github.com/DevExpGBB/gh-devlake/internal/devlake"
 	dockerpkg "github.com/DevExpGBB/gh-devlake/internal/docker"
+	"github.com/DevExpGBB/gh-devlake/internal/prompt"
 	"github.com/DevExpGBB/gh-devlake/internal/secrets"
 	"github.com/spf13/cobra"
 )
@@ -38,20 +39,38 @@ Example:
 		RunE: runDeployAzure,
 	}
 
-	cmd.Flags().StringVar(&azureRG, "resource-group", "", "Azure Resource Group name (required)")
-	cmd.Flags().StringVar(&azureLocation, "location", "", "Azure region (required)")
+	cmd.Flags().StringVar(&azureRG, "resource-group", "", "Azure Resource Group name")
+	cmd.Flags().StringVar(&azureLocation, "location", "", "Azure region")
 	cmd.Flags().StringVar(&azureBaseName, "base-name", "devlake", "Base name for Azure resources")
 	cmd.Flags().BoolVar(&azureSkipImageBuild, "skip-image-build", false, "Skip Docker image building")
 	cmd.Flags().StringVar(&azureRepoURL, "repo-url", "", "Clone a remote DevLake repository for building")
 	cmd.Flags().BoolVar(&azureOfficial, "official", false, "Use official Apache images from Docker Hub (no ACR)")
 
-	_ = cmd.MarkFlagRequired("resource-group")
-	_ = cmd.MarkFlagRequired("location")
-
 	return cmd
 }
 
+// Common Azure regions for interactive selection.
+var azureRegions = []string{
+	"eastus", "eastus2", "westus2", "westus3",
+	"centralus", "northeurope", "westeurope",
+	"southeastasia", "australiaeast", "uksouth",
+}
+
 func runDeployAzure(cmd *cobra.Command, args []string) error {
+	// ── Interactive prompts for missing required flags ──
+	if azureLocation == "" {
+		azureLocation = prompt.Select("Select Azure region", azureRegions)
+		if azureLocation == "" {
+			return fmt.Errorf("--location is required")
+		}
+	}
+	if azureRG == "" {
+		azureRG = prompt.ReadLine("Resource group name (e.g. devlake-rg)")
+		if azureRG == "" {
+			return fmt.Errorf("--resource-group is required")
+		}
+	}
+
 	suffix := azure.Suffix(azureRG)
 	acrName := "devlakeacr" + suffix
 
@@ -136,7 +155,7 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 
 		deployOut, err := azure.DeployBicep(azureRG, templatePath, params)
 		if err != nil {
-			fmt.Println("   Bicep pre-deploy failed. Creating ACR manually...")
+			fmt.Println("   ⚠️  Bicep pre-deploy for ACR failed, will retry after image build.")
 		}
 
 		acrServer := acrName + ".azurecr.io"
@@ -163,7 +182,10 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 			fmt.Printf("\n   Building %s...\n", img.name)
 			localTag := img.name + ":latest"
 			if err := dockerpkg.Build(localTag, filepath.Join(repoRoot, img.dockerfile), img.context); err != nil {
-				return err
+				fmt.Fprintf(os.Stderr, "\n   ❌ Docker build failed for %s.\n", img.name)
+				fmt.Fprintf(os.Stderr, "   Tip: re-run with --official to skip building and use\n")
+				fmt.Fprintf(os.Stderr, "   official Apache DevLake images from Docker Hub instead.\n")
+				return fmt.Errorf("docker build failed for %s: %w", img.name, err)
 			}
 			remoteTag := acrServer + "/" + localTag
 			fmt.Printf("   Pushing %s...\n", img.name)
@@ -347,7 +369,10 @@ func findRepoRoot() (string, error) {
 		}
 		dir = filepath.Dir(dir)
 	}
-	return "", fmt.Errorf("could not find DevLake repo root — use --repo-url or --official")
+	return "", fmt.Errorf("could not find DevLake repo root.\n" +
+		"Options:\n" +
+		"  --repo-url <url>  Clone a fork with the custom Dockerfile\n" +
+		"  --official        Use official Apache images (no build needed)")
 }
 
 func newGitClone(url, dir string) *exec.Cmd {

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/DevExpGBB/gh-devlake/internal/devlake"
+	"github.com/DevExpGBB/gh-devlake/internal/prompt"
 	"github.com/DevExpGBB/gh-devlake/internal/token"
 	"github.com/spf13/cobra"
 )
@@ -43,12 +44,11 @@ Example:
 
 func init() {
 	// Connection flags
-	configureFullCmd.Flags().StringVar(&fullOrg, "org", "", "GitHub organization name (required)")
+	configureFullCmd.Flags().StringVar(&fullOrg, "org", "", "GitHub organization name")
 	configureFullCmd.Flags().StringVar(&fullEnterprise, "enterprise", "", "GitHub enterprise slug")
 	configureFullCmd.Flags().StringVar(&fullToken, "token", "", "GitHub PAT")
 	configureFullCmd.Flags().StringVar(&fullEnvFile, "env-file", ".devlake.env", "Path to env file containing GITHUB_PAT")
 	configureFullCmd.Flags().BoolVar(&fullSkipClean, "skip-cleanup", false, "Do not delete .devlake.env after setup")
-	_ = configureFullCmd.MarkFlagRequired("org")
 
 	// Scope flags (reuse the package-level vars from configure_scopes.go)
 	configureFullCmd.Flags().StringVar(&scopeRepos, "repos", "", "Comma-separated repos (owner/repo)")
@@ -66,6 +66,14 @@ func init() {
 }
 
 func runConfigureFull(cmd *cobra.Command, args []string) error {
+	// ── Interactive prompt for missing org ──
+	if fullOrg == "" {
+		fullOrg = prompt.ReadLine("GitHub organization slug")
+		if fullOrg == "" {
+			return fmt.Errorf("--org is required")
+		}
+	}
+
 	fmt.Println("═══════════════════════════════════════")
 	fmt.Println("  DevLake — Full Configuration")
 	fmt.Println("  Phase 1: Configure Connections")

@@ -48,6 +48,24 @@ func SelectMulti(label string, items []string) []string {
 	return selected
 }
 
+// Select displays a numbered list and lets the user pick one item.
+// Returns the selected item string, or "" if input is invalid.
+func Select(label string, items []string) string {
+	fmt.Fprintf(os.Stderr, "%s:\n", label)
+	for i, item := range items {
+		fmt.Fprintf(os.Stderr, "  [%d] %s\n", i+1, item)
+	}
+	fmt.Fprint(os.Stderr, "\nEnter number: ")
+	if !scanner.Scan() {
+		return ""
+	}
+	idx, err := strconv.Atoi(strings.TrimSpace(scanner.Text()))
+	if err != nil || idx < 1 || idx > len(items) {
+		return ""
+	}
+	return items[idx-1]
+}
+
 // ReadLine prompts for a single line of text input.
 func ReadLine(label string) string {
 	fmt.Fprintf(os.Stderr, "%s: ", label)

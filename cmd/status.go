@@ -17,6 +17,7 @@ connections, showing whether each is reachable.`,
 }
 
 func init() {
+	statusCmd.GroupID = "operate"
 	rootCmd.AddCommand(statusCmd)
 }
 

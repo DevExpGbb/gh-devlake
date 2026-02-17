@@ -70,8 +70,11 @@ func Discover(explicitURL string) (*DiscoveryResult, error) {
 	}
 
 	return nil, fmt.Errorf("could not find a running DevLake instance.\n" +
-		"Checked: state files, localhost:8080, localhost:8085.\n" +
-		"Use --url to specify the DevLake API URL")
+		"Checked: state files, localhost:8080, localhost:8085.\n\n" +
+		"To deploy a new instance:\n" +
+		"  gh devlake deploy local     # Docker Compose on this machine\n" +
+		"  gh devlake deploy azure     # Azure Container Apps\n\n" +
+		"Or specify an existing instance with --url <DevLake API URL>")
 }
 
 func tryStateFile(path string) *DiscoveryResult {
