@@ -318,3 +318,13 @@ func (c *Client) TriggerBlueprint(id int) (*Pipeline, error) {
 func (c *Client) GetPipeline(id int) (*Pipeline, error) {
 	return doGet[Pipeline](c, fmt.Sprintf("/pipelines/%d", id))
 }
+
+// TriggerMigration triggers the DevLake database migration endpoint.
+func (c *Client) TriggerMigration() error {
+	resp, err := c.HTTPClient.Get(c.BaseURL + "/proceed-db-migration")
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return nil
+}

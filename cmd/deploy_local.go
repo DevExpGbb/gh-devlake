@@ -2,11 +2,14 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
+	dockerpkg "github.com/DevExpGBB/gh-devlake/internal/docker"
 	"github.com/DevExpGBB/gh-devlake/internal/download"
 	"github.com/DevExpGBB/gh-devlake/internal/secrets"
 	"github.com/spf13/cobra"
@@ -157,4 +160,32 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 	fmt.Println("  docker compose down")
 
 	return nil
+}
+
+// startLocalContainers runs docker compose up -d and polls until DevLake is healthy.
+// Returns the backend URL on success.
+func startLocalContainers(dir string) (string, error) {
+	absDir, _ := filepath.Abs(dir)
+	fmt.Printf("\n🐳 Starting containers in %s...\n", absDir)
+	if err := dockerpkg.ComposeUp(absDir); err != nil {
+		return "", err
+	}
+	fmt.Println("   ✅ Containers starting")
+
+	backendURL := "http://localhost:8080"
+	fmt.Println("\n⏳ Waiting for DevLake to be ready...")
+	client := &http.Client{Timeout: 5 * time.Second}
+	for attempt := 1; attempt <= 30; attempt++ {
+		resp, err := client.Get(backendURL + "/ping")
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				fmt.Println("   ✅ DevLake is responding!")
+				return backendURL, nil
+			}
+		}
+		fmt.Printf("   Attempt %d/30 — waiting...\n", attempt)
+		time.Sleep(10 * time.Second)
+	}
+	return backendURL, fmt.Errorf("DevLake not ready after 5 minutes — check docker compose logs")
 }

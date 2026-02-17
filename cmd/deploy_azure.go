@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/DevExpGBB/gh-devlake/internal/azure"
-	"github.com/DevExpGBB/gh-devlake/internal/devlake"
 	dockerpkg "github.com/DevExpGBB/gh-devlake/internal/docker"
 	"github.com/DevExpGBB/gh-devlake/internal/prompt"
 	"github.com/DevExpGBB/gh-devlake/internal/secrets"
@@ -295,7 +294,8 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 		kvName = fmt.Sprintf("%skv%s", azureBaseName, suffix)
 	}
 
-	azureState := map[string]any{
+	// Write a combined state file: Azure-specific metadata + DevLake discovery fields
+	combinedState := map[string]any{
 		"deployedAt":        time.Now().Format(time.RFC3339),
 		"method":            methodName(),
 		"subscription":      acct.Name,
@@ -318,24 +318,12 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 		},
 	}
 
-	data, _ := json.MarshalIndent(azureState, "", "  ")
+	data, _ := json.MarshalIndent(combinedState, "", "  ")
 	if err := os.WriteFile(stateFile, data, 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "⚠️  Could not save state file: %v\n", err)
 	} else {
 		fmt.Printf("\n💾 State saved to %s\n", stateFile)
 	}
-
-	// Also save in devlake state format for discovery
-	devlakeState := &devlake.State{
-		DeployedAt: time.Now().Format(time.RFC3339),
-		Method:     methodName(),
-		Endpoints: devlake.StateEndpoints{
-			Backend:  deployment.BackendEndpoint,
-			Grafana:  deployment.GrafanaEndpoint,
-			ConfigUI: deployment.ConfigUIEndpoint,
-		},
-	}
-	devlake.SaveState(stateFile, devlakeState)
 
 	fmt.Println("\nNext Steps:")
 	fmt.Println("  1. Wait 2-3 minutes for containers to start")

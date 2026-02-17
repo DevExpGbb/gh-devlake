@@ -49,3 +49,13 @@ func ComposeDown(dir string) error {
 	}
 	return nil
 }
+
+// ComposeUp runs docker compose up -d in the specified directory.
+func ComposeUp(dir string) error {
+	cmd := exec.Command("docker", "compose", "up", "-d")
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("docker compose up failed: %s\n%s", err, string(out))
+	}
+	return nil
+}

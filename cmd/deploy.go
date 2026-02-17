@@ -17,6 +17,10 @@ func init() {
 	deployCmd.AddCommand(newDeployLocalCmd())
 	deployCmd.AddCommand(newDeployAzureCmd())
 
+	initCmd := newInitCmd()
+	initCmd.GroupID = "deploy"
+	rootCmd.AddCommand(initCmd)
+
 	cleanupCmd := newCleanupCmd()
 	cleanupCmd.GroupID = "operate"
 	rootCmd.AddCommand(cleanupCmd)
