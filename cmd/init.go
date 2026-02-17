@@ -54,7 +54,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	fmt.Println("═══════════════════════════════════════")
 
 	// ── Phase 1: Choose deployment target ──
-	targets := []string{"local — Docker Compose on this machine", "azure — Azure Container Apps"}
+	targets := []string{"local - Docker Compose on this machine", "azure - Azure Container Apps"}
 	choice := prompt.Select("Where would you like to deploy DevLake?", targets)
 	if choice == "" {
 		return fmt.Errorf("deployment target is required")
@@ -209,8 +209,8 @@ func runInitLocal(cmd *cobra.Command, args []string) error {
 func runInitAzure(cmd *cobra.Command, args []string) error {
 	// Ask whether to use official images or a custom build
 	imageChoices := []string{
-		"official — Apache DevLake images from Docker Hub (recommended)",
-		"custom  — Build from a DevLake repository (fork or clone)",
+		"official - Apache DevLake images from Docker Hub (recommended)",
+		"custom  - Build from a DevLake repository (fork or clone)",
 	}
 	imgChoice := prompt.Select("Which DevLake images to use?", imageChoices)
 	if strings.HasPrefix(imgChoice, "official") {
