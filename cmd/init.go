@@ -207,11 +207,20 @@ func runInitLocal(cmd *cobra.Command, args []string) error {
 
 // runInitAzure handles the Azure deployment path of the wizard.
 func runInitAzure(cmd *cobra.Command, args []string) error {
-	// Default to official images in wizard (simplest path)
-	if !cmd.Flags().Changed("official") {
+	// Ask whether to use official images or a custom build
+	imageChoices := []string{
+		"official — Apache DevLake images from Docker Hub (recommended)",
+		"custom  — Build from a DevLake repository (fork or clone)",
+	}
+	imgChoice := prompt.Select("Which DevLake images to use?", imageChoices)
+	if strings.HasPrefix(imgChoice, "official") {
 		azureOfficial = true
-		fmt.Println("   Using official Apache images (default for wizard)")
-		fmt.Println("   Tip: use 'deploy azure' directly for custom image builds")
+	} else {
+		azureOfficial = false
+		// Prompt for repo path / URL if not already set
+		if azureRepoURL == "" {
+			azureRepoURL = prompt.ReadLine("Path or URL to DevLake repo (leave blank to auto-detect)")
+		}
 	}
 
 	// runDeployAzure already has interactive prompts for region + RG

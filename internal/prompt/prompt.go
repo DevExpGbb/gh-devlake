@@ -51,16 +51,31 @@ func SelectMulti(label string, items []string) []string {
 // Select displays a numbered list and lets the user pick one item.
 // Returns the selected item string, or "" if input is invalid.
 func Select(label string, items []string) string {
+	return SelectWithOther(label, items, false)
+}
+
+// SelectWithOther displays a numbered list with an optional "Other" entry.
+// If allowOther is true, an extra option lets the user type a custom value.
+func SelectWithOther(label string, items []string, allowOther bool) string {
 	fmt.Fprintf(os.Stderr, "%s:\n", label)
 	for i, item := range items {
 		fmt.Fprintf(os.Stderr, "  [%d] %s\n", i+1, item)
+	}
+	if allowOther {
+		fmt.Fprintf(os.Stderr, "  [%d] Other (enter manually)\n", len(items)+1)
 	}
 	fmt.Fprint(os.Stderr, "\nEnter number: ")
 	if !scanner.Scan() {
 		return ""
 	}
 	idx, err := strconv.Atoi(strings.TrimSpace(scanner.Text()))
-	if err != nil || idx < 1 || idx > len(items) {
+	if err != nil || idx < 1 {
+		return ""
+	}
+	if allowOther && idx == len(items)+1 {
+		return ReadLine("Enter value")
+	}
+	if idx > len(items) {
 		return ""
 	}
 	return items[idx-1]

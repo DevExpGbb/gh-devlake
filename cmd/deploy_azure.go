@@ -58,7 +58,7 @@ var azureRegions = []string{
 func runDeployAzure(cmd *cobra.Command, args []string) error {
 	// ── Interactive prompts for missing required flags ──
 	if azureLocation == "" {
-		azureLocation = prompt.Select("Select Azure region", azureRegions)
+		azureLocation = prompt.SelectWithOther("Select Azure region", azureRegions, true)
 		if azureLocation == "" {
 			return fmt.Errorf("--location is required")
 		}
