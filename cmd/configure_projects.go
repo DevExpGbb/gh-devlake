@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/DevExpGBB/gh-devlake/internal/devlake"
@@ -20,10 +21,10 @@ single view with DORA metrics. It automatically creates a sync schedule
 (blueprint) that collects data on a cron schedule (daily by default).
 
 This command will:
-  1. Show your existing connections and let you choose which to include
-  2. Let you pick which repos to collect data from
+  1. Walk you through adding connections one-by-one
+  2. Scope each connection (pick repos for GitHub, org for Copilot)
   3. Create the project with DORA metrics enabled
-  4. Configure a sync blueprint with your connections and scopes
+  4. Configure a sync blueprint with all selected connections
   5. Trigger the first data collection
 
 Example:
@@ -58,6 +59,17 @@ type connChoice struct {
 	label  string
 }
 
+// addedConnection tracks a connection that has been scoped and is ready
+// for inclusion in the final blueprint.
+type addedConnection struct {
+	plugin     string
+	connID     int
+	label      string
+	summary    string // short summary shown in "Added so far" list
+	bpConn     devlake.BlueprintConnection
+	repos      []string // only populated for GitHub connections
+}
+
 func runConfigureProjects(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	fmt.Println("════════════════════════════════════════")
@@ -68,12 +80,27 @@ func runConfigureProjects(cmd *cobra.Command, args []string) error {
 	fmt.Println("   single view with DORA metrics. Think of it as one project per")
 	fmt.Println("   team or business unit.")
 
+	// ── Discover DevLake ──
+	fmt.Println("\n🔍 Discovering DevLake instance...")
+	disc, err := devlake.Discover(cfgURL)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("   Found DevLake at %s (via %s)\n", disc.URL, disc.Source)
+
+	client := devlake.NewClient(disc.URL)
+	statePath, state := devlake.FindStateFile(disc.URL, disc.GrafanaURL)
+
+	// ── Resolve organization ──
+	org := resolveOrg(state, scopeOrg)
+	if org == "" {
+		return fmt.Errorf("organization is required (use --org)")
+	}
+	fmt.Printf("   Organization: %s\n", org)
+
 	// ── Project name ──
 	if scopeProjectName == "" {
-		def := scopeOrg
-		if def == "" {
-			def = "my-project"
-		}
+		def := org
 		custom := prompt.ReadLine(fmt.Sprintf("\nProject name [%s]", def))
 		if custom != "" {
 			scopeProjectName = custom
@@ -82,78 +109,192 @@ func runConfigureProjects(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// ── Non-interactive fast path: flags provide connection IDs ──
+	if scopeGHConnID > 0 || scopeCopilotConnID > 0 {
+		return runConfigureScopes(cmd, args)
+	}
+
 	// ── Discover connections ──
-	// If connection IDs were passed via flags, skip the picker entirely.
-	if scopeGHConnID == 0 || (!scopeSkipCopilot && scopeCopilotConnID == 0) {
-		fmt.Println("\n🔍 Discovering DevLake connections...")
-		disc, err := devlake.Discover(cfgURL)
-		if err != nil {
-			return err
-		}
-		client := devlake.NewClient(disc.URL)
-		_, state := devlake.FindStateFile(disc.URL, disc.GrafanaURL)
+	fmt.Println("\n🔍 Discovering connections...")
+	choices := discoverConnections(client, state)
+	if len(choices) == 0 {
+		return fmt.Errorf("no connections found — run 'gh devlake configure connections' first")
+	}
 
-		choices := discoverConnections(client, state)
-		if len(choices) == 0 {
-			return fmt.Errorf("no connections found — run 'gh devlake configure connections' first")
-		}
+	// ── Iterative connection addition loop ──
+	var added []addedConnection
+	remaining := make([]connChoice, len(choices))
+	copy(remaining, choices)
 
-		// Show connections and let user choose
-		labels := make([]string, len(choices))
-		defaults := make([]int, len(choices))
-		for i, c := range choices {
-			labels[i] = c.label
-			defaults[i] = i + 1 // all selected by default
+	for {
+		if len(remaining) == 0 {
+			if len(added) == 0 {
+				return fmt.Errorf("at least one connection is required")
+			}
+			fmt.Println("\n   All available connections have been added.")
+			break
 		}
 
-		fmt.Println()
-		fmt.Println("   These connections were found. Choose which to include in")
-		fmt.Println("   this project (they determine what data gets collected).")
-		fmt.Println()
-		selected := prompt.SelectMultiWithDefaults("Connections to include", labels, defaults)
+		// Auto-add if only one connection exists and nothing added yet
+		var picked connChoice
+		if len(remaining) == 1 && len(added) == 0 {
+			picked = remaining[0]
+			fmt.Printf("\n📡 One connection available — adding %s automatically.\n", picked.label)
+		} else {
+			// Show what's been added so far
+			if len(added) > 0 {
+				fmt.Println()
+				fmt.Println("   " + strings.Repeat("─", 44))
+				fmt.Println("   Added so far:")
+				for _, a := range added {
+					fmt.Printf("     ✅ %s\n", a.summary)
+				}
+				fmt.Println("   " + strings.Repeat("─", 44))
+			}
 
-		// Map selections back to connection IDs
-		hasGitHub := false
-		hasCopilot := false
-		for _, sel := range selected {
-			for _, c := range choices {
-				if c.label == sel {
-					switch c.plugin {
-					case "github":
-						scopeGHConnID = c.id
-						hasGitHub = true
-					case "gh-copilot":
-						scopeCopilotConnID = c.id
-						hasCopilot = true
-					}
+			fmt.Println()
+			fmt.Println("   Choose a connection to add to this project.")
+			fmt.Println()
+
+			labels := make([]string, len(remaining))
+			for i, c := range remaining {
+				labels[i] = c.label
+			}
+			chosen := prompt.Select("Add connection", labels)
+			if chosen == "" {
+				if len(added) == 0 {
+					return fmt.Errorf("at least one connection is required")
+				}
+				break
+			}
+			for _, c := range remaining {
+				if c.label == chosen {
+					picked = c
+					break
 				}
 			}
 		}
-		if !hasGitHub && !hasCopilot {
-			return fmt.Errorf("at least one connection is required — select GitHub, Copilot, or both")
+
+		// Scope the picked connection
+		ac, err := scopeConnection(client, picked, org)
+		if err != nil {
+			fmt.Printf("   ⚠️  Could not scope %s: %v\n", picked.label, err)
+			// Remove from remaining so user doesn't loop on a failing connection
+			remaining = removeChoice(remaining, picked)
+			continue
 		}
-		if !hasGitHub {
-			scopeSkipGitHub = true
+		added = append(added, *ac)
+
+		// Remove from remaining
+		remaining = removeChoice(remaining, picked)
+
+		// If no connections left, done
+		if len(remaining) == 0 {
+			fmt.Println("\n   All available connections have been added.")
+			break
 		}
-		if !hasCopilot {
-			scopeSkipCopilot = true
+
+		// Ask whether to add another
+		if !prompt.Confirm("\nWould you like to add another connection?") {
+			break
 		}
 	}
 
-	// ── Explain what happens next ──
+	if len(added) == 0 {
+		return fmt.Errorf("at least one connection is required")
+	}
+
+	// ── Accumulate results ──
+	var connections []devlake.BlueprintConnection
+	var allRepos []string
+	hasGitHub := false
+	hasCopilot := false
+	for _, a := range added {
+		connections = append(connections, a.bpConn)
+		allRepos = append(allRepos, a.repos...)
+		switch a.plugin {
+		case "github":
+			hasGitHub = true
+		case "gh-copilot":
+			hasCopilot = true
+		}
+	}
+
+	// ── Show what will happen ──
 	fmt.Println()
-	fmt.Println("   Next steps:")
-	if !scopeSkipGitHub {
-		fmt.Println("     • Select which GitHub repos to collect data from")
-		fmt.Println("       (PRs, commits, deployments → DORA metrics)")
+	fmt.Println("   Ready to finalize:")
+	for _, a := range added {
+		fmt.Printf("     • %s\n", a.summary)
 	}
-	if !scopeSkipCopilot {
-		fmt.Println("     • Add Copilot usage data for your org")
+	fmt.Println("     • Create project with DORA metrics")
+	fmt.Println("     • Configure daily sync schedule")
+	if !scopeSkipSync {
+		fmt.Println("     • Trigger the first data collection")
 	}
-	fmt.Println("     • Create a daily sync schedule")
-	fmt.Println("     • Trigger the first data collection")
 
-	return runConfigureScopes(cmd, args)
+	// ── Finalize ──
+	return finalizeProject(finalizeProjectOpts{
+		Client:      client,
+		StatePath:   statePath,
+		State:       state,
+		ProjectName: scopeProjectName,
+		Org:         org,
+		Connections: connections,
+		Repos:       allRepos,
+		HasGitHub:   hasGitHub,
+		HasCopilot:  hasCopilot,
+	})
+}
+
+// scopeConnection scopes a single connection (GitHub repos or Copilot org)
+// and returns an addedConnection with the BlueprintConnection entry.
+func scopeConnection(client *devlake.Client, c connChoice, org string) (*addedConnection, error) {
+	switch c.plugin {
+	case "github":
+		result, err := scopeGitHub(client, c.id, org)
+		if err != nil {
+			return nil, err
+		}
+		repoCount := len(result.Repos)
+		summary := fmt.Sprintf("GitHub (ID: %d, %d repo(s))", c.id, repoCount)
+		return &addedConnection{
+			plugin:  c.plugin,
+			connID:  c.id,
+			label:   c.label,
+			summary: summary,
+			bpConn:  result.Connection,
+			repos:   result.Repos,
+		}, nil
+
+	case "gh-copilot":
+		conn, err := scopeCopilot(client, c.id, org)
+		if err != nil {
+			return nil, err
+		}
+		summary := fmt.Sprintf("GitHub Copilot (ID: %d, org: %s)", c.id, org)
+		return &addedConnection{
+			plugin:  c.plugin,
+			connID:  c.id,
+			label:   c.label,
+			summary: summary,
+			bpConn:  *conn,
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported plugin %q", c.plugin)
+	}
+}
+
+// removeChoice returns choices with the specified entry removed.
+func removeChoice(choices []connChoice, remove connChoice) []connChoice {
+	var out []connChoice
+	for _, c := range choices {
+		if c.plugin == remove.plugin && c.id == remove.id {
+			continue
+		}
+		out = append(out, c)
+	}
+	return out
 }
 
 // discoverConnections finds all available connections from state and API.
