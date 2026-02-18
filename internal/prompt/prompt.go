@@ -1,4 +1,4 @@
-// Package prompt provides simple interactive prompts using bufio.Scanner.
+// Package prompt provides simple interactive prompts for terminal input.
 package prompt
 
 import (
@@ -11,15 +11,25 @@ import (
 	"golang.org/x/term"
 )
 
-var scanner = bufio.NewScanner(os.Stdin)
+// scanLine reads a single line from stdin using a fresh scanner.
+// A new scanner is created each time to avoid stale buffer issues after
+// term.ReadPassword reads from the fd directly.
+func scanLine() (string, bool) {
+	s := bufio.NewScanner(os.Stdin)
+	if !s.Scan() {
+		return "", false
+	}
+	return strings.TrimSpace(s.Text()), true
+}
 
 // Confirm asks a yes/no question and returns true for yes.
 func Confirm(question string) bool {
 	fmt.Fprintf(os.Stderr, "%s (yes/no): ", question)
-	if !scanner.Scan() {
+	answer, ok := scanLine()
+	if !ok {
 		return false
 	}
-	answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
+	answer = strings.ToLower(answer)
 	return answer == "yes" || answer == "y"
 }
 
@@ -31,10 +41,10 @@ func SelectMulti(label string, items []string) []string {
 		fmt.Fprintf(os.Stderr, "  [%d] %s\n", i+1, item)
 	}
 	fmt.Fprint(os.Stderr, "\nEnter numbers (comma-separated, e.g. 1,3,5) or 'all': ")
-	if !scanner.Scan() {
+	input, ok := scanLine()
+	if !ok {
 		return nil
 	}
-	input := strings.TrimSpace(scanner.Text())
 	if strings.EqualFold(input, "all") {
 		return items
 	}
@@ -70,10 +80,10 @@ func SelectWithOther(label string, items []string, allowOther bool) string {
 			printMenu(label, items, allowOther)
 		}
 		fmt.Fprint(os.Stderr, "Enter choice: ")
-		if !scanner.Scan() {
+		input, ok := scanLine()
+		if !ok {
 			return ""
 		}
-		input := strings.TrimSpace(scanner.Text())
 		if input == "" {
 			fmt.Fprintln(os.Stderr, "  Invalid choice, try again.")
 			printMenu(label, items, allowOther)
@@ -132,10 +142,8 @@ func printMenu(label string, items []string, allowOther bool) {
 // ReadLine prompts for a single line of text input.
 func ReadLine(label string) string {
 	fmt.Fprintf(os.Stderr, "%s: ", label)
-	if !scanner.Scan() {
-		return ""
-	}
-	return strings.TrimSpace(scanner.Text())
+	line, _ := scanLine()
+	return line
 }
 
 // ReadSecret reads input with terminal echo disabled (for tokens/passwords).
@@ -150,10 +158,8 @@ func ReadSecret(label string) string {
 			return strings.TrimSpace(string(raw))
 		}
 	}
-	if !scanner.Scan() {
-		return ""
-	}
-	return strings.TrimSpace(scanner.Text())
+	line, _ := scanLine()
+	return line
 }
 
 // SelectMultiWithDefaults is like SelectMulti but pre-selects default indices.
@@ -179,10 +185,10 @@ func SelectMultiWithDefaults(label string, items []string, defaultIdxs []int) []
 	fmt.Fprintf(os.Stderr, "   (* = default)\n")
 	fmt.Fprintf(os.Stderr, "Enter numbers (comma-separated) or 'all' [Enter for default (%s)]: ", defaultDisplay)
 
-	if !scanner.Scan() {
+	input, ok := scanLine()
+	if !ok {
 		return applyDefaults(items, defaultIdxs)
 	}
-	input := strings.TrimSpace(scanner.Text())
 	if input == "" {
 		return applyDefaults(items, defaultIdxs)
 	}

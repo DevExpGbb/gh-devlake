@@ -156,33 +156,18 @@ type ConnSetupResult struct {
 }
 
 // buildAndCreateConnection creates or reuses an existing connection.
-// When interactive is true, prompts for connection name and optional proxy.
+// When interactive is true, prompts for connection name (Enter accepts default).
 func buildAndCreateConnection(client *devlake.Client, def *ConnectionDef, params ConnectionParams, org string, interactive bool) (*ConnSetupResult, error) {
 	connName := params.Name
 	if connName == "" {
 		connName = def.defaultConnName(org)
 	}
 
-	// Interactive: let user customise name, proxy, endpoint
+	// Interactive: let user customise connection name
 	if interactive {
 		custom := prompt.ReadLine(fmt.Sprintf("Connection name [%s]", connName))
 		if custom != "" {
 			connName = custom
-		}
-
-		if def.Plugin == "github" && params.Endpoint == "" {
-			endpointChoices := []string{
-				"cloud  - GitHub.com (https://api.github.com/)",
-				"server - GitHub Enterprise Server (custom URL)",
-			}
-			picked := prompt.Select("GitHub environment", endpointChoices)
-			if strings.HasPrefix(picked, "server") {
-				params.Endpoint = prompt.ReadLine("GitHub Enterprise Server API URL (e.g. https://github.example.com/api/v3/)")
-			}
-		}
-
-		if params.Proxy == "" {
-			params.Proxy = prompt.ReadLine("HTTP proxy [none]")
 		}
 	}
 
