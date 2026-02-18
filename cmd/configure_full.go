@@ -11,16 +11,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ConfigureConnectionsResult bundles what configure-connections produces,
-// so configure-full can chain into configure-scopes.
-type ConfigureConnectionsResult struct {
-	DevLakeURL          string
-	GrafanaURL          string
-	GitHubConnectionID  int
-	CopilotConnectionID int
-	Organization        string
-}
-
 var (
 	fullOrg        string
 	fullEnterprise string
@@ -34,8 +24,8 @@ var configureFullCmd = &cobra.Command{
 	Use:   "full",
 	Short: "Run connections + scopes configuration in one step",
 	Long: `Combines 'configure connections' and 'configure scopes' into a single
-workflow. Creates connections, then immediately configures scopes, project,
-and triggers the first sync.
+workflow. Prompts to select which plugins to connect, then configures scopes,
+project, and triggers the first sync.
 
 Example:
   gh devlake configure full --org my-org --repos owner/repo1,owner/repo2`,
@@ -61,31 +51,39 @@ func init() {
 	configureFullCmd.Flags().StringVar(&scopeCron, "cron", "0 0 * * *", "Blueprint cron schedule")
 	configureFullCmd.Flags().BoolVar(&scopeSkipSync, "skip-sync", false, "Skip first data sync")
 	configureFullCmd.Flags().BoolVar(&scopeSkipCopilot, "skip-copilot", false, "Skip Copilot scope")
-
-	configureCmd.AddCommand(configureFullCmd)
 }
 
 func runConfigureFull(cmd *cobra.Command, args []string) error {
-	// ── Interactive prompt for missing org ──
-	if fullOrg == "" {
-		fullOrg = prompt.ReadLine("GitHub organization slug")
-		if fullOrg == "" {
-			return fmt.Errorf("--org is required")
-		}
-	}
-
 	fmt.Println("═══════════════════════════════════════")
 	fmt.Println("  DevLake — Full Configuration")
-	fmt.Println("  Phase 1: Configure Connections")
-	fmt.Println("  Phase 2: Configure Scopes & Project")
 	fmt.Println("═══════════════════════════════════════")
+
+	// ── Select connections ──
+	available := AvailableConnections()
+	var labels []string
+	for _, d := range available {
+		labels = append(labels, d.DisplayName)
+	}
+	selectedLabels := prompt.SelectMultiWithDefaults("Which connections to configure?", labels, []int{1, 2})
+	var defs []*ConnectionDef
+	for _, label := range selectedLabels {
+		for _, d := range available {
+			if d.DisplayName == label {
+				defs = append(defs, d)
+				break
+			}
+		}
+	}
+	if len(defs) == 0 {
+		return fmt.Errorf("at least one connection is required")
+	}
 
 	// ── Phase 1: Configure Connections ──
 	fmt.Println("\n╔══════════════════════════════════════╗")
 	fmt.Println("║  PHASE 1: Configure Connections      ║")
 	fmt.Println("╚══════════════════════════════════════╝")
 
-	result, err := runConnectionsInternal(fullOrg, fullEnterprise, fullToken, fullEnvFile, fullSkipClean)
+	results, devlakeURL, _, err := runConnectionsInternal(defs, fullOrg, fullEnterprise, fullToken, fullEnvFile, fullSkipClean)
 	if err != nil {
 		return fmt.Errorf("phase 1 (connections) failed: %w", err)
 	}
@@ -96,15 +94,24 @@ func runConfigureFull(cmd *cobra.Command, args []string) error {
 	fmt.Println("║  PHASE 2: Configure Scopes & Project ║")
 	fmt.Println("╚══════════════════════════════════════╝")
 
-	// Wire connection results into scope flags
-	scopeOrg = fullOrg
-	scopeGHConnID = result.GitHubConnectionID
-	if result.CopilotConnectionID > 0 {
-		scopeCopilotConnID = result.CopilotConnectionID
-	} else {
-		scopeSkipCopilot = true
+	// Wire connection results into scope vars
+	scopeSkipCopilot = true
+	for _, r := range results {
+		switch r.Plugin {
+		case "github":
+			scopeGHConnID = r.ConnectionID
+			if scopeOrg == "" {
+				scopeOrg = r.Organization
+			}
+		case "gh-copilot":
+			scopeCopilotConnID = r.ConnectionID
+			scopeSkipCopilot = false
+		}
 	}
-	cfgURL = result.DevLakeURL
+	if fullOrg != "" {
+		scopeOrg = fullOrg
+	}
+	cfgURL = devlakeURL
 
 	if err := runConfigureScopes(cmd, args); err != nil {
 		return fmt.Errorf("phase 2 (scopes) failed: %w", err)
@@ -116,119 +123,72 @@ func runConfigureFull(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// runConnectionsInternal runs the connection setup and returns the result struct.
-func runConnectionsInternal(org, enterprise, tokenVal, envFile string, skipClean bool) (*ConfigureConnectionsResult, error) {
-	// ── Step 1: Discover DevLake ──
+// runConnectionsInternal creates connections for the given defs using a shared token.
+// Returns (results, devlakeURL, grafanaURL, error).
+func runConnectionsInternal(defs []*ConnectionDef, org, enterprise, tokenVal, envFile string, skipClean bool) ([]ConnSetupResult, string, string, error) {
+	// ── Discover DevLake ──
 	fmt.Println("\n🔍 Discovering DevLake instance...")
 	disc, err := devlake.Discover(cfgURL)
 	if err != nil {
-		return nil, err
+		return nil, "", "", err
 	}
 	fmt.Printf("   Found DevLake at %s (via %s)\n", disc.URL, disc.Source)
 
 	client := devlake.NewClient(disc.URL)
 
-	// ── Step 2: Resolve token ──
+	// ── Resolve token ──
 	fmt.Println("\n🔑 Resolving GitHub PAT...")
 	tokResult, err := token.Resolve(tokenVal, envFile)
 	if err != nil {
-		return nil, err
+		return nil, "", "", err
 	}
 	fmt.Printf("   Token loaded from: %s\n", tokResult.Source)
 
-	// ── Step 3: GitHub connection ──
-	ghConnName := fmt.Sprintf("GitHub - %s", org)
-	fmt.Printf("\n📡 Creating GitHub connection %q...\n", ghConnName)
-
-	existing, _ := client.FindConnectionByName("github", ghConnName)
-	var ghConn *devlake.Connection
-	if existing != nil {
-		fmt.Printf("   Connection already exists (ID=%d), skipping.\n", existing.ID)
-		ghConn = existing
-	} else {
-		testReq := &devlake.ConnectionTestRequest{
-			Endpoint:         "https://api.github.com/",
-			AuthMethod:       "AccessToken",
-			Token:            tokResult.Token,
-			EnableGraphql:    true,
-			RateLimitPerHour: 4500,
-			Proxy:            "",
-		}
-		testResult, err := client.TestConnection("github", testReq)
-		if err != nil {
-			return nil, fmt.Errorf("GitHub connection test failed: %w", err)
-		}
-		if !testResult.Success {
-			return nil, fmt.Errorf("GitHub connection test failed: %s", testResult.Message)
-		}
-		fmt.Println("   ✅ Connection test passed")
-
-		createReq := &devlake.ConnectionCreateRequest{
-			Name:             ghConnName,
-			Endpoint:         "https://api.github.com/",
-			AuthMethod:       "AccessToken",
-			Token:            tokResult.Token,
-			EnableGraphql:    true,
-			RateLimitPerHour: 4500,
-		}
-		ghConn, err = client.CreateConnection("github", createReq)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create GitHub connection: %w", err)
-		}
-		fmt.Printf("   ✅ Created GitHub connection (ID=%d)\n", ghConn.ID)
-	}
-
-	// ── Step 4: Copilot connection ──
-	copilotConnName := fmt.Sprintf("Copilot - %s", org)
-	fmt.Printf("\n📡 Creating Copilot connection %q...\n", copilotConnName)
-
-	copilotConnID := 0
-	existingCopilot, _ := client.FindConnectionByName("gh-copilot", copilotConnName)
-	if existingCopilot != nil {
-		fmt.Printf("   Connection already exists (ID=%d), skipping.\n", existingCopilot.ID)
-		copilotConnID = existingCopilot.ID
-	} else {
-		copilotCreateReq := &devlake.ConnectionCreateRequest{
-			Name:             copilotConnName,
-			Endpoint:         "https://api.github.com/",
-			AuthMethod:       "AccessToken",
-			Token:            tokResult.Token,
-			RateLimitPerHour: 4500,
-			Organization:     org,
-		}
-		if enterprise != "" {
-			copilotCreateReq.Enterprise = enterprise
-		}
-		copilotConn, err := client.CreateConnection("gh-copilot", copilotCreateReq)
-		if err != nil {
-			fmt.Printf("   ⚠️  Could not create Copilot connection: %v\n", err)
-		} else {
-			copilotConnID = copilotConn.ID
-			fmt.Printf("   ✅ Created Copilot connection (ID=%d)\n", copilotConn.ID)
+	// ── Prompt for org once if any def needs it ──
+	for _, def := range defs {
+		if def.NeedsOrg && org == "" {
+			org = prompt.ReadLine("GitHub organization slug")
+			break
 		}
 	}
 
-	// ── Step 5: Update state file ──
+	// ── Create connections ──
+	var results []ConnSetupResult
+	for _, def := range defs {
+		fmt.Printf("\n📡 Creating %s connection...\n", def.DisplayName)
+		params := ConnectionParams{
+			Token:      tokResult.Token,
+			Org:        org,
+			Enterprise: enterprise,
+		}
+		r, err := buildAndCreateConnection(client, def, params, org)
+		if err != nil {
+			// Non-fatal: log and continue (e.g. Copilot may need extra permissions)
+			fmt.Printf("   ⚠️  Could not create %s connection: %v\n", def.DisplayName, err)
+			continue
+		}
+		results = append(results, *r)
+	}
+
+	// ── Update state file ──
 	statePath, state := devlake.FindStateFile(disc.URL, disc.GrafanaURL)
-	connections := []devlake.StateConnection{
-		{Plugin: "github", ConnectionID: ghConn.ID, Name: ghConn.Name, Organization: org},
-	}
-	if copilotConnID > 0 {
-		connections = append(connections, devlake.StateConnection{
-			Plugin:       "gh-copilot",
-			ConnectionID: copilotConnID,
-			Name:         copilotConnName,
-			Organization: org,
-			Enterprise:   enterprise,
+	var stateConns []devlake.StateConnection
+	for _, r := range results {
+		stateConns = append(stateConns, devlake.StateConnection{
+			Plugin:       r.Plugin,
+			ConnectionID: r.ConnectionID,
+			Name:         r.Name,
+			Organization: r.Organization,
+			Enterprise:   r.Enterprise,
 		})
 	}
-	if err := devlake.UpdateConnections(statePath, state, connections); err != nil {
+	if err := devlake.UpdateConnections(statePath, state, stateConns); err != nil {
 		fmt.Fprintf(os.Stderr, "⚠️  Could not update state file: %v\n", err)
 	} else {
 		fmt.Printf("\n💾 State saved to %s\n", statePath)
 	}
 
-	// ── Step 6: Cleanup ──
+	// ── Cleanup env file ──
 	if !skipClean && tokResult.EnvFilePath != "" {
 		fmt.Printf("\n🧹 Cleaning up %s...\n", tokResult.EnvFilePath)
 		if err := os.Remove(tokResult.EnvFilePath); err != nil && !os.IsNotExist(err) {
@@ -238,19 +198,17 @@ func runConnectionsInternal(org, enterprise, tokenVal, envFile string, skipClean
 		}
 	}
 
+	// ── Summary ──
 	fmt.Println("\n" + strings.Repeat("─", 50))
 	fmt.Println("✅ Connections configured successfully!")
-	fmt.Printf("   GitHub:  ID=%d  %q\n", ghConn.ID, ghConn.Name)
-	if copilotConnID > 0 {
-		fmt.Printf("   Copilot: ID=%d  %q\n", copilotConnID, copilotConnName)
+	for _, r := range results {
+		name := r.Plugin
+		if def := FindConnectionDef(r.Plugin); def != nil {
+			name = def.DisplayName
+		}
+		fmt.Printf("   %-18s  ID=%d  %q\n", name, r.ConnectionID, r.Name)
 	}
 	fmt.Println(strings.Repeat("─", 50))
 
-	return &ConfigureConnectionsResult{
-		DevLakeURL:          disc.URL,
-		GrafanaURL:          disc.GrafanaURL,
-		GitHubConnectionID:  ghConn.ID,
-		CopilotConnectionID: copilotConnID,
-		Organization:        org,
-	}, nil
+	return results, disc.URL, disc.GrafanaURL, nil
 }

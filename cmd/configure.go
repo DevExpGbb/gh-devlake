@@ -13,4 +13,6 @@ var configureCmd = &cobra.Command{
 func init() {
 	configureCmd.GroupID = "configure"
 	rootCmd.AddCommand(configureCmd)
+	// Register subcommands in desired display order (cobra.EnableCommandSorting = false in root.go)
+	configureCmd.AddCommand(configureConnectionsCmd, newConfigureScopesCmd(), configureFullCmd)
 }

@@ -14,8 +14,8 @@ or to Azure (Container Apps + Azure Database for MySQL).`,
 func init() {
 	deployCmd.GroupID = "deploy"
 	rootCmd.AddCommand(deployCmd)
-	deployCmd.AddCommand(newDeployLocalCmd())
 	deployCmd.AddCommand(newDeployAzureCmd())
+	deployCmd.AddCommand(newDeployLocalCmd())
 
 	initCmd := newInitCmd()
 	initCmd.GroupID = "deploy"

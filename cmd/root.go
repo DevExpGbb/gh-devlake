@@ -25,6 +25,8 @@ Typical workflow:
 }
 
 func init() {
+	cobra.EnableCommandSorting = false
+
 	rootCmd.PersistentFlags().StringVar(&cfgURL, "url", "", "DevLake API base URL (auto-discovered if omitted)")
 
 	rootCmd.AddGroup(

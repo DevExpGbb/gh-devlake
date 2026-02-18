@@ -99,7 +99,31 @@ func runInit(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	result, err := runConnectionsInternal(initOrg, initEnterprise, initToken, initEnvFile, true)
+	// ── Select connections ──
+	available := AvailableConnections()
+	var availLabels []string
+	for _, d := range available {
+		availLabels = append(availLabels, d.DisplayName)
+	}
+	selectedLabels := prompt.SelectMultiWithDefaults(
+		"Which connections to set up? (GitHub + Copilot recommended)",
+		availLabels,
+		[]int{1, 2},
+	)
+	var selectedDefs []*ConnectionDef
+	for _, label := range selectedLabels {
+		for _, d := range available {
+			if d.DisplayName == label {
+				selectedDefs = append(selectedDefs, d)
+				break
+			}
+		}
+	}
+	if len(selectedDefs) == 0 {
+		selectedDefs = available // fallback: configure all
+	}
+
+	results, devlakeURL, _, err := runConnectionsInternal(selectedDefs, initOrg, initEnterprise, initToken, initEnvFile, true)
 	if err != nil {
 		return fmt.Errorf("connection setup failed: %w", err)
 	}
@@ -112,13 +136,19 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	// Wire connection results into scope vars
 	scopeOrg = initOrg
-	scopeGHConnID = result.GitHubConnectionID
-	if result.CopilotConnectionID > 0 {
-		scopeCopilotConnID = result.CopilotConnectionID
-	} else {
-		scopeSkipCopilot = true
+	scopeSkipCopilot = true
+	for _, r := range results {
+		switch r.Plugin {
+		case "github":
+			scopeGHConnID = r.ConnectionID
+		case "gh-copilot":
+			scopeCopilotConnID = r.ConnectionID
+			scopeSkipCopilot = false
+		}
 	}
-	cfgURL = result.DevLakeURL
+	if devlakeURL != "" {
+		cfgURL = devlakeURL
+	}
 
 	// Wire repo flags if provided
 	if initRepos != "" {

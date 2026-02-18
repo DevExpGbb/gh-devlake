@@ -66,9 +66,7 @@ Example:
 	return cmd
 }
 
-func init() {
-	configureCmd.AddCommand(newConfigureScopesCmd())
-}
+func init() {}
 
 func runConfigureScopes(cmd *cobra.Command, args []string) error {
 	// ── Step 1: Discover DevLake ──

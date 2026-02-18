@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"golang.org/x/term"
 )
 
 var scanner = bufio.NewScanner(os.Stdin)
@@ -134,4 +136,76 @@ func ReadLine(label string) string {
 		return ""
 	}
 	return strings.TrimSpace(scanner.Text())
+}
+
+// ReadSecret reads input with terminal echo disabled (for tokens/passwords).
+// Falls back to plain ReadLine if stdin is not a terminal.
+func ReadSecret(label string) string {
+	fmt.Fprintf(os.Stderr, "%s: ", label)
+	fd := int(os.Stdin.Fd())
+	if term.IsTerminal(fd) {
+		raw, err := term.ReadPassword(fd)
+		fmt.Fprintln(os.Stderr)
+		if err == nil {
+			return strings.TrimSpace(string(raw))
+		}
+	}
+	if !scanner.Scan() {
+		return ""
+	}
+	return strings.TrimSpace(scanner.Text())
+}
+
+// SelectMultiWithDefaults is like SelectMulti but pre-selects default indices.
+// defaultIdxs uses 1-based numbering. Pressing Enter accepts the defaults.
+func SelectMultiWithDefaults(label string, items []string, defaultIdxs []int) []string {
+	var defStrs []string
+	for _, i := range defaultIdxs {
+		defStrs = append(defStrs, strconv.Itoa(i))
+	}
+	defaultDisplay := strings.Join(defStrs, ",")
+
+	fmt.Fprintf(os.Stderr, "%s:\n", label)
+	for i, item := range items {
+		marker := "   "
+		for _, di := range defaultIdxs {
+			if di == i+1 {
+				marker = " * "
+				break
+			}
+		}
+		fmt.Fprintf(os.Stderr, " %s[%d] %s\n", marker, i+1, item)
+	}
+	fmt.Fprintf(os.Stderr, "   (* = default)\n")
+	fmt.Fprintf(os.Stderr, "Enter numbers (comma-separated) or 'all' [Enter for default (%s)]: ", defaultDisplay)
+
+	if !scanner.Scan() {
+		return applyDefaults(items, defaultIdxs)
+	}
+	input := strings.TrimSpace(scanner.Text())
+	if input == "" {
+		return applyDefaults(items, defaultIdxs)
+	}
+	if strings.EqualFold(input, "all") {
+		return items
+	}
+	var selected []string
+	for _, part := range strings.Split(input, ",") {
+		idx, err := strconv.Atoi(strings.TrimSpace(part))
+		if err != nil || idx < 1 || idx > len(items) {
+			continue
+		}
+		selected = append(selected, items[idx-1])
+	}
+	return selected
+}
+
+func applyDefaults(items []string, idxs []int) []string {
+	var out []string
+	for _, i := range idxs {
+		if i >= 1 && i <= len(items) {
+			out = append(out, items[i-1])
+		}
+	}
+	return out
 }
