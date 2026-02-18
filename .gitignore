@@ -19,3 +19,8 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Test artifacts
+smoke-test*.txt
+e2e-test*.txt
+e2e-*.txt
