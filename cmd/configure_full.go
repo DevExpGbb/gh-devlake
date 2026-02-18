@@ -23,9 +23,9 @@ var (
 var configureFullCmd = &cobra.Command{
 	Use:   "full",
 	Short: "Run connections + scopes configuration in one step",
-	Long: `Combines 'configure connections' and 'configure scopes' into a single
-workflow. Prompts to select which plugins to connect, then configures scopes,
-project, and triggers the first sync.
+	Long: `Combines 'configure connections' and 'configure projects' into a single
+workflow. Prompts to select which plugins to connect, then creates a project,
+configures scopes, and triggers the first sync.
 
 Example:
   gh devlake configure full --org my-org --repos owner/repo1,owner/repo2`,
@@ -55,9 +55,9 @@ func init() {
 
 func runConfigureFull(cmd *cobra.Command, args []string) error {
 	fmt.Println()
-	fmt.Println("═══════════════════════════════════════")
+	fmt.Println("════════════════════════════════════════")
 	fmt.Println("  DevLake — Full Configuration")
-	fmt.Println("═══════════════════════════════════════")
+	fmt.Println("════════════════════════════════════════")
 
 	// ── Select connections ──
 	available := AvailableConnections()
@@ -90,17 +90,19 @@ func runConfigureFull(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Println("\n   ✅ Phase 1 complete.")
 
-	// ── Phase 2: Configure Scopes ──
+	// ── Phase 2: Project Setup ──
 	fmt.Println("\n╔══════════════════════════════════════╗")
-	fmt.Println("║  PHASE 2: Project, Scopes & Sync    ║")
+	fmt.Println("║  PHASE 2: Project Setup              ║")
 	fmt.Println("╚══════════════════════════════════════╝")
 
 	// Wire connection results into scope vars
 	scopeSkipCopilot = true
+	scopeSkipGitHub = true
 	for _, r := range results {
 		switch r.Plugin {
 		case "github":
 			scopeGHConnID = r.ConnectionID
+			scopeSkipGitHub = false
 			if scopeOrg == "" {
 				scopeOrg = r.Organization
 			}
@@ -114,13 +116,14 @@ func runConfigureFull(cmd *cobra.Command, args []string) error {
 	}
 	cfgURL = devlakeURL
 
-	if err := runConfigureScopes(cmd, args); err != nil {
-		return fmt.Errorf("phase 2 (scopes) failed: %w", err)
+	if err := runConfigureProjects(cmd, args); err != nil {
+		return fmt.Errorf("phase 2 (project setup) failed: %w", err)
 	}
 
-	fmt.Println("\n═══════════════════════════════════════")
+	fmt.Println("\n════════════════════════════════════════")
 	fmt.Println("  ✅ Full configuration complete!")
-	fmt.Println("═══════════════════════════════════════")
+	fmt.Println("════════════════════════════════════════")
+	fmt.Println()
 	return nil
 }
 

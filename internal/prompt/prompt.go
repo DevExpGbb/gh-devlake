@@ -2,7 +2,6 @@
 package prompt
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"strconv"
@@ -11,15 +10,27 @@ import (
 	"golang.org/x/term"
 )
 
-// scanLine reads a single line from stdin using a fresh scanner.
-// A new scanner is created each time to avoid stale buffer issues after
-// term.ReadPassword reads from the fd directly.
+// scanLine reads a single line from stdin byte-by-byte with no buffering.
+// This avoids any shared state that could be corrupted by term.ReadPassword
+// reading from the raw file descriptor.
 func scanLine() (string, bool) {
-	s := bufio.NewScanner(os.Stdin)
-	if !s.Scan() {
-		return "", false
+	var buf []byte
+	b := make([]byte, 1)
+	for {
+		n, err := os.Stdin.Read(b)
+		if err != nil || n == 0 {
+			if len(buf) > 0 {
+				return strings.TrimSpace(string(buf)), true
+			}
+			return "", false
+		}
+		if b[0] == '\n' {
+			return strings.TrimSpace(string(buf)), true
+		}
+		if b[0] != '\r' {
+			buf = append(buf, b[0])
+		}
 	}
-	return strings.TrimSpace(s.Text()), true
 }
 
 // Confirm asks a yes/no question and returns true for yes.
@@ -183,7 +194,7 @@ func SelectMultiWithDefaults(label string, items []string, defaultIdxs []int) []
 		fmt.Fprintf(os.Stderr, " %s[%d] %s\n", marker, i+1, item)
 	}
 	fmt.Fprintf(os.Stderr, "   (* = default)\n")
-	fmt.Fprintf(os.Stderr, "Enter numbers (comma-separated) or 'all' [Enter for default (%s)]: ", defaultDisplay)
+	fmt.Fprintf(os.Stderr, "\nEnter numbers (comma-separated) or 'all' [Enter for default (%s)]: ", defaultDisplay)
 
 	input, ok := scanLine()
 	if !ok {

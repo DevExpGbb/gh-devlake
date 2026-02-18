@@ -48,10 +48,11 @@ You can also pass flags to pre-fill answers and skip prompts:
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
-	fmt.Println("\n═══════════════════════════════════════")
+	fmt.Println()
+	fmt.Println("════════════════════════════════════════")
 	fmt.Println("  DevLake — Setup Wizard")
 	fmt.Println("  Deploy → Connect → Configure")
-	fmt.Println("═══════════════════════════════════════")
+	fmt.Println("════════════════════════════════════════")
 
 	// ── Phase 1: Choose deployment target ──
 	targets := []string{"local - Docker Compose on this machine", "azure - Azure Container Apps"}
@@ -137,10 +138,12 @@ func runInit(cmd *cobra.Command, args []string) error {
 	// Wire connection results into scope vars
 	scopeOrg = initOrg
 	scopeSkipCopilot = true
+	scopeSkipGitHub = true
 	for _, r := range results {
 		switch r.Plugin {
 		case "github":
 			scopeGHConnID = r.ConnectionID
+			scopeSkipGitHub = false
 		case "gh-copilot":
 			scopeCopilotConnID = r.ConnectionID
 			scopeSkipCopilot = false
@@ -183,9 +186,10 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// ── Summary ──
-	fmt.Println("\n═══════════════════════════════════════")
+	fmt.Println("\n════════════════════════════════════════")
 	fmt.Println("  ✅ DevLake is ready!")
-	fmt.Println("═══════════════════════════════════════")
+	fmt.Println("════════════════════════════════════════")
+	fmt.Println()
 
 	disc, _ = devlake.Discover(cfgURL)
 	if disc != nil {

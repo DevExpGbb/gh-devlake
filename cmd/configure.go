@@ -14,5 +14,5 @@ func init() {
 	configureCmd.GroupID = "configure"
 	rootCmd.AddCommand(configureCmd)
 	// Register subcommands in desired display order (cobra.EnableCommandSorting = false in root.go)
-	configureCmd.AddCommand(configureConnectionsCmd, newConfigureScopesCmd(), configureFullCmd)
+	configureCmd.AddCommand(configureConnectionsCmd, newConfigureScopesCmd(), newConfigureProjectsCmd(), configureFullCmd)
 }

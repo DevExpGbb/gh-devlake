@@ -29,6 +29,7 @@ var (
 	scopeCron          string
 	scopeSkipSync      bool
 	scopeSkipCopilot   bool
+	scopeSkipGitHub    bool
 	scopeWait          bool
 	scopeTimeout       time.Duration
 )
@@ -84,11 +85,16 @@ func runConfigureScopes(cmd *cobra.Command, args []string) error {
 
 	// ── Step 2: Resolve connection IDs ──
 	fmt.Println("\n🔗 Resolving connections...")
-	ghConnID, err := resolveConnectionID(client, state, "github", scopeGHConnID)
-	if err != nil {
-		return fmt.Errorf("GitHub connection: %w", err)
+	ghConnID := 0
+	if !scopeSkipGitHub {
+		ghConnID, err = resolveConnectionID(client, state, "github", scopeGHConnID)
+		if err != nil {
+			fmt.Printf("   ⚠️  GitHub connection not found, skipping: %v\n", err)
+			scopeSkipGitHub = true
+		} else {
+			fmt.Printf("   GitHub connection ID: %d\n", ghConnID)
+		}
 	}
-	fmt.Printf("   GitHub connection ID: %d\n", ghConnID)
 
 	copilotConnID := 0
 	if !scopeSkipCopilot {
@@ -99,6 +105,10 @@ func runConfigureScopes(cmd *cobra.Command, args []string) error {
 		} else {
 			fmt.Printf("   Copilot connection ID: %d\n", copilotConnID)
 		}
+	}
+
+	if scopeSkipGitHub && scopeSkipCopilot {
+		return fmt.Errorf("no connections available — run 'configure connections' first")
 	}
 
 	// ── Step 3: Resolve organization ──
@@ -118,49 +128,54 @@ func runConfigureScopes(cmd *cobra.Command, args []string) error {
 		timeAfter = time.Now().AddDate(0, -6, 0).Format("2006-01-02T00:00:00Z")
 	}
 
-	// ── Step 4: Resolve repositories ──
-	fmt.Println("\n📦 Resolving repositories...")
-	repos, err := resolveRepos(org)
-	if err != nil {
-		return err
-	}
-	if len(repos) == 0 {
-		return fmt.Errorf("at least one repository is required")
-	}
-	fmt.Printf("   Repos to configure: %s\n", strings.Join(repos, ", "))
-
-	// ── Step 5: Look up repo details ──
-	fmt.Println("\n🔎 Looking up repo details...")
+	var repos []string
 	var repoDetails []*gh.RepoDetails
-	for _, repo := range repos {
-		detail, err := gh.GetRepoDetails(repo)
+	scopeConfigID := 0
+
+	if !scopeSkipGitHub {
+		// ── Step 4: Resolve repositories ──
+		fmt.Println("\n📦 Resolving repositories...")
+		repos, err = resolveRepos(org)
 		if err != nil {
-			fmt.Printf("   ⚠️  Could not fetch details for %q: %v\n", repo, err)
-			continue
+			return err
 		}
-		repoDetails = append(repoDetails, detail)
-		fmt.Printf("   %s (ID: %d)\n", detail.FullName, detail.ID)
-	}
-	if len(repoDetails) == 0 {
-		return fmt.Errorf("could not resolve any repository details — verify repos exist and gh CLI is authenticated")
-	}
+		if len(repos) == 0 {
+			return fmt.Errorf("at least one repository is required")
+		}
+		fmt.Printf("   Repos to configure: %s\n", strings.Join(repos, ", "))
 
-	// ── Step 6: Create DORA scope config ──
-	fmt.Println("\n⚙️  Creating DORA scope config...")
-	scopeConfigID, err := ensureScopeConfig(client, ghConnID)
-	if err != nil {
-		fmt.Printf("   ⚠️  Could not create scope config: %v\n", err)
-	} else {
-		fmt.Printf("   Scope config ID: %d\n", scopeConfigID)
-	}
+		// ── Step 5: Look up repo details ──
+		fmt.Println("\n🔎 Looking up repo details...")
+		for _, repo := range repos {
+			detail, err := gh.GetRepoDetails(repo)
+			if err != nil {
+				fmt.Printf("   ⚠️  Could not fetch details for %q: %v\n", repo, err)
+				continue
+			}
+			repoDetails = append(repoDetails, detail)
+			fmt.Printf("   %s (ID: %d)\n", detail.FullName, detail.ID)
+		}
+		if len(repoDetails) == 0 {
+			return fmt.Errorf("could not resolve any repository details — verify repos exist and gh CLI is authenticated")
+		}
 
-	// ── Step 7: PUT GitHub repo scopes ──
-	fmt.Println("\n📝 Adding repository scopes...")
-	err = putGitHubScopes(client, ghConnID, scopeConfigID, repoDetails)
-	if err != nil {
-		return fmt.Errorf("failed to add repo scopes: %w", err)
+		// ── Step 6: Create DORA scope config ──
+		fmt.Println("\n⚙️  Creating DORA scope config...")
+		scopeConfigID, err = ensureScopeConfig(client, ghConnID)
+		if err != nil {
+			fmt.Printf("   ⚠️  Could not create scope config: %v\n", err)
+		} else {
+			fmt.Printf("   Scope config ID: %d\n", scopeConfigID)
+		}
+
+		// ── Step 7: PUT GitHub repo scopes ──
+		fmt.Println("\n📝 Adding repository scopes...")
+		err = putGitHubScopes(client, ghConnID, scopeConfigID, repoDetails)
+		if err != nil {
+			return fmt.Errorf("failed to add repo scopes: %w", err)
+		}
+		fmt.Printf("   ✅ Added %d repo scope(s)\n", len(repoDetails))
 	}
-	fmt.Printf("   ✅ Added %d repo scope(s)\n", len(repoDetails))
 
 	// ── Step 8: PUT Copilot scope ──
 	if !scopeSkipCopilot && copilotConnID > 0 {
@@ -175,6 +190,7 @@ func runConfigureScopes(cmd *cobra.Command, args []string) error {
 
 	// ── Step 9: Create project ──
 	fmt.Println("\n🏗️  Creating DevLake project...")
+	fmt.Println()
 	fmt.Println("   A DevLake project groups data from multiple connections — useful")
 	fmt.Println("   per team or business unit. It automatically creates a sync schedule.")
 	blueprintID, err := ensureProject(client, projectName, org)
@@ -189,7 +205,11 @@ func runConfigureScopes(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to configure blueprint: %w", err)
 	}
-	fmt.Printf("   ✅ Blueprint configured with %d repo(s)\n", len(repoDetails))
+	if len(repoDetails) > 0 {
+		fmt.Printf("   ✅ Blueprint configured with %d repo(s)\n", len(repoDetails))
+	} else {
+		fmt.Println("   ✅ Blueprint configured")
+	}
 	fmt.Printf("   Schedule: %s | Data since: %s\n", scopeCron, timeAfter)
 
 	// ── Step 11: Trigger sync ──
@@ -221,7 +241,9 @@ func runConfigureScopes(cmd *cobra.Command, args []string) error {
 	fmt.Println("\n" + strings.Repeat("─", 50))
 	fmt.Println("✅ Scopes configured successfully!")
 	fmt.Printf("   Project: %s\n", projectName)
-	fmt.Printf("   Repos:   %s\n", strings.Join(repos, ", "))
+	if len(repos) > 0 {
+		fmt.Printf("   Repos:   %s\n", strings.Join(repos, ", "))
+	}
 	if !scopeSkipCopilot {
 		fmt.Printf("   Copilot: %s\n", org)
 	}
@@ -276,7 +298,7 @@ func resolveOrg(state *devlake.State, flagValue string) string {
 	}
 	if state != nil {
 		for _, c := range state.Connections {
-			if c.Plugin == "gh-copilot" && c.Organization != "" {
+			if c.Organization != "" {
 				return c.Organization
 			}
 		}
@@ -312,7 +334,11 @@ func resolveRepos(org string) ([]string, error) {
 	if gh.IsAvailable() {
 		fmt.Printf("   Listing repos in %q via gh CLI...\n", org)
 		available, err := gh.ListRepos(org, 30)
-		if err == nil && len(available) > 0 {
+		if err != nil {
+			fmt.Printf("   ⚠️  Could not list repos: %v\n", err)
+		} else if len(available) == 0 {
+			fmt.Println("   ⚠️  No repos found — verify the org name and PAT scopes (read:org)")
+		} else {
 			selected := prompt.SelectMulti(fmt.Sprintf("Available repos in %s (up to 30)", org), available)
 			return selected, nil
 		}
@@ -397,9 +423,15 @@ func putCopilotScope(client *devlake.Client, connID int, org string) error {
 
 // ensureProject creates a project or returns an existing one's blueprint ID.
 func ensureProject(client *devlake.Client, name, org string) (int, error) {
+	desc := fmt.Sprintf("DORA metrics and Copilot adoption for %s", org)
+	if scopeSkipGitHub {
+		desc = fmt.Sprintf("Copilot adoption for %s", org)
+	} else if scopeSkipCopilot {
+		desc = fmt.Sprintf("DORA metrics for %s", org)
+	}
 	project := &devlake.Project{
 		Name:        name,
-		Description: fmt.Sprintf("DORA metrics and Copilot adoption for %s", org),
+		Description: desc,
 		Metrics: []devlake.ProjectMetric{
 			{PluginName: "dora", Enable: true},
 		},
@@ -423,20 +455,21 @@ func ensureProject(client *devlake.Client, name, org string) (int, error) {
 
 // patchBlueprint updates the blueprint with connections, scopes, and schedule.
 func patchBlueprint(client *devlake.Client, blueprintID, ghConnID, copilotConnID int, org string, details []*gh.RepoDetails, timeAfter string) error {
-	var ghScopes []devlake.BlueprintScope
-	for _, d := range details {
-		ghScopes = append(ghScopes, devlake.BlueprintScope{
-			ScopeID:   strconv.Itoa(d.ID),
-			ScopeName: d.FullName,
-		})
-	}
+	var connections []devlake.BlueprintConnection
 
-	connections := []devlake.BlueprintConnection{
-		{
+	if ghConnID > 0 && len(details) > 0 {
+		var ghScopes []devlake.BlueprintScope
+		for _, d := range details {
+			ghScopes = append(ghScopes, devlake.BlueprintScope{
+				ScopeID:   strconv.Itoa(d.ID),
+				ScopeName: d.FullName,
+			})
+		}
+		connections = append(connections, devlake.BlueprintConnection{
 			PluginName:   "github",
 			ConnectionID: ghConnID,
 			Scopes:       ghScopes,
-		},
+		})
 	}
 
 	if !scopeSkipCopilot && copilotConnID > 0 {

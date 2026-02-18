@@ -74,16 +74,17 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 	suffix := azure.Suffix(azureRG)
 	acrName := "devlakeacr" + suffix
 
+	fmt.Println()
 	if azureOfficial {
-		fmt.Println("\n========================================")
+		fmt.Println("════════════════════════════════════════")
 		fmt.Println("  DevLake Azure Deployment (Official)")
-		fmt.Println("========================================")
+		fmt.Println("════════════════════════════════════════")
 		fmt.Println("\nUsing official Apache DevLake images from Docker Hub")
 		azureSkipImageBuild = true
 	} else {
-		fmt.Println("\n========================================")
+		fmt.Println("════════════════════════════════════════")
 		fmt.Println("  DevLake Azure Deployment")
-		fmt.Println("========================================")
+		fmt.Println("════════════════════════════════════════")
 	}
 
 	fmt.Printf("\nConfiguration:\n")
@@ -237,9 +238,9 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Bicep deployment failed: %w", err)
 	}
 
-	fmt.Println("\n========================================")
+	fmt.Println("\n════════════════════════════════════════")
 	fmt.Println("  ✅ Deployment Complete!")
-	fmt.Println("========================================")
+	fmt.Println("════════════════════════════════════════")
 	fmt.Printf("\nEndpoints:\n")
 	fmt.Printf("  Backend API: %s\n", deployment.BackendEndpoint)
 	fmt.Printf("  Config UI:   %s\n", deployment.ConfigUIEndpoint)
@@ -322,7 +323,7 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 	}
 
 	if !deployAzureQuiet {
-		fmt.Println("\nNext Steps:")
+		fmt.Println("\nNext steps:")
 		fmt.Println("  1. Wait 2-3 minutes for containers to start")
 		fmt.Printf("  2. Open Config UI: %s\n", deployment.ConfigUIEndpoint)
 		fmt.Println("  3. Configure your data sources")

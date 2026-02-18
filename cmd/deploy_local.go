@@ -41,9 +41,10 @@ Example:
 }
 
 func runDeployLocal(cmd *cobra.Command, args []string) error {
-	fmt.Println("\n========================================")
+	fmt.Println()
+	fmt.Println("════════════════════════════════════════")
 	fmt.Println("  Apache DevLake — Local Docker Setup")
-	fmt.Println("========================================")
+	fmt.Println("════════════════════════════════════════")
 
 	// Ensure target directory exists
 	if err := os.MkdirAll(deployLocalDir, 0755); err != nil {
@@ -146,9 +147,9 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 
 	// ── Summary ──
 	if !deployLocalQuiet {
-		fmt.Println("\n========================================")
+		fmt.Println("\n════════════════════════════════════════")
 		fmt.Println("  ✅ Setup Complete!")
-		fmt.Println("========================================")
+		fmt.Println("════════════════════════════════════════")
 		fmt.Printf("\nFiles created in: %s\n", absDir)
 		fmt.Println("  • docker-compose.yml")
 		fmt.Println("  • .env (with ENCRYPTION_SECRET)")

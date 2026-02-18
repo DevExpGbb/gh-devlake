@@ -53,6 +53,9 @@ func init() {
 
 func runConfigureConnections(cmd *cobra.Command, args []string) error {
 	fmt.Println()
+	fmt.Println("════════════════════════════════════════")
+	fmt.Println("  DevLake — Configure Connection")
+	fmt.Println("════════════════════════════════════════")
 
 	// ── Select plugin ──
 	def, err := selectPlugin(connPlugin)
@@ -69,8 +72,14 @@ func runConfigureConnections(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Prompt for org optionally for plugins that don't require it,
+	// so it gets saved to state for downstream commands (e.g. scopes).
+	if !def.NeedsOrg && org == "" {
+		org = prompt.ReadLine("GitHub organization slug (optional, press Enter to skip)")
+	}
+
 	// ── Discover DevLake ──
-	fmt.Println("🔍 Discovering DevLake instance...")
+	fmt.Println("\n🔍 Discovering DevLake instance...")
 	disc, err := devlake.Discover(cfgURL)
 	if err != nil {
 		return err
@@ -149,7 +158,9 @@ func runConfigureConnections(cmd *cobra.Command, args []string) error {
 	if hintOrg == "" {
 		hintOrg = "<org>"
 	}
-	fmt.Printf("\nNext: run 'gh devlake configure scopes --org %s' to create a project and start collecting data.\n", hintOrg)
+	fmt.Println("\nNext steps:")
+	fmt.Printf("  Run 'gh devlake configure scopes --org %s' to create a project\n", hintOrg)
+	fmt.Println("  and start collecting data.")
 
 	return nil
 }

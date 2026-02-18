@@ -31,9 +31,9 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	sep := "  " + strings.Repeat("─", 42)
 
-	fmt.Println("═══════════════════════════════════════════")
+	fmt.Println("════════════════════════════════════════")
 	fmt.Println("  DevLake Status")
-	fmt.Println("═══════════════════════════════════════════")
+	fmt.Println("════════════════════════════════════════")
 
 	// ── Load state file ──
 	var state *devlake.State
@@ -133,7 +133,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	fmt.Println("\n  Project")
 	fmt.Println(sep)
 	if state.Project == nil {
-		fmt.Println("  (none — run 'gh devlake configure scopes')")
+		fmt.Println("  (none — run 'gh devlake configure projects')")
 	} else {
 		p := state.Project
 		fmt.Printf("  Name:       %s\n", p.Name)
@@ -146,7 +146,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	fmt.Println("\n" + strings.Repeat("═", 43))
+	fmt.Println("\n" + strings.Repeat("═", 40))
 	return nil
 }
 

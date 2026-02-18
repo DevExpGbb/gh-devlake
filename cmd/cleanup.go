@@ -108,9 +108,10 @@ func detectCleanupMode() string {
 }
 
 func runAzureCleanup() error {
-	fmt.Println("\n========================================")
+	fmt.Println()
+	fmt.Println("════════════════════════════════════════")
 	fmt.Println("  DevLake Azure Cleanup")
-	fmt.Println("========================================")
+	fmt.Println("════════════════════════════════════════")
 
 	stateFile := cleanupState
 	if stateFile == "" {
@@ -201,9 +202,10 @@ func runAzureCleanup() error {
 		fmt.Println("   ✅ State file removed")
 	}
 
-	fmt.Println("\n========================================")
+	fmt.Println("\n════════════════════════════════════════")
 	fmt.Println("  ✅ Cleanup Complete!")
-	fmt.Println("========================================")
+	fmt.Println("════════════════════════════════════════")
+	fmt.Println()
 
 	if !cleanupKeepRG {
 		fmt.Println("\nNote: Resource group deletion runs in background.")
@@ -214,9 +216,10 @@ func runAzureCleanup() error {
 }
 
 func runLocalCleanup() error {
-	fmt.Println("\n========================================")
+	fmt.Println()
+	fmt.Println("════════════════════════════════════════")
 	fmt.Println("  DevLake Local Cleanup")
-	fmt.Println("========================================")
+	fmt.Println("════════════════════════════════════════")
 
 	stateFile := cleanupState
 	if stateFile == "" {
@@ -249,9 +252,10 @@ func runLocalCleanup() error {
 		}
 	}
 
-	fmt.Println("\n========================================")
+	fmt.Println("\n════════════════════════════════════════")
 	fmt.Println("  ✅ Cleanup Complete!")
-	fmt.Println("========================================")
+	fmt.Println("════════════════════════════════════════")
+	fmt.Println()
 
 	return nil
 }
