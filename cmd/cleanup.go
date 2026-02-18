@@ -181,6 +181,9 @@ func runAzureCleanup() error {
 		fmt.Println("\n   Deleting Key Vault...")
 		_ = azure.DeleteResource("keyvault", state.Resources.KeyVault, state.ResourceGroup)
 
+		fmt.Println("   Purging soft-deleted Key Vault...")
+		_ = azure.PurgeKeyVault(state.Resources.KeyVault, state.Region)
+
 		fmt.Printf("\n   Resource group %q kept.\n", state.ResourceGroup)
 	} else {
 		fmt.Printf("\n   Deleting resource group %q...\n", state.ResourceGroup)

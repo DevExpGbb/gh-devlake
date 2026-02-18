@@ -138,30 +138,14 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Printf("\n🏗️  Building Docker images from %s...\n", repoRoot)
 
-		// Deploy ACR first
-		templateName := "main.bicep"
-		templatePath, cleanup, err := azure.WriteTemplate(templateName)
-		if err != nil {
-			return err
+		// Create ACR (idempotent — safe for re-runs)
+		fmt.Println("   Creating Container Registry...")
+		if err := azure.CreateACR(acrName, azureRG, azureLocation); err != nil {
+			return fmt.Errorf("failed to create ACR: %w", err)
 		}
-		defer cleanup()
-
-		params := map[string]string{
-			"baseName":           azureBaseName,
-			"uniqueSuffix":       suffix,
-			"mysqlAdminPassword": mysqlPwd,
-			"encryptionSecret":   encSecret,
-		}
-
-		deployOut, err := azure.DeployBicep(azureRG, templatePath, params)
-		if err != nil {
-			fmt.Println("   ⚠️  Bicep pre-deploy for ACR failed, will retry after image build.")
-		}
+		fmt.Println("   ✅ Container Registry ready")
 
 		acrServer := acrName + ".azurecr.io"
-		if deployOut != nil && deployOut.ACRLoginServer != "" {
-			acrServer = deployOut.ACRLoginServer
-		}
 
 		fmt.Println("\n   Logging into ACR...")
 		if err := azure.ACRLogin(acrName); err != nil {
@@ -213,6 +197,17 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 		fmt.Printf("   MySQL state: %s\n", state)
 	} else {
 		fmt.Println("   MySQL not yet created (will be created by Bicep)")
+	}
+
+	// ── Check for soft-deleted Key Vault ──
+	kvName := fmt.Sprintf("%skv%s", azureBaseName, suffix)
+	found, _ := azure.CheckSoftDeletedKeyVault(kvName)
+	if found {
+		fmt.Printf("\n🔑 Key Vault %q found in soft-deleted state, purging...\n", kvName)
+		if err := azure.PurgeKeyVault(kvName, azureLocation); err != nil {
+			return fmt.Errorf("failed to purge soft-deleted Key Vault %q: %w\nManual fix: az keyvault purge --name %s --location %s", kvName, err, kvName, azureLocation)
+		}
+		fmt.Println("   ✅ Key Vault purged")
 	}
 
 	// ── Deploy infrastructure ──
@@ -290,7 +285,7 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 		fmt.Sprintf("%s-ui-%s", azureBaseName, suffix),
 	}
 
-	kvName := deployment.KeyVaultName
+	kvName = deployment.KeyVaultName
 	if kvName == "" {
 		kvName = fmt.Sprintf("%skv%s", azureBaseName, suffix)
 	}

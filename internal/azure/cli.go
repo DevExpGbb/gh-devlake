@@ -156,6 +156,32 @@ func DeleteResource(resourceType, name, resourceGroup string) error {
 	}
 }
 
+// CreateACR creates an Azure Container Registry (idempotent).
+func CreateACR(name, resourceGroup, location string) error {
+	return runAz("acr", "create", "--name", name, "--resource-group", resourceGroup,
+		"--location", location, "--sku", "Basic", "--admin-enabled", "true", "--output", "none")
+}
+
+// CheckSoftDeletedKeyVault checks if a Key Vault exists in soft-deleted state.
+func CheckSoftDeletedKeyVault(name string) (bool, error) {
+	out, err := exec.Command("az", "keyvault", "list-deleted",
+		"--query", fmt.Sprintf("[?name=='%s']", name),
+		"-o", "json").Output()
+	if err != nil {
+		return false, nil // ignore errors — vault may simply not exist
+	}
+	var results []any
+	if err := json.Unmarshal(out, &results); err != nil {
+		return false, nil
+	}
+	return len(results) > 0, nil
+}
+
+// PurgeKeyVault permanently purges a soft-deleted Key Vault.
+func PurgeKeyVault(name, location string) error {
+	return runAz("keyvault", "purge", "--name", name, "--location", location)
+}
+
 func runAz(args ...string) error {
 	cmd := exec.Command("az", args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
