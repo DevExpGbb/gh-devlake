@@ -54,6 +54,7 @@ func init() {
 }
 
 func runConfigureFull(cmd *cobra.Command, args []string) error {
+	fmt.Println()
 	fmt.Println("═══════════════════════════════════════")
 	fmt.Println("  DevLake — Full Configuration")
 	fmt.Println("═══════════════════════════════════════")
@@ -91,7 +92,7 @@ func runConfigureFull(cmd *cobra.Command, args []string) error {
 
 	// ── Phase 2: Configure Scopes ──
 	fmt.Println("\n╔══════════════════════════════════════╗")
-	fmt.Println("║  PHASE 2: Configure Scopes & Project ║")
+	fmt.Println("║  PHASE 2: Project, Scopes & Sync    ║")
 	fmt.Println("╚══════════════════════════════════════╝")
 
 	// Wire connection results into scope vars
@@ -138,7 +139,8 @@ func runConnectionsInternal(defs []*ConnectionDef, org, enterprise, tokenVal, en
 
 	// ── Resolve token ──
 	fmt.Println("\n🔑 Resolving GitHub PAT...")
-	tokResult, err := token.Resolve(tokenVal, envFile)
+	scopeHint := aggregateScopeHints(defs)
+	tokResult, err := token.Resolve(tokenVal, envFile, scopeHint)
 	if err != nil {
 		return nil, "", "", err
 	}
@@ -161,7 +163,7 @@ func runConnectionsInternal(defs []*ConnectionDef, org, enterprise, tokenVal, en
 			Org:        org,
 			Enterprise: enterprise,
 		}
-		r, err := buildAndCreateConnection(client, def, params, org)
+		r, err := buildAndCreateConnection(client, def, params, org, false)
 		if err != nil {
 			// Non-fatal: log and continue (e.g. Copilot may need extra permissions)
 			fmt.Printf("   ⚠️  Could not create %s connection: %v\n", def.DisplayName, err)

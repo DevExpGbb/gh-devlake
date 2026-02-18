@@ -49,7 +49,12 @@ gh extension install .
 | [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az`) | `deploy azure`, `cleanup --azure` |
 | GitHub PAT | `configure connections` / `configure full` |
 
-**Required PAT scopes:** `repo`, `read:org`, `read:user`, `copilot`, `manage_billing:copilot`
+**Required PAT scopes:**
+
+| Plugin | Required Scopes | Notes |
+|--------|----------------|-------|
+| GitHub | `repo`, `read:org`, `read:user` | `repo` covers `repo:status` and `repo_deployment` |
+| GitHub Copilot | `manage_billing:copilot`, `read:org` | Add `read:enterprise` for enterprise-level metrics |
 
 ## How It Works
 
@@ -87,12 +92,32 @@ gh devlake status --url http://localhost:8085
 
 Output:
 ```
-✅ DevLake is healthy (ok) — http://localhost:8080 (via localhost)
-   Grafana: http://localhost:3002
-──────────────────────────────────────────────────
-   github: ID=1 "GitHub - my-org"
-   gh-copilot: ID=1 "Copilot - my-org"
-──────────────────────────────────────────────────
+═══════════════════════════════════════════
+  DevLake Status
+═══════════════════════════════════════════
+
+  Deployment  [.devlake-local.json]
+  ──────────────────────────────────────────
+  Method:    local
+  Deployed:  2026-02-18 12:00 UTC
+
+  Services
+  ──────────────────────────────────────────
+  Backend    ✅  http://localhost:8080
+  Grafana    ✅  http://localhost:3002
+
+  Connections
+  ──────────────────────────────────────────
+  GitHub              ID=1    "GitHub - my-org"
+  GitHub Copilot      ID=1    "Copilot - my-org"  [org: my-org]
+
+  Project
+  ──────────────────────────────────────────
+  Name:       my-org
+  Blueprint:  1
+  Repos:      my-org/app1, my-org/app2
+
+═══════════════════════════════════════════
 ```
 
 ---
@@ -165,19 +190,23 @@ gh devlake deploy azure --resource-group devlake-rg --location eastus \
 
 ### `gh devlake configure connections`
 
-Create GitHub and GitHub Copilot connections in DevLake using a PAT.
+Create a plugin connection in DevLake using a PAT. If `--plugin` is not specified, prompts interactively.
 
 ```bash
-gh devlake configure connections --org my-org
-gh devlake configure connections --org my-org --enterprise my-enterprise
-gh devlake configure connections --org my-org --token ghp_xxx
-gh devlake configure connections --org my-org --env-file ./secrets.env
+gh devlake configure connections --plugin github --org my-org
+gh devlake configure connections --plugin gh-copilot --org my-org
+gh devlake configure connections --org my-org --name "My GitHub" --proxy http://proxy:8080
+gh devlake configure connections --org my-org --endpoint https://github.example.com/api/v3/
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--org` | *(required)* | GitHub organization slug |
+| `--plugin` | *(interactive)* | Plugin to configure (`github`, `gh-copilot`) |
+| `--org` | *(required for Copilot)* | GitHub organization slug |
 | `--enterprise` | | GitHub enterprise slug (for Copilot enterprise metrics) |
+| `--name` | `Plugin - org` | Connection display name |
+| `--endpoint` | `https://api.github.com/` | API endpoint (for GitHub Enterprise Server) |
+| `--proxy` | | HTTP proxy URL |
 | `--token` | | GitHub PAT (highest priority) |
 | `--env-file` | `.devlake.env` | Path to env file containing `GITHUB_PAT` |
 | `--skip-cleanup` | `false` | Don't delete `.devlake.env` after setup |
@@ -190,12 +219,15 @@ gh devlake configure connections --org my-org --env-file ./secrets.env
 
 **What it does:**
 1. Auto-discovers DevLake instance
-2. Resolves the GitHub PAT
-3. Tests the GitHub connection payload
-4. Creates a `github` connection for repo/PR data
-5. Creates a `gh-copilot` connection for Copilot metrics
-6. Saves connection IDs to a state file
-7. Deletes `.devlake.env` (tokens now stored encrypted in DevLake)
+2. Resolves the GitHub PAT (displays required scopes if prompting interactively)
+3. Prompts for connection name (Enter accepts default), proxy (Enter skips)
+4. For GitHub: offers Cloud vs Enterprise Server endpoint choice
+5. Tests the connection payload (GitHub only)
+6. Creates the plugin connection
+7. Saves connection ID to the state file
+8. Deletes `.devlake.env` (tokens now stored encrypted in DevLake)
+
+After creating connections, run `configure scopes` to create a project and start data collection.
 
 ---
 
@@ -378,9 +410,10 @@ gh extension install .            # Install locally for testing
 │   ├── deploy_azure.go              # deploy azure (Bicep)
 │   ├── cleanup.go                   # cleanup (Azure + local)
 │   ├── configure.go                 # configure parent command
-│   ├── configure_connections.go     # configure connections (Phase 2)
-│   ├── configure_scopes.go          # configure scopes (Phase 3)
-│   └── configure_full.go            # configure full (Phase 2+3 chained)
+│   ├── configure_connections.go     # configure connections (single plugin)
+│   ├── configure_scopes.go          # configure scopes + project + sync
+│   ├── configure_full.go            # configure full (connections + scopes)
+│   ├── connection_types.go          # plugin registry & connection builder
 ├── internal/
 │   ├── azure/                       # Azure CLI wrapper + embedded Bicep
 │   ├── devlake/                     # DevLake REST API client + discovery

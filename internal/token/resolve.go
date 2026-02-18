@@ -25,8 +25,9 @@ type ResolveResult struct {
 }
 
 // Resolve attempts to find a PAT using the priority chain.
+// scopeHint is displayed in the interactive prompt to guide the user on required scopes.
 // Returns an error only if no token can be obtained.
-func Resolve(flagValue, envFilePath string) (*ResolveResult, error) {
+func Resolve(flagValue, envFilePath, scopeHint string) (*ResolveResult, error) {
 	// 1. Explicit flag
 	if flagValue != "" {
 		return &ResolveResult{Token: flagValue, Source: "flag"}, nil
@@ -57,14 +58,17 @@ func Resolve(flagValue, envFilePath string) (*ResolveResult, error) {
 			"Provide a token via --token, .devlake.env file, or $GITHUB_TOKEN")
 	}
 
-	tok, err := promptMasked()
+	tok, err := promptMasked(scopeHint)
 	if err != nil {
 		return nil, err
 	}
 	return &ResolveResult{Token: tok, Source: "prompt"}, nil
 }
 
-func promptMasked() (string, error) {
+func promptMasked(scopeHint string) (string, error) {
+	if scopeHint != "" {
+		fmt.Fprintf(os.Stderr, "Required PAT scopes: %s\n", scopeHint)
+	}
 	fmt.Fprint(os.Stderr, "GitHub Personal Access Token: ")
 	raw, err := term.ReadPassword(int(syscall.Stdin))
 	fmt.Fprintln(os.Stderr) // newline after masked input

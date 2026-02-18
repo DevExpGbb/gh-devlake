@@ -69,6 +69,8 @@ Example:
 func init() {}
 
 func runConfigureScopes(cmd *cobra.Command, args []string) error {
+	fmt.Println()
+
 	// ── Step 1: Discover DevLake ──
 	fmt.Println("🔍 Discovering DevLake instance...")
 	disc, err := devlake.Discover(cfgURL)
@@ -173,6 +175,8 @@ func runConfigureScopes(cmd *cobra.Command, args []string) error {
 
 	// ── Step 9: Create project ──
 	fmt.Println("\n🏗️  Creating DevLake project...")
+	fmt.Println("   A DevLake project groups data from multiple connections — useful")
+	fmt.Println("   per team or business unit. It automatically creates a sync schedule.")
 	blueprintID, err := ensureProject(client, projectName, org)
 	if err != nil {
 		return fmt.Errorf("failed to create project: %w", err)
@@ -191,6 +195,8 @@ func runConfigureScopes(cmd *cobra.Command, args []string) error {
 	// ── Step 11: Trigger sync ──
 	if !scopeSkipSync {
 		fmt.Println("\n🚀 Triggering first data sync...")
+		fmt.Println("   This collects repository, PR, and Copilot data from GitHub.")
+		fmt.Println("   Depending on repo size and history, this may take 5–30 minutes.")
 		err = triggerAndPoll(client, blueprintID)
 		if err != nil {
 			fmt.Printf("   ⚠️  %v\n", err)

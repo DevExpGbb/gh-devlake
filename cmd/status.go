@@ -28,6 +28,7 @@ func init() {
 }
 
 func runStatus(cmd *cobra.Command, args []string) error {
+	fmt.Println()
 	sep := "  " + strings.Repeat("─", 42)
 
 	fmt.Println("═══════════════════════════════════════════")

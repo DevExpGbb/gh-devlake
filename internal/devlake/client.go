@@ -49,6 +49,7 @@ type Connection struct {
 type ConnectionCreateRequest struct {
 	Name                  string `json:"name"`
 	Endpoint              string `json:"endpoint"`
+	Proxy                 string `json:"proxy,omitempty"`
 	AuthMethod            string `json:"authMethod"`
 	Token                 string `json:"token"`
 	EnableGraphql         bool   `json:"enableGraphql,omitempty"`

@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/DevExpGBB/gh-devlake/internal/devlake"
+	"github.com/DevExpGBB/gh-devlake/internal/prompt"
 )
 
 // ConnectionDef describes a plugin connection type and how to create it.
@@ -15,6 +17,8 @@ type ConnectionDef struct {
 	NeedsOrg        bool
 	NeedsEnterprise bool
 	SupportsTest    bool
+	RequiredScopes  []string // PAT scopes needed for this plugin
+	ScopeHint       string   // short hint for error messages
 }
 
 // MenuLabel returns the label for interactive menus.
@@ -38,13 +42,21 @@ type ConnectionParams struct {
 	Token      string
 	Org        string
 	Enterprise string
+	Name       string // override default connection name
+	Proxy      string // HTTP proxy URL
+	Endpoint   string // override default endpoint (e.g. GitHub Enterprise Server)
 }
 
 // BuildCreateRequest constructs the API payload for creating this connection.
 func (d *ConnectionDef) BuildCreateRequest(name string, params ConnectionParams) *devlake.ConnectionCreateRequest {
+	endpoint := d.Endpoint
+	if params.Endpoint != "" {
+		endpoint = params.Endpoint
+	}
 	req := &devlake.ConnectionCreateRequest{
 		Name:             name,
-		Endpoint:         d.Endpoint,
+		Endpoint:         endpoint,
+		Proxy:            params.Proxy,
 		AuthMethod:       "AccessToken",
 		Token:            params.Token,
 		RateLimitPerHour: 4500,
@@ -63,11 +75,16 @@ func (d *ConnectionDef) BuildCreateRequest(name string, params ConnectionParams)
 
 // BuildTestRequest constructs the API payload for testing this connection.
 func (d *ConnectionDef) BuildTestRequest(params ConnectionParams) *devlake.ConnectionTestRequest {
+	endpoint := d.Endpoint
+	if params.Endpoint != "" {
+		endpoint = params.Endpoint
+	}
 	req := &devlake.ConnectionTestRequest{
-		Endpoint:         d.Endpoint,
+		Endpoint:         endpoint,
 		AuthMethod:       "AccessToken",
 		Token:            params.Token,
 		RateLimitPerHour: 4500,
+		Proxy:            params.Proxy,
 	}
 	if d.Plugin == "github" {
 		req.EnableGraphql = true
@@ -78,11 +95,13 @@ func (d *ConnectionDef) BuildTestRequest(params ConnectionParams) *devlake.Conne
 // connectionRegistry is the ordered list of all known plugin connection types.
 var connectionRegistry = []*ConnectionDef{
 	{
-		Plugin:       "github",
-		DisplayName:  "GitHub",
-		Available:    true,
-		Endpoint:     "https://api.github.com/",
-		SupportsTest: true,
+		Plugin:         "github",
+		DisplayName:    "GitHub",
+		Available:      true,
+		Endpoint:       "https://api.github.com/",
+		SupportsTest:   true,
+		RequiredScopes: []string{"repo", "read:org", "read:user"},
+		ScopeHint:      "repo, read:org, read:user",
 	},
 	{
 		Plugin:          "gh-copilot",
@@ -91,6 +110,8 @@ var connectionRegistry = []*ConnectionDef{
 		Endpoint:        "https://api.github.com/",
 		NeedsOrg:        true,
 		NeedsEnterprise: true,
+		RequiredScopes:  []string{"manage_billing:copilot", "read:org"},
+		ScopeHint:       "manage_billing:copilot, read:org (+ read:enterprise for enterprise metrics)",
 	},
 	{
 		Plugin:      "gitlab",
@@ -135,8 +156,35 @@ type ConnSetupResult struct {
 }
 
 // buildAndCreateConnection creates or reuses an existing connection.
-func buildAndCreateConnection(client *devlake.Client, def *ConnectionDef, params ConnectionParams, org string) (*ConnSetupResult, error) {
-	connName := def.defaultConnName(org)
+// When interactive is true, prompts for connection name and optional proxy.
+func buildAndCreateConnection(client *devlake.Client, def *ConnectionDef, params ConnectionParams, org string, interactive bool) (*ConnSetupResult, error) {
+	connName := params.Name
+	if connName == "" {
+		connName = def.defaultConnName(org)
+	}
+
+	// Interactive: let user customise name, proxy, endpoint
+	if interactive {
+		custom := prompt.ReadLine(fmt.Sprintf("Connection name [%s]", connName))
+		if custom != "" {
+			connName = custom
+		}
+
+		if def.Plugin == "github" && params.Endpoint == "" {
+			endpointChoices := []string{
+				"cloud  - GitHub.com (https://api.github.com/)",
+				"server - GitHub Enterprise Server (custom URL)",
+			}
+			picked := prompt.Select("GitHub environment", endpointChoices)
+			if strings.HasPrefix(picked, "server") {
+				params.Endpoint = prompt.ReadLine("GitHub Enterprise Server API URL (e.g. https://github.example.com/api/v3/)")
+			}
+		}
+
+		if params.Proxy == "" {
+			params.Proxy = prompt.ReadLine("HTTP proxy [none]")
+		}
+	}
 
 	existing, _ := client.FindConnectionByName(def.Plugin, connName)
 	if existing != nil {
@@ -176,4 +224,19 @@ func buildAndCreateConnection(client *devlake.Client, def *ConnectionDef, params
 		Organization: org,
 		Enterprise:   params.Enterprise,
 	}, nil
+}
+
+// aggregateScopeHints merges scope hints from multiple connection defs into one string.
+func aggregateScopeHints(defs []*ConnectionDef) string {
+	seen := make(map[string]bool)
+	var scopes []string
+	for _, d := range defs {
+		for _, s := range d.RequiredScopes {
+			if !seen[s] {
+				seen[s] = true
+				scopes = append(scopes, s)
+			}
+		}
+	}
+	return strings.Join(scopes, ", ")
 }

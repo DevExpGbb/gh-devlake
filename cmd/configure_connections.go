@@ -18,6 +18,9 @@ var (
 	connToken      string
 	connEnvFile    string
 	connSkipClean  bool
+	connName       string
+	connProxy      string
+	connEndpoint   string
 )
 
 var configureConnectionsCmd = &cobra.Command{
@@ -43,9 +46,14 @@ func init() {
 	configureConnectionsCmd.Flags().StringVar(&connToken, "token", "", "GitHub PAT")
 	configureConnectionsCmd.Flags().StringVar(&connEnvFile, "env-file", ".devlake.env", "Path to env file containing GITHUB_PAT")
 	configureConnectionsCmd.Flags().BoolVar(&connSkipClean, "skip-cleanup", false, "Do not delete .devlake.env after setup")
+	configureConnectionsCmd.Flags().StringVar(&connName, "name", "", "Connection display name (defaults to \"Plugin - org\")")
+	configureConnectionsCmd.Flags().StringVar(&connProxy, "proxy", "", "HTTP proxy URL")
+	configureConnectionsCmd.Flags().StringVar(&connEndpoint, "endpoint", "", "API endpoint (defaults to GitHub Cloud)")
 }
 
 func runConfigureConnections(cmd *cobra.Command, args []string) error {
+	fmt.Println()
+
 	// ── Select plugin ──
 	def, err := selectPlugin(connPlugin)
 	if err != nil {
@@ -73,7 +81,7 @@ func runConfigureConnections(cmd *cobra.Command, args []string) error {
 
 	// ── Resolve token ──
 	fmt.Println("\n🔑 Resolving PAT...")
-	tokResult, err := token.Resolve(connToken, connEnvFile)
+	tokResult, err := token.Resolve(connToken, connEnvFile, def.ScopeHint)
 	if err != nil {
 		return err
 	}
@@ -85,8 +93,11 @@ func runConfigureConnections(cmd *cobra.Command, args []string) error {
 		Token:      tokResult.Token,
 		Org:        org,
 		Enterprise: connEnterprise,
+		Name:       connName,
+		Proxy:      connProxy,
+		Endpoint:   connEndpoint,
 	}
-	result, err := buildAndCreateConnection(client, def, params, org)
+	result, err := buildAndCreateConnection(client, def, params, org, true)
 	if err != nil {
 		return err
 	}
@@ -132,6 +143,13 @@ func runConfigureConnections(cmd *cobra.Command, args []string) error {
 	fmt.Printf("✅ %s connection configured!\n", def.DisplayName)
 	fmt.Printf("   ID=%d  %q\n", result.ConnectionID, result.Name)
 	fmt.Println(strings.Repeat("─", 50))
+
+	// ── Next step hint ──
+	hintOrg := org
+	if hintOrg == "" {
+		hintOrg = "<org>"
+	}
+	fmt.Printf("\nNext: run 'gh devlake configure scopes --org %s' to create a project and start collecting data.\n", hintOrg)
 
 	return nil
 }

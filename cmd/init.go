@@ -131,7 +131,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	// ── Phase 5: Configure scopes ──
 	fmt.Println("\n╔══════════════════════════════════════╗")
-	fmt.Println("║  PHASE 3: Configure Scopes & Project ║")
+	fmt.Println("║  PHASE 3: Project, Scopes & Sync    ║")
 	fmt.Println("╚══════════════════════════════════════╝")
 
 	// Wire connection results into scope vars
