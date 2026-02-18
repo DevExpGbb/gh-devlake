@@ -92,6 +92,9 @@ func DeployBicep(resourceGroup, templatePath string, params map[string]string) (
 
 	out, err := exec.Command("az", args...).Output()
 	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && len(exitErr.Stderr) > 0 {
+			return nil, fmt.Errorf("bicep deployment failed: %s", string(exitErr.Stderr))
+		}
 		return nil, fmt.Errorf("bicep deployment failed: %w", err)
 	}
 
