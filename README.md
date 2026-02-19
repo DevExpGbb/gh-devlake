@@ -231,6 +231,29 @@ After creating connections, run `configure scope` to create a project and start 
 
 ---
 
+### `gh devlake configure connection list`
+
+List all existing plugin connections. Useful for scripting, debugging, and answering "what do I have?".
+
+```bash
+gh devlake configure connection list
+gh devlake configure connection list --plugin gh-copilot
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--plugin` | *(all plugins)* | Filter by plugin (`github`, `gh-copilot`) |
+
+**Output:**
+```
+Plugin       ID  Name                         Organization  Enterprise
+──────────   ──  ──────────────────────────   ────────────  ──────────
+github        1  GitHub - my-org              my-org
+gh-copilot    2  GitHub Copilot - my-org      my-org        avocado-corp
+```
+
+---
+
 ### `gh devlake configure scope`
 
 Add repository scopes, create a DORA project with a blueprint, and trigger the first data sync.
