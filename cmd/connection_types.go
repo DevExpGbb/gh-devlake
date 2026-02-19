@@ -53,13 +53,17 @@ func (d *ConnectionDef) BuildCreateRequest(name string, params ConnectionParams)
 	if params.Endpoint != "" {
 		endpoint = params.Endpoint
 	}
+	rateLimitPerHour := 4500
+	if d.Plugin == "gh-copilot" {
+		rateLimitPerHour = 5000
+	}
 	req := &devlake.ConnectionCreateRequest{
 		Name:             name,
 		Endpoint:         endpoint,
 		Proxy:            params.Proxy,
 		AuthMethod:       "AccessToken",
 		Token:            params.Token,
-		RateLimitPerHour: 4500,
+		RateLimitPerHour: rateLimitPerHour,
 	}
 	if d.Plugin == "github" {
 		req.EnableGraphql = true
@@ -79,15 +83,25 @@ func (d *ConnectionDef) BuildTestRequest(params ConnectionParams) *devlake.Conne
 	if params.Endpoint != "" {
 		endpoint = params.Endpoint
 	}
+	rateLimitPerHour := 4500
+	if d.Plugin == "gh-copilot" {
+		rateLimitPerHour = 5000
+	}
 	req := &devlake.ConnectionTestRequest{
 		Endpoint:         endpoint,
 		AuthMethod:       "AccessToken",
 		Token:            params.Token,
-		RateLimitPerHour: 4500,
+		RateLimitPerHour: rateLimitPerHour,
 		Proxy:            params.Proxy,
 	}
 	if d.Plugin == "github" {
 		req.EnableGraphql = true
+	}
+	if d.NeedsOrg && params.Org != "" {
+		req.Organization = params.Org
+	}
+	if d.NeedsEnterprise && params.Enterprise != "" {
+		req.Enterprise = params.Enterprise
 	}
 	return req
 }
@@ -110,6 +124,7 @@ var connectionRegistry = []*ConnectionDef{
 		Endpoint:        "https://api.github.com/",
 		NeedsOrg:        true,
 		NeedsEnterprise: true,
+		SupportsTest:    true,
 		RequiredScopes:  []string{"manage_billing:copilot", "read:org"},
 		ScopeHint:       "manage_billing:copilot, read:org (+ read:enterprise for enterprise metrics)",
 	},

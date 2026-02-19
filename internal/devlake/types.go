@@ -29,11 +29,12 @@ type GitHubRepoScope struct {
 	ScopeConfigID int    `json:"scopeConfigId,omitempty"`
 }
 
-// CopilotScope represents a Copilot organization scope entry.
+// CopilotScope represents a Copilot organization or enterprise scope entry.
 type CopilotScope struct {
 	ID           string `json:"id"`
 	ConnectionID int    `json:"connectionId"`
 	Organization string `json:"organization"`
+	Enterprise   string `json:"enterprise,omitempty"`
 	Name         string `json:"name"`
 	FullName     string `json:"fullName"`
 }

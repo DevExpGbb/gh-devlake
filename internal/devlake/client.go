@@ -41,8 +41,10 @@ func (c *Client) Ping() error {
 
 // Connection represents a DevLake plugin connection.
 type Connection struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
+	ID           int    `json:"id"`
+	Name         string `json:"name"`
+	Organization string `json:"organization,omitempty"`
+	Enterprise   string `json:"enterprise,omitempty"`
 }
 
 // ConnectionCreateRequest is the payload for creating a GitHub or Copilot connection.
@@ -68,6 +70,8 @@ type ConnectionTestRequest struct {
 	EnableGraphql    bool   `json:"enableGraphql,omitempty"`
 	RateLimitPerHour int    `json:"rateLimitPerHour"`
 	Proxy            string `json:"proxy"`
+	Organization     string `json:"organization,omitempty"`
+	Enterprise       string `json:"enterprise,omitempty"`
 }
 
 // ConnectionTestResult is the response from testing a connection.
