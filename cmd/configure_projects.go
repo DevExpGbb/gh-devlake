@@ -36,6 +36,7 @@ Example:
 
 	cmd.Flags().StringVar(&scopeOrg, "org", "", "GitHub organization slug")
 	cmd.Flags().StringVar(&scopeEnterprise, "enterprise", "", "GitHub enterprise slug (enables enterprise-level Copilot metrics)")
+	cmd.Flags().StringVar(&scopePlugin, "plugin", "", "Plugin to configure (github, gh-copilot)")
 	cmd.Flags().StringVar(&scopeRepos, "repos", "", "Comma-separated repos (owner/repo)")
 	cmd.Flags().StringVar(&scopeReposFile, "repos-file", "", "Path to file with repos (one per line)")
 	cmd.Flags().IntVar(&scopeGHConnID, "github-connection-id", 0, "GitHub connection ID (auto-detected if omitted)")
@@ -47,9 +48,10 @@ Example:
 	cmd.Flags().StringVar(&scopeTimeAfter, "time-after", "", "Only collect data after this date (default: 6 months ago)")
 	cmd.Flags().StringVar(&scopeCron, "cron", "0 0 * * *", "Blueprint cron schedule")
 	cmd.Flags().BoolVar(&scopeSkipSync, "skip-sync", false, "Skip triggering the first data sync")
-	cmd.Flags().BoolVar(&scopeSkipCopilot, "skip-copilot", false, "Skip adding Copilot scope")
+	cmd.Flags().BoolVar(&scopeSkipCopilot, "skip-copilot", false, "Deprecated: use --plugin github instead")
 	cmd.Flags().BoolVar(&scopeWait, "wait", true, "Wait for pipeline to complete")
 	cmd.Flags().DurationVar(&scopeTimeout, "timeout", 5*time.Minute, "Max time to wait for pipeline")
+	_ = cmd.Flags().MarkHidden("skip-copilot")
 
 	return cmd
 }
@@ -126,6 +128,9 @@ func runConfigureProjects(cmd *cobra.Command, args []string) error {
 	// ── Discover connections ──
 	fmt.Println("\n🔍 Discovering connections...")
 	choices := discoverConnections(client, state)
+	if scopePlugin != "" {
+		choices = filterChoicesByPlugin(choices, scopePlugin)
+	}
 	if len(choices) == 0 {
 		return fmt.Errorf("no connections found — run 'gh devlake configure connection' first")
 	}
@@ -344,6 +349,17 @@ func discoverConnections(client *devlake.Client, state *devlake.State) []connCho
 		}
 	}
 	return choices
+}
+
+// filterChoicesByPlugin returns only the connections matching the given plugin slug.
+func filterChoicesByPlugin(choices []connChoice, plugin string) []connChoice {
+	var out []connChoice
+	for _, c := range choices {
+		if c.plugin == plugin {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 // pluginDisplayName returns a friendly name for a plugin slug.
