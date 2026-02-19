@@ -124,6 +124,25 @@ func (c *Client) CreateConnection(plugin string, req *ConnectionCreateRequest) (
 	return doPost[Connection](c, fmt.Sprintf("/plugins/%s/connections", plugin), req)
 }
 
+// DeleteConnection deletes a plugin connection by ID.
+func (c *Client) DeleteConnection(plugin string, connID int) error {
+	url := fmt.Sprintf("%s/plugins/%s/connections/%d", c.BaseURL, plugin, connID)
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("delete connection returned %d: %s", resp.StatusCode, body)
+	}
+	return nil
+}
+
 // TestSavedConnection tests an already-created connection by ID.
 func (c *Client) TestSavedConnection(plugin string, connID int) (*ConnectionTestResult, error) {
 	url := fmt.Sprintf("%s/plugins/%s/connections/%d/test", c.BaseURL, plugin, connID)
