@@ -231,6 +231,46 @@ After creating connections, run `configure scope` to create a project and start 
 
 ---
 
+### `gh devlake configure connection update`
+
+Update an existing plugin connection in-place — for token rotation, endpoint changes, or org/enterprise updates — without recreating the connection (which would lose scope configs and blueprint associations).
+
+```bash
+# Token rotation
+gh devlake configure connection update --plugin github --id 1 --token ghp_newtoken
+
+# Change org or enterprise
+gh devlake configure connection update --plugin gh-copilot --id 2 --org new-org
+
+# Interactive (shows current values, prompt for each field)
+gh devlake configure connection update
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--plugin` | *(interactive)* | Plugin slug (`github`, `gh-copilot`) |
+| `--id` | *(interactive)* | Connection ID to update |
+| `--token` | | New GitHub PAT for token rotation |
+| `--org` | | New GitHub organization slug |
+| `--enterprise` | | New GitHub enterprise slug |
+| `--name` | | New connection display name |
+| `--endpoint` | | New API endpoint URL |
+| `--proxy` | | New HTTP proxy URL |
+
+**Flag-based mode:** `--plugin` and `--id` are both required. Only the flags you specify are changed; all other fields remain unchanged.
+
+**Interactive mode:** Lists all existing connections for selection, then shows current values as defaults. Press Enter to keep any field unchanged.
+
+**What it does:**
+1. Validates plugin and connection ID (flag mode)
+2. Discovers DevLake instance
+3. Fetches the current connection values
+4. Applies only the changed fields via `PATCH /plugins/{plugin}/connections/{id}`
+5. Tests the updated connection
+6. Saves updated connection info to the state file
+
+---
+
 ### `gh devlake configure connection list`
 
 List all existing plugin connections. Useful for scripting, debugging, and answering "what do I have?".
