@@ -39,6 +39,7 @@ func init() {
 	configureFullCmd.Flags().StringVar(&fullToken, "token", "", "GitHub PAT")
 	configureFullCmd.Flags().StringVar(&fullEnvFile, "env-file", ".devlake.env", "Path to env file containing GITHUB_PAT")
 	configureFullCmd.Flags().BoolVar(&fullSkipClean, "skip-cleanup", false, "Do not delete .devlake.env after setup")
+	configureFullCmd.Flags().StringVar(&scopePlugin, "plugin", "", "Limit to one plugin (github, gh-copilot)")
 
 	// Scope flags (reuse the package-level vars from configure_scopes.go)
 	configureFullCmd.Flags().StringVar(&scopeRepos, "repos", "", "Comma-separated repos (owner/repo)")
@@ -50,7 +51,10 @@ func init() {
 	configureFullCmd.Flags().StringVar(&scopeTimeAfter, "time-after", "", "Only collect data after this date")
 	configureFullCmd.Flags().StringVar(&scopeCron, "cron", "0 0 * * *", "Blueprint cron schedule")
 	configureFullCmd.Flags().BoolVar(&scopeSkipSync, "skip-sync", false, "Skip first data sync")
-	configureFullCmd.Flags().BoolVar(&scopeSkipCopilot, "skip-copilot", false, "Skip Copilot scope")
+	configureFullCmd.Flags().BoolVar(&scopeSkipCopilot, "skip-copilot", false, "Deprecated: use --plugin github instead")
+	configureFullCmd.Flags().BoolVar(&scopeSkipGitHub, "skip-github", false, "Deprecated: use --plugin gh-copilot instead")
+	_ = configureFullCmd.Flags().MarkHidden("skip-copilot")
+	_ = configureFullCmd.Flags().MarkHidden("skip-github")
 }
 
 func runConfigureFull(cmd *cobra.Command, args []string) error {
@@ -61,17 +65,31 @@ func runConfigureFull(cmd *cobra.Command, args []string) error {
 
 	// ── Select connections ──
 	available := AvailableConnections()
-	var labels []string
-	for _, d := range available {
-		labels = append(labels, d.DisplayName)
-	}
-	selectedLabels := prompt.SelectMultiWithDefaults("Which connections to configure?", labels, []int{1, 2})
 	var defs []*ConnectionDef
-	for _, label := range selectedLabels {
+	if scopePlugin != "" {
+		// --plugin limits to one plugin: skip the interactive picker
 		for _, d := range available {
-			if d.DisplayName == label {
+			if d.Plugin == scopePlugin {
 				defs = append(defs, d)
 				break
+			}
+		}
+		if len(defs) == 0 {
+			return fmt.Errorf("unknown plugin %q — choose: github, gh-copilot", scopePlugin)
+		}
+	} else {
+		var labels []string
+		for _, d := range available {
+			labels = append(labels, d.DisplayName)
+		}
+		fmt.Println()
+		selectedLabels := prompt.SelectMultiWithDefaults("Which connections to configure?", labels, []int{1, 2})
+		for _, label := range selectedLabels {
+			for _, d := range available {
+				if d.DisplayName == label {
+					defs = append(defs, d)
+					break
+				}
 			}
 		}
 	}

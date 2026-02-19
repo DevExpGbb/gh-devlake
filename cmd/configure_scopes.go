@@ -18,6 +18,7 @@ import (
 var (
 	scopeOrg           string
 	scopeEnterprise    string
+	scopePlugin        string
 	scopeRepos         string
 	scopeReposFile     string
 	scopeGHConnID      int
@@ -52,6 +53,7 @@ Example:
 
 	cmd.Flags().StringVar(&scopeOrg, "org", "", "GitHub organization slug")
 	cmd.Flags().StringVar(&scopeEnterprise, "enterprise", "", "GitHub enterprise slug (enables enterprise-level Copilot metrics)")
+	cmd.Flags().StringVar(&scopePlugin, "plugin", "", "Plugin to configure (github, gh-copilot)")
 	cmd.Flags().StringVar(&scopeRepos, "repos", "", "Comma-separated repos (owner/repo)")
 	cmd.Flags().StringVar(&scopeReposFile, "repos-file", "", "Path to file with repos (one per line)")
 	cmd.Flags().IntVar(&scopeGHConnID, "github-connection-id", 0, "GitHub connection ID (auto-detected if omitted)")
@@ -63,9 +65,12 @@ Example:
 	cmd.Flags().StringVar(&scopeTimeAfter, "time-after", "", "Only collect data after this date (default: 6 months ago)")
 	cmd.Flags().StringVar(&scopeCron, "cron", "0 0 * * *", "Blueprint cron schedule")
 	cmd.Flags().BoolVar(&scopeSkipSync, "skip-sync", false, "Skip triggering the first data sync")
-	cmd.Flags().BoolVar(&scopeSkipCopilot, "skip-copilot", false, "Skip adding Copilot scope")
+	cmd.Flags().BoolVar(&scopeSkipCopilot, "skip-copilot", false, "Deprecated: use --plugin github instead")
+	cmd.Flags().BoolVar(&scopeSkipGitHub, "skip-github", false, "Deprecated: use --plugin gh-copilot instead")
 	cmd.Flags().BoolVar(&scopeWait, "wait", true, "Wait for pipeline to complete")
 	cmd.Flags().DurationVar(&scopeTimeout, "timeout", 5*time.Minute, "Max time to wait for pipeline")
+	_ = cmd.Flags().MarkHidden("skip-copilot")
+	_ = cmd.Flags().MarkHidden("skip-github")
 
 	return cmd
 }
@@ -252,6 +257,46 @@ func finalizeProject(opts finalizeProjectOpts) error {
 
 func runConfigureScopes(cmd *cobra.Command, args []string) error {
 	fmt.Println()
+
+	// ── Resolve --plugin flag (replaces --skip-copilot / --skip-github) ──
+	if scopePlugin != "" {
+		switch scopePlugin {
+		case "github":
+			scopeSkipCopilot = true
+			scopeSkipGitHub = false
+		case "gh-copilot":
+			scopeSkipGitHub = true
+			scopeSkipCopilot = false
+		default:
+			return fmt.Errorf("unknown plugin %q — choose: github, gh-copilot", scopePlugin)
+		}
+	} else if !cmd.Flags().Changed("skip-copilot") && !cmd.Flags().Changed("skip-github") {
+		// No --plugin and no deprecated skip flags: determine mode
+		flagMode := cmd.Flags().Changed("org") ||
+			cmd.Flags().Changed("repos") ||
+			cmd.Flags().Changed("repos-file") ||
+			cmd.Flags().Changed("github-connection-id") ||
+			cmd.Flags().Changed("copilot-connection-id")
+		if flagMode {
+			return fmt.Errorf("--plugin is required when using flags (use --plugin github or --plugin gh-copilot)")
+		}
+		// Interactive mode: prompt for plugin
+		available := AvailableConnections()
+		var labels []string
+		for _, d := range available {
+			labels = append(labels, d.DisplayName)
+		}
+		fmt.Println()
+		chosen := prompt.Select("Which plugin to configure?", labels)
+		switch chosen {
+		case "GitHub":
+			scopeSkipCopilot = true
+		case "GitHub Copilot":
+			scopeSkipGitHub = true
+		default:
+			return fmt.Errorf("plugin selection is required")
+		}
+	}
 
 	// ── Step 1: Discover DevLake ──
 	fmt.Println("🔍 Discovering DevLake instance...")
