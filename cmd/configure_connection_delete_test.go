@@ -45,3 +45,53 @@ func TestRunDeleteConnection_UnknownPlugin(t *testing.T) {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }
+
+func TestRunDeleteConnection_PluginOnlyNoID(t *testing.T) {
+	origPlugin := connDeletePlugin
+	origID := connDeleteID
+	t.Cleanup(func() {
+		connDeletePlugin = origPlugin
+		connDeleteID = origID
+	})
+
+	connDeletePlugin = "github"
+	connDeleteID = 0
+
+	cmd := &cobra.Command{RunE: runDeleteConnection}
+	cmd.Flags().StringVar(&connDeletePlugin, "plugin", "", "")
+	cmd.Flags().IntVar(&connDeleteID, "id", 0, "")
+	_ = cmd.Flags().Set("plugin", "github")
+
+	err := runDeleteConnection(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error when only --plugin is provided, got nil")
+	}
+	if !strings.Contains(err.Error(), "both --plugin and --id must be provided together") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestRunDeleteConnection_IDOnlyNoPlugin(t *testing.T) {
+	origPlugin := connDeletePlugin
+	origID := connDeleteID
+	t.Cleanup(func() {
+		connDeletePlugin = origPlugin
+		connDeleteID = origID
+	})
+
+	connDeletePlugin = ""
+	connDeleteID = 1
+
+	cmd := &cobra.Command{RunE: runDeleteConnection}
+	cmd.Flags().StringVar(&connDeletePlugin, "plugin", "", "")
+	cmd.Flags().IntVar(&connDeleteID, "id", 0, "")
+	_ = cmd.Flags().Set("id", "1")
+
+	err := runDeleteConnection(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error when only --id is provided, got nil")
+	}
+	if !strings.Contains(err.Error(), "both --plugin and --id must be provided together") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}

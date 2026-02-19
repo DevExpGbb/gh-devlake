@@ -40,7 +40,17 @@ func runDeleteConnection(cmd *cobra.Command, args []string) error {
 	fmt.Println("  DevLake — Delete Connection")
 	fmt.Println("════════════════════════════════════════")
 
-	// ── Validate --plugin flag if provided ──
+	// ── Validate flags early before any I/O ──
+	pluginFlagSet := cmd.Flags().Changed("plugin")
+	idFlagSet := cmd.Flags().Changed("id")
+
+	if pluginFlagSet || idFlagSet {
+		// Flag mode: both flags must be provided
+		if !pluginFlagSet || !idFlagSet || connDeletePlugin == "" || connDeleteID == 0 {
+			return fmt.Errorf("both --plugin and --id must be provided together")
+		}
+	}
+
 	if connDeletePlugin != "" {
 		def := FindConnectionDef(connDeletePlugin)
 		if def == nil || !def.Available {
@@ -63,7 +73,7 @@ func runDeleteConnection(cmd *cobra.Command, args []string) error {
 	plugin := connDeletePlugin
 	connID := connDeleteID
 
-	if plugin == "" || connID == 0 {
+	if !(pluginFlagSet && idFlagSet) {
 		// Interactive: list connections and let user select one
 		type connEntry struct {
 			plugin string
@@ -142,7 +152,7 @@ func runDeleteConnection(cmd *cobra.Command, args []string) error {
 		updated = append(updated, c)
 	}
 	if err := devlake.UpdateConnections(statePath, state, updated); err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  Could not update state file: %v\n", err)
+		fmt.Fprintf(os.Stderr, "\n⚠️  Could not update state file: %v\n", err)
 	} else {
 		fmt.Printf("\n💾 State saved to %s\n", statePath)
 	}

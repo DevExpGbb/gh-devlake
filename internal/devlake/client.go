@@ -137,8 +137,11 @@ func (c *Client) DeleteConnection(plugin string, connID int) error {
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("connection not found: plugin=%s id=%d", plugin, connID)
+	}
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("delete connection returned %d: %s", resp.StatusCode, body)
+		return fmt.Errorf("DELETE /plugins/%s/connections/%d returned %d: %s", plugin, connID, resp.StatusCode, body)
 	}
 	return nil
 }
