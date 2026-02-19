@@ -43,6 +43,22 @@ func (c *Client) Ping() error {
 type Connection struct {
 	ID           int    `json:"id"`
 	Name         string `json:"name"`
+	Endpoint     string `json:"endpoint,omitempty"`
+	Proxy        string `json:"proxy,omitempty"`
+	Token        string `json:"token,omitempty"`
+	Organization string `json:"organization,omitempty"`
+	Enterprise   string `json:"enterprise,omitempty"`
+}
+
+// ConnectionUpdateRequest is the payload for PATCH /plugins/{plugin}/connections/{id}.
+// Fields with omitempty are only included in the request when non-empty,
+// enabling sparse updates (only changed fields are sent).
+type ConnectionUpdateRequest struct {
+	Name         string `json:"name,omitempty"`
+	Endpoint     string `json:"endpoint,omitempty"`
+	Proxy        string `json:"proxy,omitempty"`
+	AuthMethod   string `json:"authMethod,omitempty"`
+	Token        string `json:"token,omitempty"`
 	Organization string `json:"organization,omitempty"`
 	Enterprise   string `json:"enterprise,omitempty"`
 }
@@ -145,6 +161,16 @@ func (c *Client) TestSavedConnection(plugin string, connID int) (*ConnectionTest
 		return nil, fmt.Errorf("test connection returned %d: %s", resp.StatusCode, body)
 	}
 	return &result, nil
+}
+
+// GetConnection retrieves a single connection by plugin and ID.
+func (c *Client) GetConnection(plugin string, connID int) (*Connection, error) {
+	return doGet[Connection](c, fmt.Sprintf("/plugins/%s/connections/%d", plugin, connID))
+}
+
+// UpdateConnection patches an existing connection for the given plugin.
+func (c *Client) UpdateConnection(plugin string, connID int, req *ConnectionUpdateRequest) (*Connection, error) {
+	return doPatch[Connection](c, fmt.Sprintf("/plugins/%s/connections/%d", plugin, connID), req)
 }
 
 // HealthStatus represents the response from /health or /ping.
