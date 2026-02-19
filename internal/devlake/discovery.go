@@ -1,7 +1,6 @@
 package devlake
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -9,19 +8,6 @@ import (
 	"strings"
 	"time"
 )
-
-// stateFile represents the structure of .devlake-azure.json or .devlake-local.json.
-type stateFile struct {
-	Endpoints struct {
-		Backend string `json:"backend"`
-		Grafana string `json:"grafana"`
-	} `json:"endpoints"`
-	Connections []struct {
-		Plugin       string `json:"plugin"`
-		ConnectionID int    `json:"connectionId"`
-		Name         string `json:"name"`
-	} `json:"connections"`
-}
 
 // DiscoveryResult contains the discovered DevLake instance details.
 type DiscoveryResult struct {
@@ -78,28 +64,25 @@ func Discover(explicitURL string) (*DiscoveryResult, error) {
 }
 
 func tryStateFile(path string) *DiscoveryResult {
-	data, err := os.ReadFile(path)
-	if err != nil {
+	state, err := LoadState(path)
+	if err != nil || state == nil {
 		return nil
 	}
 
-	var sf stateFile
-	if err := json.Unmarshal(data, &sf); err != nil {
-		return nil
-	}
-
-	url := strings.TrimRight(sf.Endpoints.Backend, "/")
+	url := strings.TrimRight(state.Endpoints.Backend, "/")
 	if url == "" {
 		return nil
 	}
 
 	if err := pingURL(url); err != nil {
+		fmt.Fprintf(os.Stderr, "   ⚠️  Found DevLake URL in %s: %s\n", filepath.Base(path), url)
+		fmt.Fprintf(os.Stderr, "      Could not reach /ping: %v\n", err)
 		return nil
 	}
 
 	return &DiscoveryResult{
 		URL:        url,
-		GrafanaURL: sf.Endpoints.Grafana,
+		GrafanaURL: state.Endpoints.Grafana,
 		Source:     "statefile",
 	}
 }

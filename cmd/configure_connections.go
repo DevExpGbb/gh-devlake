@@ -99,9 +99,6 @@ func runConfigureConnections(cmd *cobra.Command, args []string) error {
 
 	// ── Create connection ──
 	fmt.Printf("\n📡 Creating %s connection...\n", def.DisplayName)
-	if def.ScopeHint != "" {
-		fmt.Printf("   Required PAT scopes: %s\n", def.ScopeHint)
-	}
 	params := ConnectionParams{
 		Token:      tokResult.Token,
 		Org:        org,
@@ -126,7 +123,7 @@ func runConfigureConnections(cmd *cobra.Command, args []string) error {
 	}
 	replaced := false
 	for i, c := range state.Connections {
-		if c.Plugin == def.Plugin {
+		if c.Plugin == def.Plugin && c.ConnectionID == newConn.ConnectionID {
 			state.Connections[i] = newConn
 			replaced = true
 			break

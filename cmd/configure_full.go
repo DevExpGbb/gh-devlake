@@ -188,9 +188,6 @@ func runConnectionsInternal(defs []*ConnectionDef, org, enterprise, tokenVal, en
 	var results []ConnSetupResult
 	for _, def := range defs {
 		fmt.Printf("\n📡 Creating %s connection...\n", def.DisplayName)
-		if def.ScopeHint != "" {
-			fmt.Printf("   Required PAT scopes: %s\n", def.ScopeHint)
-		}
 		params := ConnectionParams{
 			Token:      tokResult.Token,
 			Org:        org,
