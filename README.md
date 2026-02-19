@@ -294,6 +294,64 @@ gh-copilot    2  GitHub Copilot - my-org      my-org        avocado-corp
 
 ---
 
+### `gh devlake configure connection delete`
+
+Delete a plugin connection from DevLake. Removes broken, test, or unwanted connections.
+
+```bash
+gh devlake configure connection delete
+gh devlake configure connection delete --plugin github --id 3
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--plugin` | *(interactive)* | Plugin of the connection to delete (`github`, `gh-copilot`) |
+| `--id` | *(interactive)* | ID of the connection to delete |
+
+**Interactive mode** (no flags): lists all connections across plugins, prompts to select one, then prompts for confirmation before deleting.
+
+**Flag mode**: `--plugin` and `--id` are both required.
+
+**What it does:**
+1. Auto-discovers DevLake instance
+2. In interactive mode: lists all connections and prompts for selection
+3. Confirms deletion with a warning that scopes will be lost
+4. Calls `DELETE /plugins/{plugin}/connections/{id}`
+5. Removes the connection from the state file
+
+---
+
+### `gh devlake configure connection test`
+
+Test an existing DevLake connection by ID.
+
+```bash
+# Non-interactive: specify plugin and connection ID
+gh devlake configure connection test --plugin gh-copilot --id 2
+
+# Interactive: pick from all discovered connections
+gh devlake configure connection test
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--plugin` | *(interactive)* | Plugin to test (`github`, `gh-copilot`) |
+| `--id` | `0` | Connection ID to test (required for non-interactive) |
+
+**Output on success:**
+```
+✅ Connection test passed
+```
+
+**Output on failure:**
+```
+❌ Connection test failed: <error message>
+```
+
+> **Note:** Both `--plugin` and `--id` must be provided for non-interactive mode. If either is missing, the command will enter interactive mode and prompt you to select a connection from all available plugins.
+
+---
+
 ### `gh devlake configure scope`
 
 Add repository scopes, create a DORA project with a blueprint, and trigger the first data sync.
