@@ -23,7 +23,7 @@ var (
 var configureFullCmd = &cobra.Command{
 	Use:   "full",
 	Short: "Run connections + scopes configuration in one step",
-	Long: `Combines 'configure connections' and 'configure projects' into a single
+	Long: `Combines 'configure connection' and 'configure project' into a single
 workflow. Prompts to select which plugins to connect, then creates a project,
 configures scopes, and triggers the first sync.
 

@@ -47,7 +47,7 @@ gh extension install .
 | [Go 1.22+](https://go.dev/) | Building from source only |
 | [Docker](https://docs.docker.com/get-docker/) | `deploy local`, `cleanup --local` |
 | [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az`) | `deploy azure`, `cleanup --azure` |
-| GitHub PAT | `configure connections` / `configure full` |
+| GitHub PAT | `configure connection` / `configure full` |
 
 **Required PAT scopes:**
 
@@ -63,7 +63,7 @@ The extension manages three phases of DevLake setup:
 ```
 Phase 1 — Deploy          Phase 2 — Connections       Phase 3 — Scopes & Project
 ─────────────────          ─────────────────────       ──────────────────────────
-deploy local               configure connections       configure scopes
+deploy local               configure connection        configure scope
 deploy azure
 
                             ─── or combine ───
@@ -188,15 +188,15 @@ gh devlake deploy azure --resource-group devlake-rg --location eastus \
 
 ---
 
-### `gh devlake configure connections`
+### `gh devlake configure connection`
 
 Create a plugin connection in DevLake using a PAT. If `--plugin` is not specified, prompts interactively.
 
 ```bash
-gh devlake configure connections --plugin github --org my-org
-gh devlake configure connections --plugin gh-copilot --org my-org
-gh devlake configure connections --org my-org --name "My GitHub" --proxy http://proxy:8080
-gh devlake configure connections --org my-org --endpoint https://github.example.com/api/v3/
+gh devlake configure connection --plugin github --org my-org
+gh devlake configure connection --plugin gh-copilot --org my-org
+gh devlake configure connection --org my-org --name "My GitHub" --proxy http://proxy:8080
+gh devlake configure connection --org my-org --endpoint https://github.example.com/api/v3/
 ```
 
 | Flag | Default | Description |
@@ -227,26 +227,26 @@ gh devlake configure connections --org my-org --endpoint https://github.example.
 7. Saves connection ID to the state file
 8. Deletes `.devlake.env` (tokens now stored encrypted in DevLake)
 
-After creating connections, run `configure scopes` to create a project and start data collection.
+After creating connections, run `configure scope` to create a project and start data collection.
 
 ---
 
-### `gh devlake configure scopes`
+### `gh devlake configure scope`
 
 Add repository scopes, create a DORA project with a blueprint, and trigger the first data sync.
 
 ```bash
 # Specify repos directly
-gh devlake configure scopes --org my-org --repos my-org/app1,my-org/app2
+gh devlake configure scope --org my-org --repos my-org/app1,my-org/app2
 
 # Load repos from a file (one owner/repo per line)
-gh devlake configure scopes --org my-org --repos-file repos.txt
+gh devlake configure scope --org my-org --repos-file repos.txt
 
 # Interactive selection via gh CLI
-gh devlake configure scopes --org my-org
+gh devlake configure scope --org my-org
 
 # Custom DORA patterns
-gh devlake configure scopes --org my-org --repos my-org/app1 \
+gh devlake configure scope --org my-org --repos my-org/app1 \
     --deployment-pattern "(?i)(deploy|release)" \
     --production-pattern "(?i)(prod|production)" \
     --incident-label "bug/incident"
@@ -293,7 +293,7 @@ gh devlake configure full --org my-org --repos-file repos.txt
 gh devlake configure full --org my-org --enterprise my-ent --skip-sync
 ```
 
-Accepts all flags from both `configure connections` and `configure scopes`. Runs Phase 2 first, then Phase 3 — wiring connection IDs automatically between the two phases.
+Accepts all flags from both `configure connection` and `configure scope`. Runs Phase 2 first, then Phase 3 — wiring connection IDs automatically between the two phases.
 
 ---
 
@@ -327,7 +327,7 @@ The extension **never** stores your PAT in command history or logs:
    ```
 2. Run the configure command — the token is read from the file:
    ```bash
-   gh devlake configure connections --org my-org
+   gh devlake configure connection --org my-org
    ```
 3. After success, `.devlake.env` is **automatically deleted** (use `--skip-cleanup` to keep it). Tokens are now stored encrypted in DevLake's database.
 
@@ -340,10 +340,10 @@ The `.devlake.env` file is in `.gitignore` by default.
 | File | Created By | Purpose |
 |------|-----------|---------|
 | `.devlake-azure.json` | `deploy azure` | Azure resources, endpoints, suffix |
-| `.devlake-local.json` | `configure connections` | Endpoints, connection IDs (local deploys) |
+| `.devlake-local.json` | `configure connection` | Endpoints, connection IDs (local deploys) |
 | `.devlake.env` | User (Phase 2) | **Ephemeral** — PATs for connection creation, auto-deleted |
 
-State files enable command chaining — `configure scopes` reads connection IDs saved by `configure connections`, so you don't need to pass `--github-connection-id`.
+State files enable command chaining — `configure scope` reads connection IDs saved by `configure connection`, so you don't need to pass `--github-connection-id`.
 
 ---
 
@@ -410,8 +410,8 @@ gh extension install .            # Install locally for testing
 │   ├── deploy_azure.go              # deploy azure (Bicep)
 │   ├── cleanup.go                   # cleanup (Azure + local)
 │   ├── configure.go                 # configure parent command
-│   ├── configure_connections.go     # configure connections (single plugin)
-│   ├── configure_scopes.go          # configure scopes + project + sync
+│   ├── configure_connections.go     # configure connection (single plugin)
+│   ├── configure_scopes.go          # configure scope + project + sync
 │   ├── configure_full.go            # configure full (connections + scopes)
 │   ├── connection_types.go          # plugin registry & connection builder
 ├── internal/

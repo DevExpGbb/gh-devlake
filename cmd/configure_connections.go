@@ -24,8 +24,9 @@ var (
 )
 
 var configureConnectionsCmd = &cobra.Command{
-	Use:   "connections",
-	Short: "Create a plugin connection in DevLake",
+	Use:     "connection",
+	Aliases: []string{"connections"},
+	Short:   "Create a plugin connection in DevLake",
 	Long: `Creates a single DevLake plugin connection.
 
 If --plugin is not specified, prompts interactively. Run multiple times to
@@ -159,7 +160,7 @@ func runConfigureConnections(cmd *cobra.Command, args []string) error {
 		hintOrg = "<org>"
 	}
 	fmt.Println("\nNext steps:")
-	fmt.Printf("  Run 'gh devlake configure scopes --org %s' to create a project\n", hintOrg)
+	fmt.Printf("  Run 'gh devlake configure scope --org %s' to create a project\n", hintOrg)
 	fmt.Println("  and start collecting data.")
 
 	return nil
