@@ -1,0 +1,35 @@
+# Setup steps for the GitHub Copilot Coding Agent.
+# This workflow installs Go, downloads dependencies, and validates
+# that the project compiles and passes tests — giving the agent a
+# working environment identical to local development.
+
+name: Copilot Setup Steps
+
+on:
+  push:
+    paths:
+      - '.github/workflows/copilot-setup-steps.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/copilot-setup-steps.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  copilot-setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - run: go mod download
+
+      - run: go build ./...
+
+      - run: go test ./... -short
