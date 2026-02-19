@@ -171,4 +171,11 @@ func TestFilterChoicesByPlugin(t *testing.T) {
 			t.Errorf("expected 0 choices, got %d", len(got))
 		}
 	})
+
+	t.Run("empty plugin slug returns empty", func(t *testing.T) {
+		got := filterChoicesByPlugin(choices, "")
+		if len(got) != 0 {
+			t.Errorf("expected 0 choices for empty plugin, got %d", len(got))
+		}
+	})
 }
