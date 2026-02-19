@@ -91,7 +91,7 @@ func runConfigureConnections(cmd *cobra.Command, args []string) error {
 
 	// ── Resolve token ──
 	fmt.Println("\n🔑 Resolving PAT...")
-	tokResult, err := token.Resolve(connToken, connEnvFile, def.ScopeHint)
+	tokResult, err := token.Resolve(def.Plugin, connToken, connEnvFile, def.ScopeHint)
 	if err != nil {
 		return err
 	}

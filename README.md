@@ -211,10 +211,13 @@ gh devlake configure connection --org my-org --endpoint https://github.example.c
 | `--env-file` | `.devlake.env` | Path to env file containing `GITHUB_PAT` |
 | `--skip-cleanup` | `false` | Don't delete `.devlake.env` after setup |
 
-**Token resolution order:**
+**Token resolution order (per plugin):**
 1. `--token` flag
-2. `.devlake.env` file (`GITHUB_PAT=` or `GITHUB_TOKEN=` or `GH_TOKEN=`)
-3. `$GITHUB_TOKEN` / `$GH_TOKEN` environment variables
+2. `.devlake.env` file — plugin-specific key first, e.g.:
+   - GitHub / GitHub Copilot: `GITHUB_PAT=`, `GITHUB_TOKEN=`, or `GH_TOKEN=`
+   - GitLab: `GITLAB_TOKEN=`
+   - Azure DevOps: `AZURE_DEVOPS_PAT=`
+3. Plugin-specific environment variable (same keys as above, without `GITHUB_PAT`)
 4. Interactive masked prompt (terminal only)
 
 **What it does:**

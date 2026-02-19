@@ -167,7 +167,7 @@ func runConnectionsInternal(defs []*ConnectionDef, org, enterprise, tokenVal, en
 	// ── Resolve token ──
 	fmt.Println("\n🔑 Resolving GitHub PAT...")
 	scopeHint := aggregateScopeHints(defs)
-	tokResult, err := token.Resolve(tokenVal, envFile, scopeHint)
+	tokResult, err := token.Resolve(defs[0].Plugin, tokenVal, envFile, scopeHint)
 	if err != nil {
 		return nil, "", "", err
 	}

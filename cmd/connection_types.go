@@ -19,6 +19,8 @@ type ConnectionDef struct {
 	SupportsTest    bool
 	RequiredScopes  []string // PAT scopes needed for this plugin
 	ScopeHint       string   // short hint for error messages
+	EnvVarNames     []string // environment variable names for token resolution
+	EnvFileKeys     []string // .devlake.env keys for token resolution
 }
 
 // MenuLabel returns the label for interactive menus.
@@ -116,6 +118,8 @@ var connectionRegistry = []*ConnectionDef{
 		SupportsTest:   true,
 		RequiredScopes: []string{"repo", "read:org", "read:user"},
 		ScopeHint:      "repo, read:org, read:user",
+		EnvVarNames:    []string{"GITHUB_TOKEN", "GH_TOKEN"},
+		EnvFileKeys:    []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
 	},
 	{
 		Plugin:          "gh-copilot",
@@ -127,16 +131,22 @@ var connectionRegistry = []*ConnectionDef{
 		SupportsTest:    true,
 		RequiredScopes:  []string{"manage_billing:copilot", "read:org"},
 		ScopeHint:       "manage_billing:copilot, read:org (+ read:enterprise for enterprise metrics)",
+		EnvVarNames:     []string{"GITHUB_TOKEN", "GH_TOKEN"},
+		EnvFileKeys:     []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
 	},
 	{
 		Plugin:      "gitlab",
 		DisplayName: "GitLab",
 		Available:   false,
+		EnvVarNames: []string{"GITLAB_TOKEN"},
+		EnvFileKeys: []string{"GITLAB_TOKEN"},
 	},
 	{
 		Plugin:      "azure-devops",
 		DisplayName: "Azure DevOps",
 		Available:   false,
+		EnvVarNames: []string{"AZURE_DEVOPS_PAT"},
+		EnvFileKeys: []string{"AZURE_DEVOPS_PAT"},
 	},
 }
 
