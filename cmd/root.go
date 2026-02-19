@@ -1,3 +1,4 @@
+// Copilot Coding Agent setup verified.
 // Package cmd contains the cobra command tree for gh-devlake.
 package cmd
 
