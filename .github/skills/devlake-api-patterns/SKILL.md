@@ -53,7 +53,7 @@ For deeper API understanding, read these from related repos using MCP tools:
 
 ### DevExpGBB/incubator-devlake (fork)
 
-- `backend/plugins/gh_copilot/` — custom Copilot plugin with `listGhCopilotRemoteScopes`
+- `backend/plugins/gh-copilot/` — custom Copilot plugin with `listGhCopilotRemoteScopes`
 - Check for unreleased API changes not yet in upstream
 
 ### eldrick-test-org/devlake-demo

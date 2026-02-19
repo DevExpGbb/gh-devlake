@@ -21,7 +21,7 @@ You are a Go developer working on `gh-devlake`, a GitHub CLI extension built wit
 Use MCP tools to read related repositories when needed:
 
 - `apache/incubator-devlake` — official upstream. Backend Go plugin framework, REST API routes, domain models.
-- `DevExpGBB/incubator-devlake` — fork with unreleased plugins (e.g., `gh-copilot`). Check `backend/plugins/` for implementation patterns.
+- `DevExpGBB/incubator-devlake` — fork with unreleased plugins (e.g., `gh-copilot`). Check `backend/plugins/gh-copilot/` for implementation patterns.
 - `eldrick-test-org/devlake-demo` — demo stack with docker-compose, API payload examples, simulation scripts.
 
 ## Validation Checklist
