@@ -19,8 +19,8 @@ type ConnectionDef struct {
 	SupportsTest    bool
 	RequiredScopes  []string // PAT scopes needed for this plugin
 	ScopeHint       string   // short hint for error messages
-	EnvVarNames     []string // environment variable names for token resolution
-	EnvFileKeys     []string // .devlake.env keys for token resolution
+	EnvVarNames     []string // environment variable names (informational; resolution logic lives in token.Resolve)
+	EnvFileKeys     []string // .devlake.env keys (informational; resolution logic lives in token.Resolve)
 }
 
 // MenuLabel returns the label for interactive menus.

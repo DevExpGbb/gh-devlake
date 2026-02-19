@@ -167,6 +167,9 @@ func runConnectionsInternal(defs []*ConnectionDef, org, enterprise, tokenVal, en
 	// ── Resolve token ──
 	fmt.Println("\n🔑 Resolving GitHub PAT...")
 	scopeHint := aggregateScopeHints(defs)
+	// Both available plugins (github, gh-copilot) share the same GitHub PAT,
+	// so resolving with the first plugin's name is correct. When multi-tool
+	// support lands (v0.4.0), this will need per-plugin token resolution.
 	tokResult, err := token.Resolve(defs[0].Plugin, tokenVal, envFile, scopeHint)
 	if err != nil {
 		return nil, "", "", err
