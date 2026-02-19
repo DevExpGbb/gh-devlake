@@ -117,4 +117,7 @@ import (
 go build -o gh-devlake .          # Build the extension
 gh extension install .             # Install locally for testing
 gh devlake status                  # Run via gh CLI
+gh devlake configure connection    # Create a plugin connection
+gh devlake configure scope         # Configure collection scopes
+gh devlake configure project       # Create a project and start data collection
 ```
