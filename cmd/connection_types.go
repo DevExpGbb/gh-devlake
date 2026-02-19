@@ -29,6 +29,15 @@ func (d *ConnectionDef) MenuLabel() string {
 	return d.DisplayName
 }
 
+// scopeHintSuffix returns a formatted scope hint string for appending to error messages,
+// or an empty string if no ScopeHint is set.
+func (d *ConnectionDef) scopeHintSuffix() string {
+	if d.ScopeHint == "" {
+		return ""
+	}
+	return fmt.Sprintf("\n   💡 Ensure your PAT has these scopes: %s", d.ScopeHint)
+}
+
 // defaultConnName returns the default connection name for this plugin + org.
 func (d *ConnectionDef) defaultConnName(org string) string {
 	if org != "" {
@@ -202,10 +211,10 @@ func buildAndCreateConnection(client *devlake.Client, def *ConnectionDef, params
 		testReq := def.BuildTestRequest(params)
 		testResult, err := client.TestConnection(def.Plugin, testReq)
 		if err != nil {
-			return nil, fmt.Errorf("%s connection test failed: %w", def.DisplayName, err)
+			return nil, fmt.Errorf("%s connection test failed: %w%s", def.DisplayName, err, def.scopeHintSuffix())
 		}
 		if !testResult.Success {
-			return nil, fmt.Errorf("%s connection test failed: %s", def.DisplayName, testResult.Message)
+			return nil, fmt.Errorf("%s connection test failed: %s%s", def.DisplayName, testResult.Message, def.scopeHintSuffix())
 		}
 		fmt.Println("   ✅ Connection test passed")
 	}

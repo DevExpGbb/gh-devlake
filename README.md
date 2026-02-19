@@ -219,13 +219,14 @@ gh devlake configure connection --org my-org --endpoint https://github.example.c
 
 **What it does:**
 1. Auto-discovers DevLake instance
-2. Resolves the GitHub PAT (displays required scopes if prompting interactively)
-3. Prompts for connection name (Enter accepts default), proxy (Enter skips)
-4. For GitHub: offers Cloud vs Enterprise Server endpoint choice
-5. Tests the connection payload (GitHub only)
-6. Creates the plugin connection
-7. Saves connection ID to the state file
-8. Deletes `.devlake.env` (tokens now stored encrypted in DevLake)
+2. Resolves the GitHub PAT
+3. Displays required PAT scopes for the selected plugin (regardless of token source)
+4. Prompts for connection name (Enter accepts default), proxy (Enter skips)
+5. For GitHub: offers Cloud vs Enterprise Server endpoint choice
+6. Tests the connection payload (GitHub only)
+7. Creates the plugin connection
+8. Saves connection ID to the state file
+9. Deletes `.devlake.env` (tokens now stored encrypted in DevLake)
 
 After creating connections, run `configure scope` to create a project and start data collection.
 
@@ -346,6 +347,7 @@ gh devlake configure connection test
 **Output on failure:**
 ```
 ❌ Connection test failed: <error message>
+   💡 Ensure your PAT has these scopes: <required scopes>
 ```
 
 > **Note:** Both `--plugin` and `--id` must be provided for non-interactive mode. If either is missing, the command will enter interactive mode and prompt you to select a connection from all available plugins.
