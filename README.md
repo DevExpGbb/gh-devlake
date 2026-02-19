@@ -281,6 +281,37 @@ gh devlake configure connection delete --plugin github --id 3
 
 ---
 
+### `gh devlake configure connection test`
+
+Test an existing DevLake connection by ID.
+
+```bash
+# Non-interactive: specify plugin and connection ID
+gh devlake configure connection test --plugin gh-copilot --id 2
+
+# Interactive: pick from all discovered connections
+gh devlake configure connection test
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--plugin` | *(interactive)* | Plugin to test (`github`, `gh-copilot`) |
+| `--id` | `0` | Connection ID to test (required for non-interactive) |
+
+**Output on success:**
+```
+✅ Connection test passed
+```
+
+**Output on failure:**
+```
+❌ Connection test failed: <error message>
+```
+
+> **Note:** Both `--plugin` and `--id` must be provided for non-interactive mode. If either is missing, the command will enter interactive mode and prompt you to select a connection from all available plugins.
+
+---
+
 ### `gh devlake configure scope`
 
 Add repository scopes, create a DORA project with a blueprint, and trigger the first data sync.
