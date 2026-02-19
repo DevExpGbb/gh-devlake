@@ -99,6 +99,9 @@ func runConfigureConnections(cmd *cobra.Command, args []string) error {
 
 	// ── Create connection ──
 	fmt.Printf("\n📡 Creating %s connection...\n", def.DisplayName)
+	if def.ScopeHint != "" {
+		fmt.Printf("   Required PAT scopes: %s\n", def.ScopeHint)
+	}
 	params := ConnectionParams{
 		Token:      tokResult.Token,
 		Org:        org,

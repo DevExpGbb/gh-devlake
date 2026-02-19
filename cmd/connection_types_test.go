@@ -122,3 +122,16 @@ func TestBuildTestRequest_CopilotFields(t *testing.T) {
 		}
 	})
 }
+
+// TestAvailablePluginsScopeHints verifies that all available plugins have non-empty
+// RequiredScopes and ScopeHint fields so users always see what PAT scopes are needed.
+func TestAvailablePluginsScopeHints(t *testing.T) {
+	for _, def := range AvailableConnections() {
+		if len(def.RequiredScopes) == 0 {
+			t.Errorf("plugin %q has empty RequiredScopes", def.Plugin)
+		}
+		if def.ScopeHint == "" {
+			t.Errorf("plugin %q has empty ScopeHint", def.Plugin)
+		}
+	}
+}

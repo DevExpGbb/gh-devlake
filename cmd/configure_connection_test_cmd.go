@@ -160,6 +160,10 @@ func runTestConnection(cmd *cobra.Command, args []string) error {
 		msg = "No details provided"
 	}
 	fmt.Printf("❌ Connection test failed: %s\n", msg)
+	def := FindConnectionDef(plugin)
+	if def != nil && def.ScopeHint != "" {
+		fmt.Printf("   💡 Ensure your PAT has these scopes: %s\n", def.ScopeHint)
+	}
 	fmt.Println()
 	return fmt.Errorf("connection test failed")
 }
