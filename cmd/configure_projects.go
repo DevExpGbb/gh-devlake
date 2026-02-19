@@ -34,6 +34,7 @@ Example:
 	}
 
 	cmd.Flags().StringVar(&scopeOrg, "org", "", "GitHub organization slug")
+	cmd.Flags().StringVar(&scopeEnterprise, "enterprise", "", "GitHub enterprise slug (enables enterprise-level Copilot metrics)")
 	cmd.Flags().StringVar(&scopeRepos, "repos", "", "Comma-separated repos (owner/repo)")
 	cmd.Flags().StringVar(&scopeReposFile, "repos-file", "", "Path to file with repos (one per line)")
 	cmd.Flags().IntVar(&scopeGHConnID, "github-connection-id", 0, "GitHub connection ID (auto-detected if omitted)")
@@ -54,20 +55,21 @@ Example:
 
 // connChoice represents a discovered connection for the interactive picker.
 type connChoice struct {
-	plugin string
-	id     int
-	label  string
+	plugin     string
+	id         int
+	label      string
+	enterprise string // enterprise slug from state/API, if available
 }
 
 // addedConnection tracks a connection that has been scoped and is ready
 // for inclusion in the final blueprint.
 type addedConnection struct {
-	plugin     string
-	connID     int
-	label      string
-	summary    string // short summary shown in "Added so far" list
-	bpConn     devlake.BlueprintConnection
-	repos      []string // only populated for GitHub connections
+	plugin  string
+	connID  int
+	label   string
+	summary string // short summary shown in "Added so far" list
+	bpConn  devlake.BlueprintConnection
+	repos   []string // only populated for GitHub connections
 }
 
 func runConfigureProjects(cmd *cobra.Command, args []string) error {
@@ -97,6 +99,12 @@ func runConfigureProjects(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("organization is required (use --org)")
 	}
 	fmt.Printf("   Organization: %s\n", org)
+
+	// ── Resolve enterprise ──
+	enterprise := resolveEnterprise(state, scopeEnterprise)
+	if enterprise != "" {
+		fmt.Printf("   Enterprise: %s\n", enterprise)
+	}
 
 	// ── Project name ──
 	if scopeProjectName == "" {
@@ -176,7 +184,7 @@ func runConfigureProjects(cmd *cobra.Command, args []string) error {
 		}
 
 		// Scope the picked connection
-		ac, err := scopeConnection(client, picked, org)
+		ac, err := scopeConnection(client, picked, org, enterprise)
 		if err != nil {
 			fmt.Printf("   ⚠️  Could not scope %s: %v\n", picked.label, err)
 			// Remove from remaining so user doesn't loop on a failing connection
@@ -248,7 +256,7 @@ func runConfigureProjects(cmd *cobra.Command, args []string) error {
 
 // scopeConnection scopes a single connection (GitHub repos or Copilot org)
 // and returns an addedConnection with the BlueprintConnection entry.
-func scopeConnection(client *devlake.Client, c connChoice, org string) (*addedConnection, error) {
+func scopeConnection(client *devlake.Client, c connChoice, org, enterprise string) (*addedConnection, error) {
 	switch c.plugin {
 	case "github":
 		result, err := scopeGitHub(client, c.id, org)
@@ -267,11 +275,17 @@ func scopeConnection(client *devlake.Client, c connChoice, org string) (*addedCo
 		}, nil
 
 	case "gh-copilot":
-		conn, err := scopeCopilot(client, c.id, org)
+		// Prefer enterprise from the connection's own state, fall back to resolved value
+		ent := enterprise
+		if c.enterprise != "" {
+			ent = c.enterprise
+		}
+		conn, err := scopeCopilot(client, c.id, org, ent)
 		if err != nil {
 			return nil, err
 		}
-		summary := fmt.Sprintf("GitHub Copilot (ID: %d, org: %s)", c.id, org)
+		scopeID := copilotScopeID(org, ent)
+		summary := fmt.Sprintf("GitHub Copilot (ID: %d, scope: %s)", c.id, scopeID)
 		return &addedConnection{
 			plugin:  c.plugin,
 			connID:  c.id,
@@ -308,7 +322,7 @@ func discoverConnections(client *devlake.Client, state *devlake.State) []connCho
 			key := fmt.Sprintf("%s:%d", c.Plugin, c.ConnectionID)
 			seen[key] = true
 			label := fmt.Sprintf("%s (ID: %d, Name: %q)", pluginDisplayName(c.Plugin), c.ConnectionID, c.Name)
-			choices = append(choices, connChoice{plugin: c.Plugin, id: c.ConnectionID, label: label})
+			choices = append(choices, connChoice{plugin: c.Plugin, id: c.ConnectionID, label: label, enterprise: c.Enterprise})
 		}
 	}
 
@@ -325,7 +339,7 @@ func discoverConnections(client *devlake.Client, state *devlake.State) []connCho
 			}
 			seen[key] = true
 			label := fmt.Sprintf("%s (ID: %d, Name: %q)", pluginDisplayName(plugin), c.ID, c.Name)
-			choices = append(choices, connChoice{plugin: plugin, id: c.ID, label: label})
+			choices = append(choices, connChoice{plugin: plugin, id: c.ID, label: label, enterprise: c.Enterprise})
 		}
 	}
 	return choices

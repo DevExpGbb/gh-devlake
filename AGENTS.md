@@ -29,6 +29,17 @@ internal/
 - **Discovery chain**: explicit `--url` → state file → well-known ports
 - **Generic API helpers**: `doPost[T]`, `doGet[T]`, `doPut[T]`, `doPatch[T]` in `internal/devlake/client.go`
 
+### Plugin System
+Plugins are defined via `ConnectionDef` structs in `cmd/connection_types.go`. Each entry declares the plugin slug, endpoint, required fields (`NeedsOrg`, `NeedsEnterprise`), and PAT scopes. To add a new DevOps tool, add a `ConnectionDef` to `connectionRegistry` — no other registration needed.
+
+**One plugin per invocation.** Flag-based commands target a single `--plugin`. Interactive mode walks through plugins sequentially. This keeps plugin-specific fields (org, enterprise, repos, tokens) self-contained.
+
+### Copilot Scope ID Convention
+The `gh-copilot` plugin computes scope IDs as: enterprise + org → `"enterprise/org"`, enterprise only → `"enterprise"`, org only → `"org"`. See `copilotScopeID()` in `cmd/configure_scopes.go`. The scope ID must match the plugin's `listGhCopilotRemoteScopes` logic exactly or blueprint references will break.
+
+## Roadmap
+See `.github/skills/gh-devlake-roadmap/SKILL.md` for version plan, milestones, and design decisions. Project board: https://github.com/orgs/DevExpGbb/projects/21
+
 ## Terminal Output & UX — CRITICAL
 
 **The terminal IS the UI.** Every `fmt.Print` call is a UX decision. Readability, rhythm, and breathing room are non-negotiable.

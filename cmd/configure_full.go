@@ -109,10 +109,16 @@ func runConfigureFull(cmd *cobra.Command, args []string) error {
 		case "gh-copilot":
 			scopeCopilotConnID = r.ConnectionID
 			scopeSkipCopilot = false
+			if scopeEnterprise == "" && r.Enterprise != "" {
+				scopeEnterprise = r.Enterprise
+			}
 		}
 	}
 	if fullOrg != "" {
 		scopeOrg = fullOrg
+	}
+	if fullEnterprise != "" {
+		scopeEnterprise = fullEnterprise
 	}
 	cfgURL = devlakeURL
 

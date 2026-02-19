@@ -17,6 +17,7 @@ import (
 
 var (
 	scopeOrg           string
+	scopeEnterprise    string
 	scopeRepos         string
 	scopeReposFile     string
 	scopeGHConnID      int
@@ -49,6 +50,7 @@ Example:
 	}
 
 	cmd.Flags().StringVar(&scopeOrg, "org", "", "GitHub organization slug")
+	cmd.Flags().StringVar(&scopeEnterprise, "enterprise", "", "GitHub enterprise slug (enables enterprise-level Copilot metrics)")
 	cmd.Flags().StringVar(&scopeRepos, "repos", "", "Comma-separated repos (owner/repo)")
 	cmd.Flags().StringVar(&scopeReposFile, "repos-file", "", "Path to file with repos (one per line)")
 	cmd.Flags().IntVar(&scopeGHConnID, "github-connection-id", 0, "GitHub connection ID (auto-detected if omitted)")
@@ -143,21 +145,22 @@ func scopeGitHub(client *devlake.Client, connID int, org string) (*scopeGitHubRe
 	}, nil
 }
 
-// scopeCopilot PUTs the org scope for a Copilot connection.
+// scopeCopilot PUTs the org/enterprise scope for a Copilot connection.
 // Returns the BlueprintConnection entry.
-func scopeCopilot(client *devlake.Client, connID int, org string) (*devlake.BlueprintConnection, error) {
+func scopeCopilot(client *devlake.Client, connID int, org, enterprise string) (*devlake.BlueprintConnection, error) {
 	fmt.Println("\n📝 Adding Copilot scope...")
-	err := putCopilotScope(client, connID, org)
+	scopeID := copilotScopeID(org, enterprise)
+	err := putCopilotScope(client, connID, org, enterprise)
 	if err != nil {
 		return nil, fmt.Errorf("could not add Copilot scope: %w", err)
 	}
-	fmt.Printf("   ✅ Copilot scope added: %s\n", org)
+	fmt.Printf("   ✅ Copilot scope added: %s\n", scopeID)
 
 	return &devlake.BlueprintConnection{
 		PluginName:   "gh-copilot",
 		ConnectionID: connID,
 		Scopes: []devlake.BlueprintScope{
-			{ScopeID: org, ScopeName: org},
+			{ScopeID: scopeID, ScopeName: scopeID},
 		},
 	}, nil
 }
@@ -295,6 +298,12 @@ func runConfigureScopes(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Printf("   Organization: %s\n", org)
 
+	// ── Step 4: Resolve enterprise ──
+	enterprise := resolveEnterprise(state, scopeEnterprise)
+	if enterprise != "" {
+		fmt.Printf("   Enterprise: %s\n", enterprise)
+	}
+
 	projectName := scopeProjectName
 	if projectName == "" {
 		projectName = org
@@ -314,7 +323,7 @@ func runConfigureScopes(cmd *cobra.Command, args []string) error {
 	}
 
 	if !scopeSkipCopilot && copilotConnID > 0 {
-		conn, err := scopeCopilot(client, copilotConnID, org)
+		conn, err := scopeCopilot(client, copilotConnID, org, enterprise)
 		if err != nil {
 			fmt.Printf("   ⚠️  %v\n", err)
 		} else {
@@ -388,6 +397,21 @@ func resolveOrg(state *devlake.State, flagValue string) string {
 		}
 	}
 	return prompt.ReadLine("Enter your GitHub organization slug")
+}
+
+// resolveEnterprise determines the enterprise slug from flag, state, or API.
+func resolveEnterprise(state *devlake.State, flagValue string) string {
+	if flagValue != "" {
+		return flagValue
+	}
+	if state != nil {
+		for _, c := range state.Connections {
+			if c.Enterprise != "" {
+				return c.Enterprise
+			}
+		}
+	}
+	return ""
 }
 
 // resolveRepos determines repos from flags, file, or interactive gh CLI selection.
@@ -491,18 +515,36 @@ func putGitHubScopes(client *devlake.Client, connID, scopeConfigID int, details 
 	return client.PutScopes("github", connID, &devlake.ScopeBatchRequest{Data: data})
 }
 
-// putCopilotScope adds the organization scope to the Copilot connection.
-func putCopilotScope(client *devlake.Client, connID int, org string) error {
+// putCopilotScope adds the organization/enterprise scope to the Copilot connection.
+func putCopilotScope(client *devlake.Client, connID int, org, enterprise string) error {
+	scopeID := copilotScopeID(org, enterprise)
 	data := []any{
 		devlake.CopilotScope{
-			ID:           org,
+			ID:           scopeID,
 			ConnectionID: connID,
 			Organization: org,
-			Name:         org,
-			FullName:     org,
+			Enterprise:   enterprise,
+			Name:         scopeID,
+			FullName:     scopeID,
 		},
 	}
 	return client.PutScopes("gh-copilot", connID, &devlake.ScopeBatchRequest{Data: data})
+}
+
+// copilotScopeID computes the scope ID matching the plugin's convention:
+//   - enterprise + org → "enterprise/org"
+//   - enterprise only  → "enterprise"
+//   - org only          → "org"
+func copilotScopeID(org, enterprise string) string {
+	org = strings.TrimSpace(org)
+	enterprise = strings.TrimSpace(enterprise)
+	if enterprise != "" {
+		if org != "" {
+			return enterprise + "/" + org
+		}
+		return enterprise
+	}
+	return org
 }
 
 // ensureProjectWithFlags creates a project or returns an existing one's blueprint ID.
