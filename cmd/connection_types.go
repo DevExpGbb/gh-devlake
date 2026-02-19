@@ -218,6 +218,7 @@ func buildAndCreateConnection(client *devlake.Client, def *ConnectionDef, params
 	}
 
 	if def.SupportsTest {
+		fmt.Println("   🔑 Testing connection...")
 		testReq := def.BuildTestRequest(params)
 		testResult, err := client.TestConnection(def.Plugin, testReq)
 		if err != nil {

@@ -157,43 +157,38 @@ func runConfigureProjects(cmd *cobra.Command, args []string) error {
 			break
 		}
 
-		// Auto-add if only one connection exists and nothing added yet
 		var picked connChoice
-		if len(remaining) == 1 && len(added) == 0 {
-			picked = remaining[0]
-			fmt.Printf("\n📡 One connection available — adding %s automatically.\n", picked.label)
-		} else {
-			// Show what's been added so far
-			if len(added) > 0 {
-				fmt.Println()
-				fmt.Println("   " + strings.Repeat("─", 44))
-				fmt.Println("   Added so far:")
-				for _, a := range added {
-					fmt.Printf("     ✅ %s\n", a.summary)
-				}
-				fmt.Println("   " + strings.Repeat("─", 44))
-			}
 
+		// Show what's been added so far
+		if len(added) > 0 {
 			fmt.Println()
-			fmt.Println("   Choose a connection to add to this project.")
-			fmt.Println()
-
-			labels := make([]string, len(remaining))
-			for i, c := range remaining {
-				labels[i] = c.label
+			fmt.Println("   " + strings.Repeat("─", 44))
+			fmt.Println("   Added so far:")
+			for _, a := range added {
+				fmt.Printf("     ✅ %s\n", a.summary)
 			}
-			chosen := prompt.Select("Add connection", labels)
-			if chosen == "" {
-				if len(added) == 0 {
-					return fmt.Errorf("at least one connection is required")
-				}
+			fmt.Println("   " + strings.Repeat("─", 44))
+		}
+
+		fmt.Println()
+		fmt.Println("   Choose a connection to add to this project.")
+		fmt.Println()
+
+		labels := make([]string, len(remaining))
+		for i, c := range remaining {
+			labels[i] = c.label
+		}
+		chosen := prompt.Select("Add connection", labels)
+		if chosen == "" {
+			if len(added) == 0 {
+				return fmt.Errorf("at least one connection is required")
+			}
+			break
+		}
+		for _, c := range remaining {
+			if c.label == chosen {
+				picked = c
 				break
-			}
-			for _, c := range remaining {
-				if c.label == chosen {
-					picked = c
-					break
-				}
 			}
 		}
 

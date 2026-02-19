@@ -128,6 +128,10 @@ func runAzureCleanup() error {
 		return fmt.Errorf("invalid state file: %w", err)
 	}
 
+	if state.ResourceGroup == "" {
+		return fmt.Errorf("state file %s has no resource group — nothing to clean up.\nIf this is a local deployment, use --local instead", stateFile)
+	}
+
 	fmt.Printf("\nDeployment found:\n")
 	fmt.Printf("  Deployed:       %s\n", state.DeployedAt)
 	fmt.Printf("  Resource Group: %s\n", state.ResourceGroup)
