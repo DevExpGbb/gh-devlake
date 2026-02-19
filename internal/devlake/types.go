@@ -44,18 +44,26 @@ type ScopeBatchRequest struct {
 	Data []any `json:"data"`
 }
 
-// ScopeListEntry represents a scope entry returned by GET /scopes.
-// Fields are the common subset across plugins; plugin-specific fields are ignored.
+// ScopeListWrapper wraps a scope object as returned by the DevLake GET scopes API.
+// The API nests each scope inside a "scope" key: { "scope": { ... } }.
+type ScopeListWrapper struct {
+	Scope ScopeListEntry `json:"scope"`
+}
+
+// ScopeListEntry represents a scope object returned inside the wrapper.
+// ID fields vary by plugin (githubId for GitHub, id for Copilot), so we
+// capture both and resolve in the caller.
 type ScopeListEntry struct {
-	ScopeID   string `json:"scopeId"`
-	ScopeName string `json:"scopeName"`
-	FullName  string `json:"fullName,omitempty"`
+	GithubID int    `json:"githubId,omitempty"`
+	ID       string `json:"id,omitempty"`
+	Name     string `json:"name"`
+	FullName string `json:"fullName,omitempty"`
 }
 
 // ScopeListResponse is the response from GET /plugins/{plugin}/connections/{id}/scopes.
 type ScopeListResponse struct {
-	Scopes []ScopeListEntry `json:"scopes"`
-	Count  int              `json:"count"`
+	Scopes []ScopeListWrapper `json:"scopes"`
+	Count  int                `json:"count"`
 }
 
 // Project represents a DevLake project.

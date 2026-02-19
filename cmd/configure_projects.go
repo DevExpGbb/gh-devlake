@@ -284,20 +284,30 @@ if err != nil {
 return nil, fmt.Errorf("could not list scopes: %w", err)
 }
 if resp == nil || len(resp.Scopes) == 0 {
-return nil, fmt.Errorf("no scopes found on connection %d", c.id)
+return nil, fmt.Errorf("no scopes found on connection %d \u2014 run 'gh devlake configure scope' first", c.id)
 }
 
 var bpScopes []devlake.BlueprintScope
 var repos []string
-for _, s := range resp.Scopes {
+for _, w := range resp.Scopes {
+s := w.Scope
+// Resolve scope ID: GitHub uses githubId (int), Copilot uses id (string)
+scopeID := s.ID
+if c.plugin == "github" && s.GithubID > 0 {
+scopeID = fmt.Sprintf("%d", s.GithubID)
+}
+scopeName := s.FullName
+if scopeName == "" {
+scopeName = s.Name
+}
 bpScopes = append(bpScopes, devlake.BlueprintScope{
-ScopeID:   s.ScopeID,
-ScopeName: s.ScopeName,
+ScopeID:   scopeID,
+ScopeName: scopeName,
 })
 if c.plugin == "github" && s.FullName != "" {
 repos = append(repos, s.FullName)
 }
-fmt.Printf("   %s (ID: %s)\n", s.ScopeName, s.ScopeID)
+fmt.Printf("   %s (ID: %s)\n", scopeName, scopeID)
 }
 fmt.Printf("   \u2705 Found %d scope(s)\n", len(bpScopes))
 
