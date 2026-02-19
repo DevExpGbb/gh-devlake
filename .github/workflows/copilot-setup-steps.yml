@@ -6,22 +6,17 @@
 name: Copilot Setup Steps
 
 on:
-  push:
-    paths:
-      - '.github/workflows/copilot-setup-steps.yml'
-  pull_request:
-    paths:
-      - '.github/workflows/copilot-setup-steps.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  copilot-setup:
+  # The job MUST be called copilot-setup-steps or it will not be picked up by Copilot.
+  copilot-setup-steps:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: actions/setup-go@v5
         with:
