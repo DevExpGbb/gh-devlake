@@ -189,12 +189,8 @@ func runUpdateConnection(cmd *cobra.Command, args []string) error {
 	for i, c := range state.Connections {
 		if c.Plugin == plugin && c.ConnectionID == updated.ID {
 			state.Connections[i].Name = updated.Name
-			if updated.Organization != "" {
-				state.Connections[i].Organization = updated.Organization
-			}
-			if updated.Enterprise != "" {
-				state.Connections[i].Enterprise = updated.Enterprise
-			}
+			state.Connections[i].Organization = updated.Organization
+			state.Connections[i].Enterprise = updated.Enterprise
 			break
 		}
 	}
@@ -208,6 +204,7 @@ func runUpdateConnection(cmd *cobra.Command, args []string) error {
 	fmt.Println("\n" + strings.Repeat("─", 50))
 	fmt.Printf("✅ Connection updated (ID=%d) %q\n", updated.ID, updated.Name)
 	fmt.Println(strings.Repeat("─", 50))
+	fmt.Println()
 
 	return nil
 }
