@@ -37,15 +37,16 @@ var (
 
 func newConfigureScopesCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "scopes",
-		Short: "Configure collection scopes for existing connections",
+		Use:     "scope",
+		Aliases: []string{"scopes"},
+		Short:   "Configure collection scopes for existing connections",
 		Long: `Adds repository scopes and scope-configs to existing DevLake connections,
 creates a project with DORA metrics, configures a blueprint, and triggers
 the first data sync.
 
 Example:
-  gh devlake configure scopes --org my-org --repos owner/repo1,owner/repo2
-  gh devlake configure scopes --org my-org --repos-file repos.txt`,
+  gh devlake configure scope --org my-org --repos owner/repo1,owner/repo2
+  gh devlake configure scope --org my-org --repos-file repos.txt`,
 		RunE: runConfigureScopes,
 	}
 
@@ -288,7 +289,7 @@ func runConfigureScopes(cmd *cobra.Command, args []string) error {
 	}
 
 	if scopeSkipGitHub && scopeSkipCopilot {
-		return fmt.Errorf("no connections available — run 'configure connections' first")
+		return fmt.Errorf("no connections available — run 'configure connection' first")
 	}
 
 	// ── Step 3: Resolve organization ──
@@ -381,7 +382,7 @@ func resolveConnectionID(client *devlake.Client, state *devlake.State, plugin st
 		return id, nil
 	}
 
-	return 0, fmt.Errorf("no %s connections found — run 'configure connections' first", plugin)
+	return 0, fmt.Errorf("no %s connections found — run 'configure connection' first", plugin)
 }
 
 // resolveOrg determines the organization from flag, state, or prompt.

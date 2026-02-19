@@ -12,8 +12,9 @@ import (
 
 func newConfigureProjectsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "projects",
-		Short: "Create a DevLake project and start data collection",
+		Use:     "project",
+		Aliases: []string{"projects"},
+		Short:   "Create a DevLake project and start data collection",
 		Long: `Creates a DevLake project that groups data from your connections.
 
 A project ties together your GitHub repos and Copilot organization into a
@@ -28,8 +29,8 @@ This command will:
   5. Trigger the first data collection
 
 Example:
-  gh devlake configure projects --org my-org --repos my-org/app1,my-org/app2
-  gh devlake configure projects --org my-org  # interactive repo selection`,
+  gh devlake configure project --org my-org --repos my-org/app1,my-org/app2
+  gh devlake configure project --org my-org  # interactive repo selection`,
 		RunE: runConfigureProjects,
 	}
 
@@ -126,7 +127,7 @@ func runConfigureProjects(cmd *cobra.Command, args []string) error {
 	fmt.Println("\n🔍 Discovering connections...")
 	choices := discoverConnections(client, state)
 	if len(choices) == 0 {
-		return fmt.Errorf("no connections found — run 'gh devlake configure connections' first")
+		return fmt.Errorf("no connections found — run 'gh devlake configure connection' first")
 	}
 
 	// ── Iterative connection addition loop ──
