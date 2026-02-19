@@ -8,7 +8,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var cfgURL string // --url flag (global)
+var cfgURL string  // --url flag (global)
+var version = "dev" // overridden at build time via -ldflags "-X github.com/DevExpGBB/gh-devlake/cmd.version=<tag>"
 
 var rootCmd = &cobra.Command{
 	Use:   "devlake",
@@ -27,6 +28,7 @@ Typical workflow:
 func init() {
 	cobra.EnableCommandSorting = false
 
+	rootCmd.Version = version
 	rootCmd.PersistentFlags().StringVar(&cfgURL, "url", "", "DevLake API base URL (auto-discovered if omitted)")
 
 	rootCmd.AddGroup(
