@@ -347,6 +347,11 @@ func (c *Client) PutScopes(plugin string, connID int, req *ScopeBatchRequest) er
 	return err
 }
 
+// ListScopes returns the scopes configured on a plugin connection.
+func (c *Client) ListScopes(plugin string, connID int) (*ScopeListResponse, error) {
+	return doGet[ScopeListResponse](c, fmt.Sprintf("/plugins/%s/connections/%d/scopes?pageSize=100&page=1", plugin, connID))
+}
+
 // CreateProject creates a new DevLake project.
 func (c *Client) CreateProject(project *Project) (*Project, error) {
 	return doPost[Project](c, "/projects", project)

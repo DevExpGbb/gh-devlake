@@ -44,6 +44,20 @@ type ScopeBatchRequest struct {
 	Data []any `json:"data"`
 }
 
+// ScopeListEntry represents a scope entry returned by GET /scopes.
+// Fields are the common subset across plugins; plugin-specific fields are ignored.
+type ScopeListEntry struct {
+	ScopeID   string `json:"scopeId"`
+	ScopeName string `json:"scopeName"`
+	FullName  string `json:"fullName,omitempty"`
+}
+
+// ScopeListResponse is the response from GET /plugins/{plugin}/connections/{id}/scopes.
+type ScopeListResponse struct {
+	Scopes []ScopeListEntry `json:"scopes"`
+	Count  int              `json:"count"`
+}
+
 // Project represents a DevLake project.
 type Project struct {
 	Name        string          `json:"name"`
