@@ -254,6 +254,33 @@ gh-copilot    2  GitHub Copilot - my-org      my-org        avocado-corp
 
 ---
 
+### `gh devlake configure connection delete`
+
+Delete a plugin connection from DevLake. Removes broken, test, or unwanted connections.
+
+```bash
+gh devlake configure connection delete
+gh devlake configure connection delete --plugin github --id 3
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--plugin` | *(interactive)* | Plugin of the connection to delete (`github`, `gh-copilot`) |
+| `--id` | *(interactive)* | ID of the connection to delete |
+
+**Interactive mode** (no flags): lists all connections across plugins, prompts to select one, then prompts for confirmation before deleting.
+
+**Flag mode**: `--plugin` and `--id` are both required.
+
+**What it does:**
+1. Auto-discovers DevLake instance
+2. In interactive mode: lists all connections and prompts for selection
+3. Confirms deletion with a warning that scopes will be lost
+4. Calls `DELETE /plugins/{plugin}/connections/{id}`
+5. Removes the connection from the state file
+
+---
+
 ### `gh devlake configure connection test`
 
 Test an existing DevLake connection by ID.
