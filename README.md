@@ -255,6 +255,7 @@ gh devlake configure scope --org my-org --repos my-org/app1 \
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--org` | | GitHub organization slug |
+| `--plugin` | *(interactive)* | Plugin to configure (`github`, `gh-copilot`) |
 | `--repos` | | Comma-separated repos (`owner/repo`) |
 | `--repos-file` | | Path to file with repos (one per line) |
 | `--project-name` | *(org name)* | DevLake project name |
@@ -263,12 +264,13 @@ gh devlake configure scope --org my-org --repos my-org/app1 \
 | `--incident-label` | `incident` | Issue label identifying incidents |
 | `--cron` | `0 0 * * *` | Blueprint sync schedule (daily midnight) |
 | `--time-after` | *(6 months ago)* | Only collect data after this date |
-| `--skip-copilot` | `false` | Skip adding Copilot org scope |
 | `--skip-sync` | `false` | Skip triggering the first data sync |
 | `--wait` | `true` | Wait for pipeline to complete |
 | `--timeout` | `5m` | Max time to wait for pipeline |
 | `--github-connection-id` | *(auto)* | Override auto-detected GitHub connection ID |
 | `--copilot-connection-id` | *(auto)* | Override auto-detected Copilot connection ID |
+
+> **Note:** `--skip-copilot` and `--skip-github` are deprecated — use `--plugin github` or `--plugin gh-copilot` instead.
 
 **What it does:**
 1. Discovers DevLake and resolves connection IDs (from state file or API)
@@ -276,7 +278,7 @@ gh devlake configure scope --org my-org --repos my-org/app1 \
 3. Looks up repo details via `gh api repos/<owner>/<repo>`
 4. Creates a DORA scope config (deployment/production patterns, incident label)
 5. Adds repo scopes to the GitHub connection
-6. Adds Copilot org scope (unless `--skip-copilot`)
+6. Adds Copilot org scope (unless `--plugin github`)
 7. Creates a DevLake project with DORA metrics enabled
 8. Configures the project's blueprint with connection scopes
 9. Triggers the first data sync and monitors the pipeline
@@ -291,9 +293,10 @@ Combine connections + scopes configuration in one step (Phase 2 + Phase 3).
 gh devlake configure full --org my-org --repos my-org/app1,my-org/app2
 gh devlake configure full --org my-org --repos-file repos.txt
 gh devlake configure full --org my-org --enterprise my-ent --skip-sync
+gh devlake configure full --org my-org --plugin github
 ```
 
-Accepts all flags from both `configure connection` and `configure scope`. Runs Phase 2 first, then Phase 3 — wiring connection IDs automatically between the two phases.
+Accepts all flags from both `configure connection` and `configure scope`. Use `--plugin` to limit the run to a single plugin (skips the interactive picker). Runs Phase 2 first, then Phase 3 — wiring connection IDs automatically between the two phases.
 
 ---
 

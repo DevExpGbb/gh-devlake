@@ -49,9 +49,11 @@ Example:
 	cmd.Flags().StringVar(&scopeCron, "cron", "0 0 * * *", "Blueprint cron schedule")
 	cmd.Flags().BoolVar(&scopeSkipSync, "skip-sync", false, "Skip triggering the first data sync")
 	cmd.Flags().BoolVar(&scopeSkipCopilot, "skip-copilot", false, "Deprecated: use --plugin github instead")
+	cmd.Flags().BoolVar(&scopeSkipGitHub, "skip-github", false, "Deprecated: use --plugin gh-copilot instead")
 	cmd.Flags().BoolVar(&scopeWait, "wait", true, "Wait for pipeline to complete")
 	cmd.Flags().DurationVar(&scopeTimeout, "timeout", 5*time.Minute, "Max time to wait for pipeline")
 	_ = cmd.Flags().MarkHidden("skip-copilot")
+	_ = cmd.Flags().MarkHidden("skip-github")
 
 	return cmd
 }
@@ -129,6 +131,12 @@ func runConfigureProjects(cmd *cobra.Command, args []string) error {
 	fmt.Println("\n🔍 Discovering connections...")
 	choices := discoverConnections(client, state)
 	if scopePlugin != "" {
+		switch scopePlugin {
+		case "github", "gh-copilot":
+			// valid
+		default:
+			return fmt.Errorf("unknown plugin %q — choose: github, gh-copilot", scopePlugin)
+		}
 		choices = filterChoicesByPlugin(choices, scopePlugin)
 	}
 	if len(choices) == 0 {

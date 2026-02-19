@@ -52,7 +52,9 @@ func init() {
 	configureFullCmd.Flags().StringVar(&scopeCron, "cron", "0 0 * * *", "Blueprint cron schedule")
 	configureFullCmd.Flags().BoolVar(&scopeSkipSync, "skip-sync", false, "Skip first data sync")
 	configureFullCmd.Flags().BoolVar(&scopeSkipCopilot, "skip-copilot", false, "Deprecated: use --plugin github instead")
+	configureFullCmd.Flags().BoolVar(&scopeSkipGitHub, "skip-github", false, "Deprecated: use --plugin gh-copilot instead")
 	_ = configureFullCmd.Flags().MarkHidden("skip-copilot")
+	_ = configureFullCmd.Flags().MarkHidden("skip-github")
 }
 
 func runConfigureFull(cmd *cobra.Command, args []string) error {
@@ -80,6 +82,7 @@ func runConfigureFull(cmd *cobra.Command, args []string) error {
 		for _, d := range available {
 			labels = append(labels, d.DisplayName)
 		}
+		fmt.Println()
 		selectedLabels := prompt.SelectMultiWithDefaults("Which connections to configure?", labels, []int{1, 2})
 		for _, label := range selectedLabels {
 			for _, d := range available {
