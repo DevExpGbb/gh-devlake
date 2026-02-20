@@ -30,7 +30,7 @@ Use this command for token rotation, endpoint changes, or org/enterprise updates
 without recreating the connection (which would lose scope configs and blueprints).
 
 Flag-based (non-interactive):
-  gh devlake configure connection update --plugin github --id 1 --token ghp_newtoken
+  gh devlake configure connection update --plugin github --id 1 --token <new-token>
   gh devlake configure connection update --plugin gh-copilot --id 2 --org new-org
 
 Interactive (no flags required):
@@ -41,11 +41,11 @@ In interactive mode, current values are shown as defaults. Press Enter to keep.`
 }
 
 func init() {
-	updateConnectionCmd.Flags().StringVar(&updateConnPlugin, "plugin", "", "Plugin slug (github, gh-copilot)")
+	updateConnectionCmd.Flags().StringVar(&updateConnPlugin, "plugin", "", fmt.Sprintf("Plugin slug (%s)", strings.Join(availablePluginSlugs(), ", ")))
 	updateConnectionCmd.Flags().IntVar(&updateConnID, "id", 0, "Connection ID to update")
-	updateConnectionCmd.Flags().StringVar(&updateConnToken, "token", "", "New GitHub PAT for token rotation")
-	updateConnectionCmd.Flags().StringVar(&updateConnOrg, "org", "", "GitHub organization slug")
-	updateConnectionCmd.Flags().StringVar(&updateConnEnterprise, "enterprise", "", "GitHub enterprise slug")
+	updateConnectionCmd.Flags().StringVar(&updateConnToken, "token", "", "New personal access token for rotation")
+	updateConnectionCmd.Flags().StringVar(&updateConnOrg, "org", "", "Organization slug")
+	updateConnectionCmd.Flags().StringVar(&updateConnEnterprise, "enterprise", "", "Enterprise slug")
 	updateConnectionCmd.Flags().StringVar(&updateConnName, "name", "", "Connection display name")
 	updateConnectionCmd.Flags().StringVar(&updateConnEndpoint, "endpoint", "", "API endpoint URL")
 	updateConnectionCmd.Flags().StringVar(&updateConnProxy, "proxy", "", "HTTP proxy URL")

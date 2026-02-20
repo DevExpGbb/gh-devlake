@@ -14,9 +14,6 @@ import (
 
 // ProjectOpts holds options for the project command.
 type ProjectOpts struct {
-	Org         string
-	Enterprise  string
-	Plugin      string
 	ProjectName string
 	TimeAfter   string
 	Cron        string
@@ -51,17 +48,14 @@ This command will:
   5. Trigger the first data collection
 
 Example:
-  gh devlake configure project --org my-org
+  gh devlake configure project
   gh devlake configure project --project-name my-team`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConfigureProjects(cmd, args, &opts)
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.Org, "org", "", "GitHub organization slug")
-	cmd.Flags().StringVar(&opts.Enterprise, "enterprise", "", "GitHub enterprise slug")
-	cmd.Flags().StringVar(&opts.Plugin, "plugin", "", "Limit to one plugin (github, gh-copilot)")
-	cmd.Flags().StringVar(&opts.ProjectName, "project-name", "", "DevLake project name (defaults to org name)")
+	cmd.Flags().StringVar(&opts.ProjectName, "project-name", "", "DevLake project name")
 	cmd.Flags().StringVar(&opts.TimeAfter, "time-after", "", "Only collect data after this date (default: 6 months ago)")
 	cmd.Flags().StringVar(&opts.Cron, "cron", "0 0 * * *", "Blueprint cron schedule")
 	cmd.Flags().BoolVar(&opts.SkipSync, "skip-sync", false, "Skip triggering the first data sync")
@@ -116,42 +110,29 @@ func runConfigureProjects(cmd *cobra.Command, args []string, opts *ProjectOpts) 
 		statePath, state = devlake.FindStateFile(disc.URL, disc.GrafanaURL)
 	}
 
-	// Resolve organization
-	org := resolveOrg(state, opts.Org)
-	if org == "" {
-		return fmt.Errorf("organization is required (use --org)")
+	// Project name — derive default from state connections
+	defaultName := "my-project"
+	if state != nil {
+		for _, c := range state.Connections {
+			if c.Organization != "" {
+				defaultName = c.Organization
+				break
+			}
+		}
 	}
-	fmt.Printf("   Organization: %s\n", org)
-
-	enterprise := resolveEnterprise(state, opts.Enterprise)
-	if enterprise != "" {
-		fmt.Printf("   Enterprise: %s\n", enterprise)
-	}
-
-	// Project name
 	projectName := opts.ProjectName
 	if projectName == "" {
-		def := org
-		custom := prompt.ReadLine(fmt.Sprintf("\nProject name [%s]", def))
+		custom := prompt.ReadLine(fmt.Sprintf("\nProject name [%s]", defaultName))
 		if custom != "" {
 			projectName = custom
 		} else {
-			projectName = def
+			projectName = defaultName
 		}
 	}
 
 	// Discover connections
 	fmt.Println("\n\U0001f50d Discovering connections...")
 	choices := discoverConnections(client, state)
-	if opts.Plugin != "" {
-		switch opts.Plugin {
-		case "github", "gh-copilot":
-		// valid
-		default:
-			return fmt.Errorf("unknown plugin %q \u2014 choose: github, gh-copilot", opts.Plugin)
-		}
-		choices = filterChoicesByPlugin(choices, opts.Plugin)
-	}
 	if len(choices) == 0 {
 		return fmt.Errorf("no connections found \u2014 run 'gh devlake configure connection' first")
 	}
@@ -205,7 +186,7 @@ func runConfigureProjects(cmd *cobra.Command, args []string, opts *ProjectOpts) 
 		}
 
 		// List existing scopes on the picked connection
-		ac, err := listConnectionScopes(client, picked, org, enterprise)
+		ac, err := listConnectionScopes(client, picked)
 		if err != nil {
 			fmt.Printf("   \u26a0\ufe0f  Could not list scopes for %s: %v\n", picked.label, err)
 			fmt.Println("   Run 'gh devlake configure scope' to add scopes first.")
@@ -231,17 +212,11 @@ func runConfigureProjects(cmd *cobra.Command, args []string, opts *ProjectOpts) 
 	// Accumulate results
 	var connections []devlake.BlueprintConnection
 	var allRepos []string
-	hasGitHub := false
-	hasCopilot := false
+	var pluginNames []string
 	for _, a := range added {
 		connections = append(connections, a.bpConn)
 		allRepos = append(allRepos, a.repos...)
-		switch a.plugin {
-		case "github":
-			hasGitHub = true
-		case "gh-copilot":
-			hasCopilot = true
-		}
+		pluginNames = append(pluginNames, pluginDisplayName(a.plugin))
 	}
 
 	// Show what will happen
@@ -262,11 +237,9 @@ func runConfigureProjects(cmd *cobra.Command, args []string, opts *ProjectOpts) 
 		StatePath:   statePath,
 		State:       state,
 		ProjectName: projectName,
-		Org:         org,
 		Connections: connections,
 		Repos:       allRepos,
-		HasGitHub:   hasGitHub,
-		HasCopilot:  hasCopilot,
+		PluginNames: pluginNames,
 		Cron:        opts.Cron,
 		TimeAfter:   opts.TimeAfter,
 		SkipSync:    opts.SkipSync,
@@ -277,7 +250,7 @@ func runConfigureProjects(cmd *cobra.Command, args []string, opts *ProjectOpts) 
 
 // listConnectionScopes lists existing scopes on a connection and builds an
 // addedConnection from them. Returns an error if no scopes are found.
-func listConnectionScopes(client *devlake.Client, c connChoice, org, enterprise string) (*addedConnection, error) {
+func listConnectionScopes(client *devlake.Client, c connChoice) (*addedConnection, error) {
 	fmt.Printf("\n\U0001f4e6 Listing scopes on %s...\n", c.label)
 	resp, err := client.ListScopes(c.plugin, c.id)
 	if err != nil {
@@ -335,8 +308,7 @@ type finalizeProjectOpts struct {
 	Org         string
 	Connections []devlake.BlueprintConnection
 	Repos       []string
-	HasGitHub   bool
-	HasCopilot  bool
+	PluginNames []string // display names of active plugins
 	Cron        string
 	TimeAfter   string
 	SkipSync    bool
@@ -357,7 +329,7 @@ func finalizeProject(opts finalizeProjectOpts) error {
 	}
 
 	fmt.Println("\n\U0001f3d7\ufe0f  Creating DevLake project...")
-	blueprintID, err := ensureProjectWithFlags(opts.Client, opts.ProjectName, opts.Org, opts.HasGitHub, opts.HasCopilot)
+	blueprintID, err := ensureProjectWithFlags(opts.Client, opts.ProjectName, opts.PluginNames)
 	if err != nil {
 		return fmt.Errorf("failed to create project: %w", err)
 	}
@@ -380,8 +352,7 @@ func finalizeProject(opts finalizeProjectOpts) error {
 
 	if !opts.SkipSync {
 		fmt.Println("\n\U0001f680 Triggering first data sync...")
-		fmt.Println("   This collects repository, PR, and Copilot data from GitHub.")
-		fmt.Println("   Depending on repo size and history, this may take 5\u201330 minutes.")
+		fmt.Println("   Depending on data volume and history, this may take 5\u201330 minutes.")
 		if err := triggerAndPoll(opts.Client, blueprintID, opts.Wait, opts.Timeout); err != nil {
 			fmt.Printf("   \u26a0\ufe0f  %v\n", err)
 		}
@@ -407,8 +378,8 @@ func finalizeProject(opts finalizeProjectOpts) error {
 	if len(opts.Repos) > 0 {
 		fmt.Printf("   Repos:   %s\n", strings.Join(opts.Repos, ", "))
 	}
-	if opts.HasCopilot {
-		fmt.Printf("   Copilot: %s\n", opts.Org)
+	for _, pn := range opts.PluginNames {
+		fmt.Printf("   Plugin:  %s\n", pn)
 	}
 	fmt.Println(strings.Repeat("\u2500", 50))
 
@@ -416,12 +387,10 @@ func finalizeProject(opts finalizeProjectOpts) error {
 }
 
 // ensureProjectWithFlags creates a project or returns an existing one's blueprint ID.
-func ensureProjectWithFlags(client *devlake.Client, name, org string, hasGitHub, hasCopilot bool) (int, error) {
-	desc := fmt.Sprintf("DORA metrics and Copilot adoption for %s", org)
-	if !hasGitHub {
-		desc = fmt.Sprintf("Copilot adoption for %s", org)
-	} else if !hasCopilot {
-		desc = fmt.Sprintf("DORA metrics for %s", org)
+func ensureProjectWithFlags(client *devlake.Client, name string, pluginNames []string) (int, error) {
+	desc := fmt.Sprintf("DevLake metrics for %s", name)
+	if len(pluginNames) > 0 {
+		desc = fmt.Sprintf("DevLake metrics for %s (%s)", name, strings.Join(pluginNames, ", "))
 	}
 	project := &devlake.Project{
 		Name:        name,
@@ -523,19 +492,19 @@ func discoverConnections(client *devlake.Client, state *devlake.State) []connCho
 			choices = append(choices, connChoice{plugin: c.Plugin, id: c.ConnectionID, label: label, enterprise: c.Enterprise})
 		}
 	}
-	for _, plugin := range []string{"github", "gh-copilot"} {
-		conns, err := client.ListConnections(plugin)
+	for _, def := range AvailableConnections() {
+		conns, err := client.ListConnections(def.Plugin)
 		if err != nil {
 			continue
 		}
 		for _, c := range conns {
-			key := fmt.Sprintf("%s:%d", plugin, c.ID)
+			key := fmt.Sprintf("%s:%d", def.Plugin, c.ID)
 			if seen[key] {
 				continue
 			}
 			seen[key] = true
-			label := fmt.Sprintf("%s (ID: %d, Name: %q)", pluginDisplayName(plugin), c.ID, c.Name)
-			choices = append(choices, connChoice{plugin: plugin, id: c.ID, label: label, enterprise: c.Enterprise})
+			label := fmt.Sprintf("%s (ID: %d, Name: %q)", def.DisplayName, c.ID, c.Name)
+			choices = append(choices, connChoice{plugin: def.Plugin, id: c.ID, label: label, enterprise: c.Enterprise})
 		}
 	}
 	return choices
@@ -552,14 +521,10 @@ func filterChoicesByPlugin(choices []connChoice, plugin string) []connChoice {
 	return out
 }
 
-// pluginDisplayName returns a friendly name for a plugin slug.
+// pluginDisplayName returns a friendly name for a plugin slug, sourced from the registry.
 func pluginDisplayName(plugin string) string {
-	switch plugin {
-	case "github":
-		return "GitHub"
-	case "gh-copilot":
-		return "GitHub Copilot"
-	default:
-		return plugin
+	if def := FindConnectionDef(plugin); def != nil {
+		return def.DisplayName
 	}
+	return plugin
 }

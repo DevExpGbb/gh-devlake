@@ -26,7 +26,7 @@ Examples:
 }
 
 func init() {
-	testConnectionCmd.Flags().StringVar(&connTestPlugin, "plugin", "", "Plugin to test (github, gh-copilot)")
+	testConnectionCmd.Flags().StringVar(&connTestPlugin, "plugin", "", fmt.Sprintf("Plugin to test (%s)", strings.Join(availablePluginSlugs(), ", ")))
 	testConnectionCmd.Flags().IntVar(&connTestID, "id", 0, "Connection ID to test")
 	configureConnectionsCmd.AddCommand(testConnectionCmd)
 }

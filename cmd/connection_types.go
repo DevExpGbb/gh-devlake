@@ -10,17 +10,22 @@ import (
 
 // ConnectionDef describes a plugin connection type and how to create it.
 type ConnectionDef struct {
-	Plugin          string
-	DisplayName     string
-	Available       bool // false = coming soon
-	Endpoint        string
-	NeedsOrg        bool
-	NeedsEnterprise bool
-	SupportsTest    bool
-	RequiredScopes  []string // PAT scopes needed for this plugin
-	ScopeHint       string   // short hint for error messages
-	EnvVarNames     []string // environment variable names (informational; resolution logic lives in token.Resolve)
-	EnvFileKeys     []string // .devlake.env keys (informational; resolution logic lives in token.Resolve)
+	Plugin           string
+	DisplayName      string
+	Available        bool // false = coming soon
+	Endpoint         string
+	NeedsOrg         bool
+	NeedsEnterprise  bool
+	SupportsTest     bool
+	RateLimitPerHour int      // default rate limit; 0 = use 4500
+	EnableGraphql    bool     // send enableGraphql=true in create/test payloads
+	RequiredScopes   []string // PAT scopes needed for this plugin
+	ScopeHint        string   // short hint for error messages
+	TokenPrompt      string   // label for masked token prompt (e.g. "GitHub PAT")
+	OrgPrompt        string   // label for org prompt; empty = not prompted
+	EnterprisePrompt string   // label for enterprise prompt; empty = not prompted
+	EnvVarNames      []string // environment variable names for token resolution
+	EnvFileKeys      []string // .devlake.env keys for token resolution
 }
 
 // MenuLabel returns the label for interactive menus.
@@ -58,15 +63,19 @@ type ConnectionParams struct {
 	Endpoint   string // override default endpoint (e.g. GitHub Enterprise Server)
 }
 
+// rateLimitOrDefault returns the configured rate limit or a sensible default.
+func (d *ConnectionDef) rateLimitOrDefault() int {
+	if d.RateLimitPerHour > 0 {
+		return d.RateLimitPerHour
+	}
+	return 4500
+}
+
 // BuildCreateRequest constructs the API payload for creating this connection.
 func (d *ConnectionDef) BuildCreateRequest(name string, params ConnectionParams) *devlake.ConnectionCreateRequest {
 	endpoint := d.Endpoint
 	if params.Endpoint != "" {
 		endpoint = params.Endpoint
-	}
-	rateLimitPerHour := 4500
-	if d.Plugin == "gh-copilot" {
-		rateLimitPerHour = 5000
 	}
 	req := &devlake.ConnectionCreateRequest{
 		Name:             name,
@@ -74,10 +83,8 @@ func (d *ConnectionDef) BuildCreateRequest(name string, params ConnectionParams)
 		Proxy:            params.Proxy,
 		AuthMethod:       "AccessToken",
 		Token:            params.Token,
-		RateLimitPerHour: rateLimitPerHour,
-	}
-	if d.Plugin == "github" {
-		req.EnableGraphql = true
+		RateLimitPerHour: d.rateLimitOrDefault(),
+		EnableGraphql:    d.EnableGraphql,
 	}
 	if d.NeedsOrg && params.Org != "" {
 		req.Organization = params.Org
@@ -89,24 +96,19 @@ func (d *ConnectionDef) BuildCreateRequest(name string, params ConnectionParams)
 }
 
 // BuildTestRequest constructs the API payload for testing this connection.
-func (d *ConnectionDef) BuildTestRequest(params ConnectionParams) *devlake.ConnectionTestRequest {
+func (d *ConnectionDef) BuildTestRequest(name string, params ConnectionParams) *devlake.ConnectionTestRequest {
 	endpoint := d.Endpoint
 	if params.Endpoint != "" {
 		endpoint = params.Endpoint
 	}
-	rateLimitPerHour := 4500
-	if d.Plugin == "gh-copilot" {
-		rateLimitPerHour = 5000
-	}
 	req := &devlake.ConnectionTestRequest{
+		Name:             name,
 		Endpoint:         endpoint,
 		AuthMethod:       "AccessToken",
 		Token:            params.Token,
-		RateLimitPerHour: rateLimitPerHour,
+		RateLimitPerHour: d.rateLimitOrDefault(),
 		Proxy:            params.Proxy,
-	}
-	if d.Plugin == "github" {
-		req.EnableGraphql = true
+		EnableGraphql:    d.EnableGraphql,
 	}
 	if d.NeedsOrg && params.Org != "" {
 		req.Organization = params.Org
@@ -120,33 +122,42 @@ func (d *ConnectionDef) BuildTestRequest(params ConnectionParams) *devlake.Conne
 // connectionRegistry is the ordered list of all known plugin connection types.
 var connectionRegistry = []*ConnectionDef{
 	{
-		Plugin:         "github",
-		DisplayName:    "GitHub",
-		Available:      true,
-		Endpoint:       "https://api.github.com/",
-		SupportsTest:   true,
-		RequiredScopes: []string{"repo", "read:org", "read:user"},
-		ScopeHint:      "repo, read:org, read:user",
-		EnvVarNames:    []string{"GITHUB_TOKEN", "GH_TOKEN"},
-		EnvFileKeys:    []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
+		Plugin:           "github",
+		DisplayName:      "GitHub",
+		Available:        true,
+		Endpoint:         "https://api.github.com/",
+		SupportsTest:     true,
+		RateLimitPerHour: 4500,
+		EnableGraphql:    true,
+		RequiredScopes:   []string{"repo", "read:org", "read:user"},
+		ScopeHint:        "repo, read:org, read:user",
+		TokenPrompt:      "GitHub PAT",
+		EnvVarNames:      []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
+		EnvFileKeys:      []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
 	},
 	{
-		Plugin:          "gh-copilot",
-		DisplayName:     "GitHub Copilot",
-		Available:       true,
-		Endpoint:        "https://api.github.com/",
-		NeedsOrg:        true,
-		NeedsEnterprise: true,
-		SupportsTest:    true,
-		RequiredScopes:  []string{"manage_billing:copilot", "read:org"},
-		ScopeHint:       "manage_billing:copilot, read:org (+ read:enterprise for enterprise metrics)",
-		EnvVarNames:     []string{"GITHUB_TOKEN", "GH_TOKEN"},
-		EnvFileKeys:     []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
+		Plugin:           "gh-copilot",
+		DisplayName:      "GitHub Copilot",
+		Available:        true,
+		Endpoint:         "https://api.github.com/",
+		NeedsOrg:         true,
+		NeedsEnterprise:  true,
+		SupportsTest:     true,
+		RateLimitPerHour: 5000,
+		RequiredScopes:   []string{"manage_billing:copilot", "read:org"},
+		ScopeHint:        "manage_billing:copilot, read:org (+ read:enterprise for enterprise metrics)",
+		TokenPrompt:      "GitHub Copilot PAT",
+		OrgPrompt:        "Organization slug",
+		EnterprisePrompt: "Enterprise slug (optional, press Enter to skip)",
+		EnvVarNames:      []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
+		EnvFileKeys:      []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
 	},
 	{
 		Plugin:      "gitlab",
 		DisplayName: "GitLab",
 		Available:   false,
+		TokenPrompt: "GitLab Token",
+		OrgPrompt:   "GitLab group or project path",
 		EnvVarNames: []string{"GITLAB_TOKEN"},
 		EnvFileKeys: []string{"GITLAB_TOKEN"},
 	},
@@ -154,6 +165,8 @@ var connectionRegistry = []*ConnectionDef{
 		Plugin:      "azure-devops",
 		DisplayName: "Azure DevOps",
 		Available:   false,
+		TokenPrompt: "Azure DevOps PAT",
+		OrgPrompt:   "Azure DevOps organization",
 		EnvVarNames: []string{"AZURE_DEVOPS_PAT"},
 		EnvFileKeys: []string{"AZURE_DEVOPS_PAT"},
 	},
@@ -219,7 +232,7 @@ func buildAndCreateConnection(client *devlake.Client, def *ConnectionDef, params
 
 	if def.SupportsTest {
 		fmt.Println("   🔑 Testing connection...")
-		testReq := def.BuildTestRequest(params)
+		testReq := def.BuildTestRequest(connName, params)
 		testResult, err := client.TestConnection(def.Plugin, testReq)
 		if err != nil {
 			return nil, fmt.Errorf("%s connection test failed: %w%s", def.DisplayName, err, def.scopeHintSuffix())

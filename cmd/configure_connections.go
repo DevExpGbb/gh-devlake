@@ -32,24 +32,21 @@ var configureConnectionsCmd = &cobra.Command{
 If --plugin is not specified, prompts interactively. Run multiple times to
 add connections for additional plugins.
 
-Available plugins:  github, gh-copilot
-Coming soon:        gitlab, azure-devops
-
 Token resolution order:
-  --token flag → .devlake.env → $GITHUB_TOKEN/$GH_TOKEN → masked prompt`,
+  --token flag → .devlake.env → environment variable → masked prompt`,
 	RunE: runConfigureConnections,
 }
 
 func init() {
-	configureConnectionsCmd.Flags().StringVar(&connPlugin, "plugin", "", "Plugin to configure (github, gh-copilot)")
-	configureConnectionsCmd.Flags().StringVar(&connOrg, "org", "", "GitHub organization slug")
-	configureConnectionsCmd.Flags().StringVar(&connEnterprise, "enterprise", "", "GitHub enterprise slug")
-	configureConnectionsCmd.Flags().StringVar(&connToken, "token", "", "GitHub PAT")
-	configureConnectionsCmd.Flags().StringVar(&connEnvFile, "env-file", ".devlake.env", "Path to env file containing GITHUB_PAT")
+	configureConnectionsCmd.Flags().StringVar(&connPlugin, "plugin", "", fmt.Sprintf("Plugin to configure (%s)", strings.Join(availablePluginSlugs(), ", ")))
+	configureConnectionsCmd.Flags().StringVar(&connOrg, "org", "", "Organization slug")
+	configureConnectionsCmd.Flags().StringVar(&connEnterprise, "enterprise", "", "Enterprise slug")
+	configureConnectionsCmd.Flags().StringVar(&connToken, "token", "", "Personal access token")
+	configureConnectionsCmd.Flags().StringVar(&connEnvFile, "env-file", ".devlake.env", "Path to env file containing PAT")
 	configureConnectionsCmd.Flags().BoolVar(&connSkipClean, "skip-cleanup", false, "Do not delete .devlake.env after setup")
 	configureConnectionsCmd.Flags().StringVar(&connName, "name", "", "Connection display name (defaults to \"Plugin - org\")")
 	configureConnectionsCmd.Flags().StringVar(&connProxy, "proxy", "", "HTTP proxy URL")
-	configureConnectionsCmd.Flags().StringVar(&connEndpoint, "endpoint", "", "API endpoint (defaults to GitHub Cloud)")
+	configureConnectionsCmd.Flags().StringVar(&connEndpoint, "endpoint", "", "API endpoint override")
 }
 
 func runConfigureConnections(cmd *cobra.Command, args []string) error {
@@ -67,7 +64,11 @@ func runConfigureConnections(cmd *cobra.Command, args []string) error {
 	// ── Prompt for org if needed ──
 	org := connOrg
 	if def.NeedsOrg && org == "" {
-		org = prompt.ReadLine("GitHub organization slug")
+		orgPrompt := def.OrgPrompt
+		if orgPrompt == "" {
+			orgPrompt = "Organization slug"
+		}
+		org = prompt.ReadLine(orgPrompt)
 		if org == "" {
 			return fmt.Errorf("--org is required for %s", def.DisplayName)
 		}
@@ -76,7 +77,7 @@ func runConfigureConnections(cmd *cobra.Command, args []string) error {
 	// Prompt for org optionally for plugins that don't require it,
 	// so it gets saved to state for downstream commands (e.g. scopes).
 	if !def.NeedsOrg && org == "" {
-		org = prompt.ReadLine("GitHub organization slug (optional, press Enter to skip)")
+		org = prompt.ReadLine("Organization slug (optional, press Enter to skip)")
 	}
 
 	// ── Discover DevLake ──
@@ -90,8 +91,15 @@ func runConfigureConnections(cmd *cobra.Command, args []string) error {
 	client := devlake.NewClient(disc.URL)
 
 	// ── Resolve token ──
-	fmt.Println("\n🔑 Resolving PAT...")
-	tokResult, err := token.Resolve(def.Plugin, connToken, connEnvFile, def.ScopeHint)
+	fmt.Printf("\n🔑 Resolving %s PAT...\n", def.DisplayName)
+	tokResult, err := token.Resolve(token.ResolveOpts{
+		FlagValue:   connToken,
+		EnvFilePath: connEnvFile,
+		EnvFileKeys: def.EnvFileKeys,
+		EnvVarNames: def.EnvVarNames,
+		DisplayName: def.DisplayName,
+		ScopeHint:   def.ScopeHint,
+	})
 	if err != nil {
 		return err
 	}

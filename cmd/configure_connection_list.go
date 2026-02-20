@@ -23,7 +23,7 @@ Examples:
 }
 
 func init() {
-	listConnectionsCmd.Flags().StringVar(&connListPlugin, "plugin", "", "Filter by plugin (github, gh-copilot)")
+	listConnectionsCmd.Flags().StringVar(&connListPlugin, "plugin", "", fmt.Sprintf("Filter by plugin (%s)", strings.Join(availablePluginSlugs(), ", ")))
 	configureConnectionsCmd.AddCommand(listConnectionsCmd)
 }
 

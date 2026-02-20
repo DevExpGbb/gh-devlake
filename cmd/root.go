@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var cfgURL string  // --url flag (global)
+var cfgURL string   // --url flag (global)
 var version = "dev" // overridden at build time via -ldflags "-X github.com/DevExpGBB/gh-devlake/cmd.version=<tag>"
 
 var rootCmd = &cobra.Command{
@@ -20,7 +20,7 @@ Deploy, configure, and manage DevLake instances from the command line.
 
 Typical workflow:
   1. gh devlake deploy local          # spin up DevLake with Docker Compose
-  2. gh devlake configure full --org myorg  # create connections + scopes
+	2. gh devlake configure full         # create connections + scopes + project
   3. gh devlake status                # verify everything is healthy
   4. gh devlake cleanup               # tear down when finished`,
 }

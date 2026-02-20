@@ -120,21 +120,24 @@ func runAzureCleanup() error {
 		stateFile = ".devlake-azure.json"
 	}
 
+	var state azureStateData
 	data, err := os.ReadFile(stateFile)
 	if err != nil {
-		return fmt.Errorf("state file not found: %s\nExpected .devlake-azure.json or use --state-file", stateFile)
-	}
-
-	var state azureStateData
-	if err := json.Unmarshal(data, &state); err != nil {
-		return fmt.Errorf("invalid state file: %w", err)
-	}
-
-	if state.ResourceGroup == "" {
-		if cleanupRG != "" {
-			state.ResourceGroup = cleanupRG
-		} else {
-			return fmt.Errorf("state file %s has no resource group — use --resource-group to specify it.\nIf this is a local deployment, use --local instead", stateFile)
+		if cleanupRG == "" {
+			return fmt.Errorf("state file not found: %s\nUse --resource-group to specify the Azure resource group directly", stateFile)
+		}
+		// No state file but --resource-group provided — proceed with minimal info
+		state.ResourceGroup = cleanupRG
+	} else {
+		if err := json.Unmarshal(data, &state); err != nil {
+			return fmt.Errorf("invalid state file: %w", err)
+		}
+		if state.ResourceGroup == "" {
+			if cleanupRG != "" {
+				state.ResourceGroup = cleanupRG
+			} else {
+				return fmt.Errorf("state file %s has no resource group — use --resource-group to specify it.\nIf this is a local deployment, use --local instead", stateFile)
+			}
 		}
 	}
 
