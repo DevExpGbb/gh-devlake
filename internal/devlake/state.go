@@ -85,9 +85,31 @@ func FindStateFile(apiURL, grafanaURL string) (string, *State) {
 	return path, state
 }
 
-// SaveState writes state to disk.
+// SaveState writes state to disk, merging with any existing fields in the file
+// (e.g. Azure deployment metadata) that the State struct doesn't model.
 func SaveState(path string, state *State) error {
-	data, err := json.MarshalIndent(state, "", "  ")
+	// Load existing raw JSON to preserve fields not in the State struct
+	existing := make(map[string]any)
+	if data, err := os.ReadFile(path); err == nil {
+		_ = json.Unmarshal(data, &existing)
+	}
+
+	// Marshal State into a map
+	stateBytes, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+	var stateMap map[string]any
+	if err := json.Unmarshal(stateBytes, &stateMap); err != nil {
+		return err
+	}
+
+	// Overlay State fields onto existing (preserves resourceGroup, resources, etc.)
+	for k, v := range stateMap {
+		existing[k] = v
+	}
+
+	data, err := json.MarshalIndent(existing, "", "  ")
 	if err != nil {
 		return err
 	}

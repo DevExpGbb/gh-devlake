@@ -17,6 +17,7 @@ var (
 	cleanupKeepRG bool
 	cleanupAzure  bool
 	cleanupLocal  bool
+	cleanupRG     string
 )
 
 func newCleanupCmd() *cobra.Command {
@@ -40,6 +41,7 @@ Example:
 	cmd.Flags().BoolVar(&cleanupKeepRG, "keep-resource-group", false, "Delete resources but keep the Azure resource group")
 	cmd.Flags().BoolVar(&cleanupAzure, "azure", false, "Force Azure cleanup mode")
 	cmd.Flags().BoolVar(&cleanupLocal, "local", false, "Force local cleanup mode")
+	cmd.Flags().StringVar(&cleanupRG, "resource-group", "", "Azure resource group name (overrides state file)")
 
 	return cmd
 }
@@ -129,7 +131,11 @@ func runAzureCleanup() error {
 	}
 
 	if state.ResourceGroup == "" {
-		return fmt.Errorf("state file %s has no resource group — nothing to clean up.\nIf this is a local deployment, use --local instead", stateFile)
+		if cleanupRG != "" {
+			state.ResourceGroup = cleanupRG
+		} else {
+			return fmt.Errorf("state file %s has no resource group — use --resource-group to specify it.\nIf this is a local deployment, use --local instead", stateFile)
+		}
 	}
 
 	fmt.Printf("\nDeployment found:\n")
