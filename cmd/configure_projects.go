@@ -14,9 +14,6 @@ import (
 
 // ProjectOpts holds options for the project command.
 type ProjectOpts struct {
-	Org         string
-	Enterprise  string
-	Plugin      string
 	ProjectName string
 	TimeAfter   string
 	Cron        string
@@ -51,17 +48,14 @@ This command will:
   5. Trigger the first data collection
 
 Example:
-  gh devlake configure project --org my-org
+  gh devlake configure project
   gh devlake configure project --project-name my-team`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConfigureProjects(cmd, args, &opts)
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.Org, "org", "", "Organization slug")
-	cmd.Flags().StringVar(&opts.Enterprise, "enterprise", "", "Enterprise slug")
-	cmd.Flags().StringVar(&opts.Plugin, "plugin", "", fmt.Sprintf("Limit to one plugin (%s)", strings.Join(availablePluginSlugs(), ", ")))
-	cmd.Flags().StringVar(&opts.ProjectName, "project-name", "", "DevLake project name (defaults to org name)")
+	cmd.Flags().StringVar(&opts.ProjectName, "project-name", "", "DevLake project name")
 	cmd.Flags().StringVar(&opts.TimeAfter, "time-after", "", "Only collect data after this date (default: 6 months ago)")
 	cmd.Flags().StringVar(&opts.Cron, "cron", "0 0 * * *", "Blueprint cron schedule")
 	cmd.Flags().BoolVar(&opts.SkipSync, "skip-sync", false, "Skip triggering the first data sync")
@@ -116,40 +110,29 @@ func runConfigureProjects(cmd *cobra.Command, args []string, opts *ProjectOpts) 
 		statePath, state = devlake.FindStateFile(disc.URL, disc.GrafanaURL)
 	}
 
-	// Resolve organization
-	org := resolveOrg(state, opts.Org)
-	if org == "" {
-		return fmt.Errorf("organization is required (use --org)")
+	// Project name — derive default from state connections
+	defaultName := "my-project"
+	if state != nil {
+		for _, c := range state.Connections {
+			if c.Organization != "" {
+				defaultName = c.Organization
+				break
+			}
+		}
 	}
-	fmt.Printf("   Organization: %s\n", org)
-
-	enterprise := resolveEnterprise(state, opts.Enterprise)
-	if enterprise != "" {
-		fmt.Printf("   Enterprise: %s\n", enterprise)
-	}
-
-	// Project name
 	projectName := opts.ProjectName
 	if projectName == "" {
-		def := org
-		custom := prompt.ReadLine(fmt.Sprintf("\nProject name [%s]", def))
+		custom := prompt.ReadLine(fmt.Sprintf("\nProject name [%s]", defaultName))
 		if custom != "" {
 			projectName = custom
 		} else {
-			projectName = def
+			projectName = defaultName
 		}
 	}
 
 	// Discover connections
 	fmt.Println("\n\U0001f50d Discovering connections...")
 	choices := discoverConnections(client, state)
-	if opts.Plugin != "" {
-		if FindConnectionDef(opts.Plugin) == nil {
-			slugs := availablePluginSlugs()
-			return fmt.Errorf("unknown plugin %q \u2014 choose: %s", opts.Plugin, strings.Join(slugs, ", "))
-		}
-		choices = filterChoicesByPlugin(choices, opts.Plugin)
-	}
 	if len(choices) == 0 {
 		return fmt.Errorf("no connections found \u2014 run 'gh devlake configure connection' first")
 	}
@@ -203,7 +186,7 @@ func runConfigureProjects(cmd *cobra.Command, args []string, opts *ProjectOpts) 
 		}
 
 		// List existing scopes on the picked connection
-		ac, err := listConnectionScopes(client, picked, org, enterprise)
+		ac, err := listConnectionScopes(client, picked)
 		if err != nil {
 			fmt.Printf("   \u26a0\ufe0f  Could not list scopes for %s: %v\n", picked.label, err)
 			fmt.Println("   Run 'gh devlake configure scope' to add scopes first.")
@@ -254,7 +237,6 @@ func runConfigureProjects(cmd *cobra.Command, args []string, opts *ProjectOpts) 
 		StatePath:   statePath,
 		State:       state,
 		ProjectName: projectName,
-		Org:         org,
 		Connections: connections,
 		Repos:       allRepos,
 		PluginNames: pluginNames,
@@ -268,7 +250,7 @@ func runConfigureProjects(cmd *cobra.Command, args []string, opts *ProjectOpts) 
 
 // listConnectionScopes lists existing scopes on a connection and builds an
 // addedConnection from them. Returns an error if no scopes are found.
-func listConnectionScopes(client *devlake.Client, c connChoice, org, enterprise string) (*addedConnection, error) {
+func listConnectionScopes(client *devlake.Client, c connChoice) (*addedConnection, error) {
 	fmt.Printf("\n\U0001f4e6 Listing scopes on %s...\n", c.label)
 	resp, err := client.ListScopes(c.plugin, c.id)
 	if err != nil {
@@ -347,7 +329,7 @@ func finalizeProject(opts finalizeProjectOpts) error {
 	}
 
 	fmt.Println("\n\U0001f3d7\ufe0f  Creating DevLake project...")
-	blueprintID, err := ensureProjectWithFlags(opts.Client, opts.ProjectName, opts.Org, opts.PluginNames)
+	blueprintID, err := ensureProjectWithFlags(opts.Client, opts.ProjectName, opts.PluginNames)
 	if err != nil {
 		return fmt.Errorf("failed to create project: %w", err)
 	}
@@ -405,10 +387,10 @@ func finalizeProject(opts finalizeProjectOpts) error {
 }
 
 // ensureProjectWithFlags creates a project or returns an existing one's blueprint ID.
-func ensureProjectWithFlags(client *devlake.Client, name, org string, pluginNames []string) (int, error) {
-	desc := fmt.Sprintf("DevLake metrics for %s", org)
+func ensureProjectWithFlags(client *devlake.Client, name string, pluginNames []string) (int, error) {
+	desc := fmt.Sprintf("DevLake metrics for %s", name)
 	if len(pluginNames) > 0 {
-		desc = fmt.Sprintf("DevLake metrics for %s (%s)", org, strings.Join(pluginNames, ", "))
+		desc = fmt.Sprintf("DevLake metrics for %s (%s)", name, strings.Join(pluginNames, ", "))
 	}
 	project := &devlake.Project{
 		Name:        name,

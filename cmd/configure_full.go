@@ -13,50 +13,28 @@ import (
 )
 
 var (
-	fullOrg        string
-	fullEnterprise string
-	fullToken      string
-	fullEnvFile    string
-	fullSkipClean  bool
-	fullPlugin     string
-	fullRepos      string
-	fullReposFile  string
-	fullProject    string
-	fullDeploy     string
-	fullProd       string
-	fullIncident   string
-	fullTimeAfter  string
-	fullCron       string
-	fullSkipSync   bool
+	fullToken     string
+	fullEnvFile   string
+	fullSkipClean bool
 )
 
 var configureFullCmd = &cobra.Command{
 	Use:   "full",
 	Short: "Run connections + scopes + project in one step",
-	Long: `Combines 'configure connection', 'configure scope', and 'configure project'
-into a single workflow.
+	Long: `Runs connections, scopes, and project setup in one interactive session.
+Equivalent to 'gh devlake init' but skips the deploy phase.
 
-Example:
-  gh devlake configure full --org my-org --plugin github --repos owner/repo1,owner/repo2`,
+For scripted/CI use, chain individual commands instead:
+  gh devlake configure connection --plugin github --org my-org
+  gh devlake configure scope --plugin github --org my-org --repos owner/repo1
+  gh devlake configure project --project-name my-project`,
 	RunE: runConfigureFull,
 }
 
 func init() {
-	configureFullCmd.Flags().StringVar(&fullOrg, "org", "", "Organization slug")
-	configureFullCmd.Flags().StringVar(&fullEnterprise, "enterprise", "", "Enterprise slug")
-	configureFullCmd.Flags().StringVar(&fullToken, "token", "", "Personal access token")
+	configureFullCmd.Flags().StringVar(&fullToken, "token", "", "Personal access token (seeds token resolution; may still prompt per plugin)")
 	configureFullCmd.Flags().StringVar(&fullEnvFile, "env-file", ".devlake.env", "Path to env file containing PAT")
 	configureFullCmd.Flags().BoolVar(&fullSkipClean, "skip-cleanup", false, "Do not delete .devlake.env after setup")
-	configureFullCmd.Flags().StringVar(&fullPlugin, "plugin", "", fmt.Sprintf("Limit to one plugin (%s)", strings.Join(availablePluginSlugs(), ", ")))
-	configureFullCmd.Flags().StringVar(&fullRepos, "repos", "", "Comma-separated repos (owner/repo)")
-	configureFullCmd.Flags().StringVar(&fullReposFile, "repos-file", "", "Path to file with repos")
-	configureFullCmd.Flags().StringVar(&fullProject, "project-name", "", "DevLake project name")
-	configureFullCmd.Flags().StringVar(&fullDeploy, "deployment-pattern", "(?i)deploy", "Deployment workflow regex")
-	configureFullCmd.Flags().StringVar(&fullProd, "production-pattern", "(?i)prod", "Production environment regex")
-	configureFullCmd.Flags().StringVar(&fullIncident, "incident-label", "incident", "Incident issue label")
-	configureFullCmd.Flags().StringVar(&fullTimeAfter, "time-after", "", "Only collect data after this date")
-	configureFullCmd.Flags().StringVar(&fullCron, "cron", "0 0 * * *", "Blueprint cron schedule")
-	configureFullCmd.Flags().BoolVar(&fullSkipSync, "skip-sync", false, "Skip first data sync")
 }
 
 func runConfigureFull(cmd *cobra.Command, args []string) error {
@@ -67,31 +45,18 @@ func runConfigureFull(cmd *cobra.Command, args []string) error {
 
 	// ── Select connections ──
 	available := AvailableConnections()
+	var labels []string
+	for _, d := range available {
+		labels = append(labels, d.DisplayName)
+	}
+	fmt.Println()
+	selectedLabels := prompt.SelectMulti("Which connections to configure?", labels)
 	var defs []*ConnectionDef
-	if fullPlugin != "" {
+	for _, label := range selectedLabels {
 		for _, d := range available {
-			if d.Plugin == fullPlugin {
+			if d.DisplayName == label {
 				defs = append(defs, d)
 				break
-			}
-		}
-		if len(defs) == 0 {
-			slugs := availablePluginSlugs()
-			return fmt.Errorf("unknown plugin %q — choose: %s", fullPlugin, strings.Join(slugs, ", "))
-		}
-	} else {
-		var labels []string
-		for _, d := range available {
-			labels = append(labels, d.DisplayName)
-		}
-		fmt.Println()
-		selectedLabels := prompt.SelectMulti("Which connections to configure?", labels)
-		for _, label := range selectedLabels {
-			for _, d := range available {
-				if d.DisplayName == label {
-					defs = append(defs, d)
-					break
-				}
 			}
 		}
 	}
@@ -104,7 +69,7 @@ func runConfigureFull(cmd *cobra.Command, args []string) error {
 	fmt.Println("║  PHASE 1: Configure Connections      ║")
 	fmt.Println("╚══════════════════════════════════════╝")
 
-	results, client, statePath, state, err := runConnectionsInternal(defs, fullOrg, fullEnterprise, fullToken, fullEnvFile, fullSkipClean)
+	results, client, statePath, state, err := runConnectionsInternal(defs, "", "", fullToken, fullEnvFile, fullSkipClean)
 	if err != nil {
 		return fmt.Errorf("phase 1 (connections) failed: %w", err)
 	}
@@ -113,23 +78,12 @@ func runConfigureFull(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Println("\n   ✅ Phase 1 complete.")
 
-	// Resolve org/enterprise from results if not set via flags
-	org := fullOrg
-	if org == "" {
-		for _, r := range results {
-			if r.Organization != "" {
-				org = r.Organization
-				break
-			}
-		}
-	}
-	enterprise := fullEnterprise
-	if enterprise == "" {
-		for _, r := range results {
-			if r.Enterprise != "" {
-				enterprise = r.Enterprise
-				break
-			}
+	// Derive org from connection results for project name default
+	org := ""
+	for _, r := range results {
+		if r.Organization != "" {
+			org = r.Organization
+			break
 		}
 	}
 
@@ -145,21 +99,39 @@ func runConfigureFull(cmd *cobra.Command, args []string) error {
 		switch r.Plugin {
 		case "github":
 			scopeOpts := &ScopeOpts{
-				Repos:         fullRepos,
-				ReposFile:     fullReposFile,
-				DeployPattern: fullDeploy,
-				ProdPattern:   fullProd,
-				IncidentLabel: fullIncident,
+				DeployPattern: "(?i)deploy",
+				ProdPattern:   "(?i)prod",
+				IncidentLabel: "incident",
 			}
-			_, err := scopeGitHub(client, r.ConnectionID, org, scopeOpts)
+
+			fmt.Println("\n   Default DORA patterns:")
+			fmt.Printf("     Deployment: %s\n", scopeOpts.DeployPattern)
+			fmt.Printf("     Production: %s\n", scopeOpts.ProdPattern)
+			fmt.Printf("     Incidents:  label=%s\n", scopeOpts.IncidentLabel)
+			if !prompt.Confirm("   Use these defaults?") {
+				v := prompt.ReadLine("   Deployment workflow regex")
+				if v != "" {
+					scopeOpts.DeployPattern = v
+				}
+				v = prompt.ReadLine("   Production environment regex")
+				if v != "" {
+					scopeOpts.ProdPattern = v
+				}
+				v = prompt.ReadLine("   Incident issue label")
+				if v != "" {
+					scopeOpts.IncidentLabel = v
+				}
+			}
+
+			_, err := scopeGitHub(client, r.ConnectionID, r.Organization, scopeOpts)
 			if err != nil {
-				fmt.Printf("   ⚠️  GitHub scope setup: %v\n", err)
+				fmt.Printf("   ⚠️  GitHub scope setup failed: %v\n", err)
 			}
 
 		case "gh-copilot":
-			_, err := scopeCopilot(client, r.ConnectionID, org, enterprise)
+			_, err := scopeCopilot(client, r.ConnectionID, r.Organization, r.Enterprise)
 			if err != nil {
-				fmt.Printf("   ⚠️  Copilot scope setup: %v\n", err)
+				fmt.Printf("   ⚠️  Copilot scope setup failed: %v\n", err)
 			}
 
 		default:
@@ -173,9 +145,13 @@ func runConfigureFull(cmd *cobra.Command, args []string) error {
 	fmt.Println("║  PHASE 3: Project Setup              ║")
 	fmt.Println("╚══════════════════════════════════════╝")
 
-	projectName := fullProject
+	defaultProject := org
+	if defaultProject == "" {
+		defaultProject = "my-project"
+	}
+	projectName := prompt.ReadLine(fmt.Sprintf("\nProject name [%s]", defaultProject))
 	if projectName == "" {
-		projectName = org
+		projectName = defaultProject
 	}
 
 	// List existing scopes on each connection
@@ -190,7 +166,7 @@ func runConfigureFull(cmd *cobra.Command, args []string) error {
 			label:      fmt.Sprintf("%s (ID: %d)", pluginDisplayName(r.Plugin), r.ConnectionID),
 			enterprise: r.Enterprise,
 		}
-		ac, err := listConnectionScopes(client, choice, org, enterprise)
+		ac, err := listConnectionScopes(client, choice)
 		if err != nil {
 			fmt.Printf("   ⚠️  Could not list scopes for %s: %v\n", choice.label, err)
 			continue
@@ -204,11 +180,6 @@ func runConfigureFull(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no scoped connections available — cannot create project")
 	}
 
-	cron := fullCron
-	if cron == "" {
-		cron = "0 0 * * *"
-	}
-
 	err = finalizeProject(finalizeProjectOpts{
 		Client:      client,
 		StatePath:   statePath,
@@ -218,9 +189,7 @@ func runConfigureFull(cmd *cobra.Command, args []string) error {
 		Connections: connections,
 		Repos:       allRepos,
 		PluginNames: pluginNames,
-		Cron:        cron,
-		TimeAfter:   fullTimeAfter,
-		SkipSync:    fullSkipSync,
+		Cron:        "0 0 * * *",
 		Wait:        true,
 		Timeout:     5 * time.Minute,
 	})

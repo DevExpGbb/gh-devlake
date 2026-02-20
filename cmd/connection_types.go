@@ -132,7 +132,7 @@ var connectionRegistry = []*ConnectionDef{
 		RequiredScopes:   []string{"repo", "read:org", "read:user"},
 		ScopeHint:        "repo, read:org, read:user",
 		TokenPrompt:      "GitHub PAT",
-		EnvVarNames:      []string{"GITHUB_TOKEN", "GH_TOKEN"},
+		EnvVarNames:      []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
 		EnvFileKeys:      []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
 	},
 	{
@@ -149,7 +149,7 @@ var connectionRegistry = []*ConnectionDef{
 		TokenPrompt:      "GitHub Copilot PAT",
 		OrgPrompt:        "Organization slug",
 		EnterprisePrompt: "Enterprise slug (optional, press Enter to skip)",
-		EnvVarNames:      []string{"GITHUB_TOKEN", "GH_TOKEN"},
+		EnvVarNames:      []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
 		EnvFileKeys:      []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
 	},
 	{

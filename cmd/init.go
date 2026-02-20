@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	initToken   string
-	initEnvFile string
+	initToken     string
+	initEnvFile   string
+	initSkipClean bool
 )
 
 func newInitCmd() *cobra.Command {
@@ -37,6 +38,7 @@ scope, configure project) for fine-grained control.`,
 
 	cmd.Flags().StringVar(&initToken, "token", "", "Personal access token (avoids interactive prompt)")
 	cmd.Flags().StringVar(&initEnvFile, "env-file", ".devlake.env", "Path to env file containing PAT")
+	cmd.Flags().BoolVar(&initSkipClean, "skip-cleanup", false, "Do not delete .devlake.env after setup")
 
 	return cmd
 }
@@ -108,7 +110,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("at least one connection is required")
 	}
 
-	results, _, _, _, err := runConnectionsInternal(selectedDefs, "", "", initToken, initEnvFile, true)
+	results, _, _, _, err := runConnectionsInternal(selectedDefs, "", "", initToken, initEnvFile, initSkipClean)
 	if err != nil {
 		return fmt.Errorf("connection setup failed: %w", err)
 	}
@@ -211,7 +213,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 			label:      fmt.Sprintf("%s (ID: %d)", pluginDisplayName(r.Plugin), r.ConnectionID),
 			enterprise: r.Enterprise,
 		}
-		ac, err := listConnectionScopes(client, choice, r.Organization, r.Enterprise)
+		ac, err := listConnectionScopes(client, choice)
 		if err != nil {
 			fmt.Printf("   ⚠️  Could not list scopes for %s: %v\n", choice.label, err)
 			continue
