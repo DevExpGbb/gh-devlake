@@ -29,8 +29,6 @@ IncidentLabel string
 TimeAfter     string
 Cron          string
 SkipSync      bool
-SkipCopilot   bool
-SkipGitHub    bool
 Wait          bool
 Timeout       string
 }
@@ -55,9 +53,9 @@ return runConfigureScopes(cmd, args, &opts)
 },
 }
 
-cmd.Flags().StringVar(&opts.Org, "org", "", "GitHub organization slug")
-cmd.Flags().StringVar(&opts.Enterprise, "enterprise", "", "GitHub enterprise slug (enables enterprise-level Copilot metrics)")
-cmd.Flags().StringVar(&opts.Plugin, "plugin", "", "Plugin to configure (github, gh-copilot)")
+cmd.Flags().StringVar(&opts.Org, "org", "", "Organization slug")
+cmd.Flags().StringVar(&opts.Enterprise, "enterprise", "", "Enterprise slug (enables enterprise-level metrics)")
+cmd.Flags().StringVar(&opts.Plugin, "plugin", "", fmt.Sprintf("Plugin to configure (%s)", strings.Join(availablePluginSlugs(), ", ")))
 cmd.Flags().StringVar(&opts.Repos, "repos", "", "Comma-separated repos (owner/repo)")
 cmd.Flags().StringVar(&opts.ReposFile, "repos-file", "", "Path to file with repos (one per line)")
 cmd.Flags().IntVar(&opts.GHConnID, "github-connection-id", 0, "GitHub connection ID (auto-detected if omitted)")
@@ -107,7 +105,7 @@ return nil, fmt.Errorf("could not resolve any repository details \u2014 verify r
 }
 
 fmt.Println("\n\u2699\ufe0f  Creating DORA scope config...")
-scopeConfigID, err := ensureScopeConfig(client, connID, opts)
+scopeConfigID, err := ensureScopeConfig(client, "github", connID, opts)
 if err != nil {
 fmt.Printf("   \u26a0\ufe0f  Could not create scope config: %v\n", err)
 } else {
@@ -165,17 +163,15 @@ fmt.Println("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\
 fmt.Println("  DevLake \u2014 Configure Scopes")
 fmt.Println("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550")
 
+// Determine which plugin to scope
+var selectedPlugin string
 if opts.Plugin != "" {
-switch opts.Plugin {
-case "github":
-opts.SkipCopilot = true
-opts.SkipGitHub = false
-case "gh-copilot":
-opts.SkipGitHub = true
-opts.SkipCopilot = false
-default:
-return fmt.Errorf("unknown plugin %q \u2014 choose: github, gh-copilot", opts.Plugin)
+def := FindConnectionDef(opts.Plugin)
+if def == nil || !def.Available {
+slugs := availablePluginSlugs()
+return fmt.Errorf("unknown plugin %q \u2014 choose: %s", opts.Plugin, strings.Join(slugs, ", "))
 }
+selectedPlugin = opts.Plugin
 } else {
 flagMode := cmd.Flags().Changed("org") ||
 cmd.Flags().Changed("repos") ||
@@ -183,7 +179,8 @@ cmd.Flags().Changed("repos-file") ||
 cmd.Flags().Changed("github-connection-id") ||
 cmd.Flags().Changed("copilot-connection-id")
 if flagMode {
-return fmt.Errorf("--plugin is required when using flags (use --plugin github or --plugin gh-copilot)")
+slugs := availablePluginSlugs()
+return fmt.Errorf("--plugin is required when using flags (choose: %s)", strings.Join(slugs, ", "))
 }
 available := AvailableConnections()
 var labels []string
@@ -192,12 +189,16 @@ labels = append(labels, d.DisplayName)
 }
 fmt.Println()
 chosen := prompt.Select("Which plugin to configure?", labels)
-switch chosen {
-case "GitHub":
-opts.SkipCopilot = true
-case "GitHub Copilot":
-opts.SkipGitHub = true
-default:
+if chosen == "" {
+return fmt.Errorf("plugin selection is required")
+}
+for _, d := range available {
+if d.DisplayName == chosen {
+selectedPlugin = d.Plugin
+break
+}
+}
+if selectedPlugin == "" {
 return fmt.Errorf("plugin selection is required")
 }
 }
@@ -212,32 +213,12 @@ fmt.Printf("   Found DevLake at %s (via %s)\n", disc.URL, disc.Source)
 client := devlake.NewClient(disc.URL)
 _, state := devlake.FindStateFile(disc.URL, disc.GrafanaURL)
 
-fmt.Println("\n\U0001f517 Resolving connections...")
-ghConnID := 0
-if !opts.SkipGitHub {
-ghConnID, err = resolveConnectionID(client, state, "github", opts.GHConnID)
+fmt.Println("\n\U0001f517 Resolving connection...")
+connID, err := resolveConnectionID(client, state, selectedPlugin, opts.GHConnID)
 if err != nil {
-fmt.Printf("   \u26a0\ufe0f  GitHub connection not found, skipping: %v\n", err)
-opts.SkipGitHub = true
-} else {
-fmt.Printf("   GitHub connection ID: %d\n", ghConnID)
+return fmt.Errorf("no %s connection found \u2014 run 'configure connection' first: %w", pluginDisplayName(selectedPlugin), err)
 }
-}
-
-copilotConnID := 0
-if !opts.SkipCopilot {
-copilotConnID, err = resolveConnectionID(client, state, "gh-copilot", opts.CopilotConnID)
-if err != nil {
-fmt.Printf("   \u26a0\ufe0f  Copilot connection not found, skipping: %v\n", err)
-opts.SkipCopilot = true
-} else {
-fmt.Printf("   Copilot connection ID: %d\n", copilotConnID)
-}
-}
-
-if opts.SkipGitHub && opts.SkipCopilot {
-return fmt.Errorf("no connections available \u2014 run 'configure connection' first")
-}
+fmt.Printf("   %s connection ID: %d\n", pluginDisplayName(selectedPlugin), connID)
 
 org := resolveOrg(state, opts.Org)
 if org == "" {
@@ -250,28 +231,22 @@ if enterprise != "" {
 fmt.Printf("   Enterprise: %s\n", enterprise)
 }
 
-if !opts.SkipGitHub {
-_, err := scopeGitHub(client, ghConnID, org, opts)
+// Dispatch to plugin-specific scope handler
+switch selectedPlugin {
+case "github":
+_, err = scopeGitHub(client, connID, org, opts)
+case "gh-copilot":
+_, err = scopeCopilot(client, connID, org, enterprise)
+default:
+return fmt.Errorf("scope configuration for %q is not yet supported", selectedPlugin)
+}
 if err != nil {
 return err
 }
-}
-
-if !opts.SkipCopilot && copilotConnID > 0 {
-_, err := scopeCopilot(client, copilotConnID, org, enterprise)
-if err != nil {
-fmt.Printf("   \u26a0\ufe0f  %v\n", err)
-}
-}
 
 fmt.Println("\n" + strings.Repeat("\u2500", 50))
-fmt.Println("\u2705 Scopes configured successfully!")
-if !opts.SkipGitHub {
-fmt.Printf("   GitHub connection %d: scopes added\n", ghConnID)
-}
-if !opts.SkipCopilot && copilotConnID > 0 {
-fmt.Printf("   Copilot connection %d: scope added\n", copilotConnID)
-}
+fmt.Printf("\u2705 %s scopes configured successfully!\n", pluginDisplayName(selectedPlugin))
+fmt.Printf("   Connection %d: scopes added\n", connID)
 fmt.Println(strings.Repeat("\u2500", 50))
 fmt.Println("\nNext step:")
 fmt.Println("  Run 'gh devlake configure project' to create a project and start data collection.")
@@ -325,7 +300,7 @@ return c.Organization
 }
 }
 }
-return prompt.ReadLine("Enter your GitHub organization slug")
+return prompt.ReadLine("Enter organization slug")
 }
 
 // resolveEnterprise determines the enterprise slug from flag, state, or API.
@@ -387,7 +362,7 @@ return repos, nil
 }
 
 // ensureScopeConfig creates a DORA scope config or returns an existing one.
-func ensureScopeConfig(client *devlake.Client, connID int, opts *ScopeOpts) (int, error) {
+func ensureScopeConfig(client *devlake.Client, plugin string, connID int, opts *ScopeOpts) (int, error) {
 cfg := &devlake.ScopeConfig{
 Name:              "dora-config",
 ConnectionID:      connID,
@@ -400,11 +375,11 @@ TagsLimit:   10,
 TagsOrder:   "reverse semver",
 },
 }
-result, err := client.CreateScopeConfig("github", connID, cfg)
+result, err := client.CreateScopeConfig(plugin, connID, cfg)
 if err == nil {
 return result.ID, nil
 }
-existing, listErr := client.ListScopeConfigs("github", connID)
+existing, listErr := client.ListScopeConfigs(plugin, connID)
 if listErr != nil {
 return 0, fmt.Errorf("create failed: %w; list failed: %v", err, listErr)
 }

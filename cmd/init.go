@@ -35,8 +35,8 @@ scope, configure project) for fine-grained control.`,
 RunE: runInit,
 }
 
-cmd.Flags().StringVar(&initToken, "token", "", "GitHub PAT (avoids interactive prompt)")
-cmd.Flags().StringVar(&initEnvFile, "env-file", ".devlake.env", "Path to env file containing GITHUB_PAT")
+cmd.Flags().StringVar(&initToken, "token", "", "Personal access token (avoids interactive prompt)")
+cmd.Flags().StringVar(&initEnvFile, "env-file", ".devlake.env", "Path to env file containing PAT")
 
 return cmd
 }
@@ -87,11 +87,6 @@ fmt.Println("\n╔════════════════════�
 fmt.Println("║  PHASE 2: Configure Connections      ║")
 fmt.Println("╚══════════════════════════════════════╝")
 
-org := prompt.ReadLine("\nGitHub organization slug")
-if org == "" {
-return fmt.Errorf("organization is required")
-}
-
 available := AvailableConnections()
 var availLabels []string
 for _, d := range available {
@@ -113,7 +108,7 @@ if len(selectedDefs) == 0 {
 return fmt.Errorf("at least one connection is required")
 }
 
-results, _, _, _, err := runConnectionsInternal(selectedDefs, org, "", initToken, initEnvFile, true)
+results, _, _, _, err := runConnectionsInternal(selectedDefs, "", "", initToken, initEnvFile, true)
 if err != nil {
 return fmt.Errorf("connection setup failed: %w", err)
 }
@@ -125,12 +120,15 @@ fmt.Println("\n   ✅ Connections configured.")
 // Reload state after connections were saved
 statePath, state = devlake.FindStateFile(disc.URL, disc.GrafanaURL)
 
-// Resolve enterprise from connection results (for Copilot scope)
+// Resolve org and enterprise from connection results
+org := ""
 enterprise := ""
 for _, r := range results {
-if r.Enterprise != "" {
+if r.Organization != "" && org == "" {
+org = r.Organization
+}
+if r.Enterprise != "" && enterprise == "" {
 enterprise = r.Enterprise
-break
 }
 }
 
@@ -170,13 +168,13 @@ scopeOpts.IncidentLabel = v
 }
 }
 
-_, err := scopeGitHub(client, r.ConnectionID, org, scopeOpts)
+_, err := scopeGitHub(client, r.ConnectionID, r.Organization, scopeOpts)
 if err != nil {
 fmt.Printf("   ⚠️  GitHub scope setup failed: %v\n", err)
 }
 
 case "gh-copilot":
-_, err := scopeCopilot(client, r.ConnectionID, org, enterprise)
+_, err := scopeCopilot(client, r.ConnectionID, r.Organization, r.Enterprise)
 if err != nil {
 fmt.Printf("   ⚠️  Copilot scope setup failed: %v\n", err)
 }
@@ -192,16 +190,19 @@ fmt.Println("\n╔════════════════════�
 fmt.Println("║  PHASE 4: Project Setup              ║")
 fmt.Println("╚══════════════════════════════════════╝")
 
-projectName := prompt.ReadLine(fmt.Sprintf("\nProject name [%s]", org))
+defaultProject := org
+if defaultProject == "" {
+defaultProject = "my-project"
+}
+projectName := prompt.ReadLine(fmt.Sprintf("\nProject name [%s]", defaultProject))
 if projectName == "" {
-projectName = org
+projectName = defaultProject
 }
 
 // List existing scopes on each connection
 var connections []devlake.BlueprintConnection
 var allRepos []string
-hasGitHub := false
-hasCopilot := false
+var pluginNames []string
 
 for _, r := range results {
 choice := connChoice{
@@ -210,19 +211,14 @@ id:         r.ConnectionID,
 label:      fmt.Sprintf("%s (ID: %d)", pluginDisplayName(r.Plugin), r.ConnectionID),
 enterprise: r.Enterprise,
 }
-ac, err := listConnectionScopes(client, choice, org, enterprise)
+ac, err := listConnectionScopes(client, choice, r.Organization, r.Enterprise)
 if err != nil {
 fmt.Printf("   ⚠️  Could not list scopes for %s: %v\n", choice.label, err)
 continue
 }
 connections = append(connections, ac.bpConn)
 allRepos = append(allRepos, ac.repos...)
-switch r.Plugin {
-case "github":
-hasGitHub = true
-case "gh-copilot":
-hasCopilot = true
-}
+pluginNames = append(pluginNames, pluginDisplayName(r.Plugin))
 }
 
 if len(connections) == 0 {
@@ -237,8 +233,7 @@ ProjectName: projectName,
 Org:         org,
 Connections: connections,
 Repos:       allRepos,
-HasGitHub:   hasGitHub,
-HasCopilot:  hasCopilot,
+PluginNames: pluginNames,
 Cron:        "0 0 * * *",
 Wait:        true,
 Timeout:     5 * time.Minute,

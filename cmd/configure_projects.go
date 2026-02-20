@@ -58,9 +58,9 @@ Example:
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.Org, "org", "", "GitHub organization slug")
-	cmd.Flags().StringVar(&opts.Enterprise, "enterprise", "", "GitHub enterprise slug")
-	cmd.Flags().StringVar(&opts.Plugin, "plugin", "", "Limit to one plugin (github, gh-copilot)")
+	cmd.Flags().StringVar(&opts.Org, "org", "", "Organization slug")
+	cmd.Flags().StringVar(&opts.Enterprise, "enterprise", "", "Enterprise slug")
+	cmd.Flags().StringVar(&opts.Plugin, "plugin", "", fmt.Sprintf("Limit to one plugin (%s)", strings.Join(availablePluginSlugs(), ", ")))
 	cmd.Flags().StringVar(&opts.ProjectName, "project-name", "", "DevLake project name (defaults to org name)")
 	cmd.Flags().StringVar(&opts.TimeAfter, "time-after", "", "Only collect data after this date (default: 6 months ago)")
 	cmd.Flags().StringVar(&opts.Cron, "cron", "0 0 * * *", "Blueprint cron schedule")
@@ -144,11 +144,9 @@ func runConfigureProjects(cmd *cobra.Command, args []string, opts *ProjectOpts) 
 	fmt.Println("\n\U0001f50d Discovering connections...")
 	choices := discoverConnections(client, state)
 	if opts.Plugin != "" {
-		switch opts.Plugin {
-		case "github", "gh-copilot":
-		// valid
-		default:
-			return fmt.Errorf("unknown plugin %q \u2014 choose: github, gh-copilot", opts.Plugin)
+		if FindConnectionDef(opts.Plugin) == nil {
+			slugs := availablePluginSlugs()
+			return fmt.Errorf("unknown plugin %q \u2014 choose: %s", opts.Plugin, strings.Join(slugs, ", "))
 		}
 		choices = filterChoicesByPlugin(choices, opts.Plugin)
 	}
@@ -231,17 +229,11 @@ func runConfigureProjects(cmd *cobra.Command, args []string, opts *ProjectOpts) 
 	// Accumulate results
 	var connections []devlake.BlueprintConnection
 	var allRepos []string
-	hasGitHub := false
-	hasCopilot := false
+	var pluginNames []string
 	for _, a := range added {
 		connections = append(connections, a.bpConn)
 		allRepos = append(allRepos, a.repos...)
-		switch a.plugin {
-		case "github":
-			hasGitHub = true
-		case "gh-copilot":
-			hasCopilot = true
-		}
+		pluginNames = append(pluginNames, pluginDisplayName(a.plugin))
 	}
 
 	// Show what will happen
@@ -265,8 +257,7 @@ func runConfigureProjects(cmd *cobra.Command, args []string, opts *ProjectOpts) 
 		Org:         org,
 		Connections: connections,
 		Repos:       allRepos,
-		HasGitHub:   hasGitHub,
-		HasCopilot:  hasCopilot,
+		PluginNames: pluginNames,
 		Cron:        opts.Cron,
 		TimeAfter:   opts.TimeAfter,
 		SkipSync:    opts.SkipSync,
@@ -335,8 +326,7 @@ type finalizeProjectOpts struct {
 	Org         string
 	Connections []devlake.BlueprintConnection
 	Repos       []string
-	HasGitHub   bool
-	HasCopilot  bool
+	PluginNames []string // display names of active plugins
 	Cron        string
 	TimeAfter   string
 	SkipSync    bool
@@ -357,7 +347,7 @@ func finalizeProject(opts finalizeProjectOpts) error {
 	}
 
 	fmt.Println("\n\U0001f3d7\ufe0f  Creating DevLake project...")
-	blueprintID, err := ensureProjectWithFlags(opts.Client, opts.ProjectName, opts.Org, opts.HasGitHub, opts.HasCopilot)
+	blueprintID, err := ensureProjectWithFlags(opts.Client, opts.ProjectName, opts.Org, opts.PluginNames)
 	if err != nil {
 		return fmt.Errorf("failed to create project: %w", err)
 	}
@@ -380,8 +370,7 @@ func finalizeProject(opts finalizeProjectOpts) error {
 
 	if !opts.SkipSync {
 		fmt.Println("\n\U0001f680 Triggering first data sync...")
-		fmt.Println("   This collects repository, PR, and Copilot data from GitHub.")
-		fmt.Println("   Depending on repo size and history, this may take 5\u201330 minutes.")
+		fmt.Println("   Depending on data volume and history, this may take 5\u201330 minutes.")
 		if err := triggerAndPoll(opts.Client, blueprintID, opts.Wait, opts.Timeout); err != nil {
 			fmt.Printf("   \u26a0\ufe0f  %v\n", err)
 		}
@@ -407,8 +396,8 @@ func finalizeProject(opts finalizeProjectOpts) error {
 	if len(opts.Repos) > 0 {
 		fmt.Printf("   Repos:   %s\n", strings.Join(opts.Repos, ", "))
 	}
-	if opts.HasCopilot {
-		fmt.Printf("   Copilot: %s\n", opts.Org)
+	for _, pn := range opts.PluginNames {
+		fmt.Printf("   Plugin:  %s\n", pn)
 	}
 	fmt.Println(strings.Repeat("\u2500", 50))
 
@@ -416,12 +405,10 @@ func finalizeProject(opts finalizeProjectOpts) error {
 }
 
 // ensureProjectWithFlags creates a project or returns an existing one's blueprint ID.
-func ensureProjectWithFlags(client *devlake.Client, name, org string, hasGitHub, hasCopilot bool) (int, error) {
-	desc := fmt.Sprintf("DORA metrics and Copilot adoption for %s", org)
-	if !hasGitHub {
-		desc = fmt.Sprintf("Copilot adoption for %s", org)
-	} else if !hasCopilot {
-		desc = fmt.Sprintf("DORA metrics for %s", org)
+func ensureProjectWithFlags(client *devlake.Client, name, org string, pluginNames []string) (int, error) {
+	desc := fmt.Sprintf("DevLake metrics for %s", org)
+	if len(pluginNames) > 0 {
+		desc = fmt.Sprintf("DevLake metrics for %s (%s)", org, strings.Join(pluginNames, ", "))
 	}
 	project := &devlake.Project{
 		Name:        name,
@@ -523,19 +510,19 @@ func discoverConnections(client *devlake.Client, state *devlake.State) []connCho
 			choices = append(choices, connChoice{plugin: c.Plugin, id: c.ConnectionID, label: label, enterprise: c.Enterprise})
 		}
 	}
-	for _, plugin := range []string{"github", "gh-copilot"} {
-		conns, err := client.ListConnections(plugin)
+	for _, def := range AvailableConnections() {
+		conns, err := client.ListConnections(def.Plugin)
 		if err != nil {
 			continue
 		}
 		for _, c := range conns {
-			key := fmt.Sprintf("%s:%d", plugin, c.ID)
+			key := fmt.Sprintf("%s:%d", def.Plugin, c.ID)
 			if seen[key] {
 				continue
 			}
 			seen[key] = true
-			label := fmt.Sprintf("%s (ID: %d, Name: %q)", pluginDisplayName(plugin), c.ID, c.Name)
-			choices = append(choices, connChoice{plugin: plugin, id: c.ID, label: label, enterprise: c.Enterprise})
+			label := fmt.Sprintf("%s (ID: %d, Name: %q)", def.DisplayName, c.ID, c.Name)
+			choices = append(choices, connChoice{plugin: def.Plugin, id: c.ID, label: label, enterprise: c.Enterprise})
 		}
 	}
 	return choices
@@ -552,14 +539,10 @@ func filterChoicesByPlugin(choices []connChoice, plugin string) []connChoice {
 	return out
 }
 
-// pluginDisplayName returns a friendly name for a plugin slug.
+// pluginDisplayName returns a friendly name for a plugin slug, sourced from the registry.
 func pluginDisplayName(plugin string) string {
-	switch plugin {
-	case "github":
-		return "GitHub"
-	case "gh-copilot":
-		return "GitHub Copilot"
-	default:
-		return plugin
+	if def := FindConnectionDef(plugin); def != nil {
+		return def.DisplayName
 	}
+	return plugin
 }

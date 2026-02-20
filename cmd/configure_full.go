@@ -42,18 +42,18 @@ RunE: runConfigureFull,
 }
 
 func init() {
-configureFullCmd.Flags().StringVar(&fullOrg, "org", "", "GitHub organization name")
-configureFullCmd.Flags().StringVar(&fullEnterprise, "enterprise", "", "GitHub enterprise slug")
-configureFullCmd.Flags().StringVar(&fullToken, "token", "", "GitHub PAT")
-configureFullCmd.Flags().StringVar(&fullEnvFile, "env-file", ".devlake.env", "Path to env file containing GITHUB_PAT")
+	configureFullCmd.Flags().StringVar(&fullOrg, "org", "", "Organization slug")
+	configureFullCmd.Flags().StringVar(&fullEnterprise, "enterprise", "", "Enterprise slug")
+	configureFullCmd.Flags().StringVar(&fullToken, "token", "", "Personal access token")
+	configureFullCmd.Flags().StringVar(&fullEnvFile, "env-file", ".devlake.env", "Path to env file containing PAT")
 configureFullCmd.Flags().BoolVar(&fullSkipClean, "skip-cleanup", false, "Do not delete .devlake.env after setup")
-configureFullCmd.Flags().StringVar(&fullPlugin, "plugin", "", "Limit to one plugin (github, gh-copilot)")
-configureFullCmd.Flags().StringVar(&fullRepos, "repos", "", "Comma-separated repos (owner/repo) for GitHub plugin")
-configureFullCmd.Flags().StringVar(&fullReposFile, "repos-file", "", "Path to file with repos (for GitHub plugin)")
-configureFullCmd.Flags().StringVar(&fullProject, "project-name", "", "DevLake project name")
-configureFullCmd.Flags().StringVar(&fullDeploy, "deployment-pattern", "(?i)deploy", "Deployment workflow regex (GitHub)")
-configureFullCmd.Flags().StringVar(&fullProd, "production-pattern", "(?i)prod", "Production environment regex (GitHub)")
-configureFullCmd.Flags().StringVar(&fullIncident, "incident-label", "incident", "Incident issue label (GitHub)")
+	configureFullCmd.Flags().StringVar(&fullPlugin, "plugin", "", fmt.Sprintf("Limit to one plugin (%s)", strings.Join(availablePluginSlugs(), ", ")))
+	configureFullCmd.Flags().StringVar(&fullRepos, "repos", "", "Comma-separated repos (owner/repo)")
+	configureFullCmd.Flags().StringVar(&fullReposFile, "repos-file", "", "Path to file with repos")
+	configureFullCmd.Flags().StringVar(&fullProject, "project-name", "", "DevLake project name")
+	configureFullCmd.Flags().StringVar(&fullDeploy, "deployment-pattern", "(?i)deploy", "Deployment workflow regex")
+	configureFullCmd.Flags().StringVar(&fullProd, "production-pattern", "(?i)prod", "Production environment regex")
+	configureFullCmd.Flags().StringVar(&fullIncident, "incident-label", "incident", "Incident issue label")
 configureFullCmd.Flags().StringVar(&fullTimeAfter, "time-after", "", "Only collect data after this date")
 configureFullCmd.Flags().StringVar(&fullCron, "cron", "0 0 * * *", "Blueprint cron schedule")
 configureFullCmd.Flags().BoolVar(&fullSkipSync, "skip-sync", false, "Skip first data sync")
@@ -76,8 +76,9 @@ break
 }
 }
 if len(defs) == 0 {
-return fmt.Errorf("unknown plugin %q — choose: github, gh-copilot", fullPlugin)
-}
+			slugs := availablePluginSlugs()
+			return fmt.Errorf("unknown plugin %q — choose: %s", fullPlugin, strings.Join(slugs, ", "))
+		}
 } else {
 var labels []string
 for _, d := range available {
@@ -180,8 +181,7 @@ projectName = org
 // List existing scopes on each connection
 var connections []devlake.BlueprintConnection
 var allRepos []string
-hasGitHub := false
-hasCopilot := false
+var pluginNames []string
 
 for _, r := range results {
 choice := connChoice{
@@ -197,12 +197,7 @@ continue
 }
 connections = append(connections, ac.bpConn)
 allRepos = append(allRepos, ac.repos...)
-switch r.Plugin {
-case "github":
-hasGitHub = true
-case "gh-copilot":
-hasCopilot = true
-}
+pluginNames = append(pluginNames, pluginDisplayName(r.Plugin))
 }
 
 if len(connections) == 0 {
@@ -222,8 +217,7 @@ ProjectName: projectName,
 Org:         org,
 Connections: connections,
 Repos:       allRepos,
-HasGitHub:   hasGitHub,
-HasCopilot:  hasCopilot,
+PluginNames: pluginNames,
 Cron:        cron,
 TimeAfter:   fullTimeAfter,
 SkipSync:    fullSkipSync,
@@ -241,85 +235,116 @@ fmt.Println()
 return nil
 }
 
-// runConnectionsInternal creates connections for the given defs using a shared token.
-// Returns (results, client, statePath, state, error).
+// runConnectionsInternal creates connections for the given defs, resolving
+// tokens and org/enterprise per-plugin. Returns (results, client, statePath, state, error).
 func runConnectionsInternal(defs []*ConnectionDef, org, enterprise, tokenVal, envFile string, skipClean bool) ([]ConnSetupResult, *devlake.Client, string, *devlake.State, error) {
-fmt.Println("\n🔍 Discovering DevLake instance...")
-disc, err := devlake.Discover(cfgURL)
-if err != nil {
-return nil, nil, "", nil, err
-}
-fmt.Printf("   Found DevLake at %s (via %s)\n", disc.URL, disc.Source)
+	fmt.Println("\n🔍 Discovering DevLake instance...")
+	disc, err := devlake.Discover(cfgURL)
+	if err != nil {
+		return nil, nil, "", nil, err
+	}
+	fmt.Printf("   Found DevLake at %s (via %s)\n", disc.URL, disc.Source)
 
-client := devlake.NewClient(disc.URL)
+	client := devlake.NewClient(disc.URL)
 
-fmt.Println("\n🔑 Resolving GitHub PAT...")
-scopeHint := aggregateScopeHints(defs)
-tokResult, err := token.Resolve(defs[0].Plugin, tokenVal, envFile, scopeHint)
-if err != nil {
-return nil, nil, "", nil, err
-}
-fmt.Printf("   Token loaded from: %s\n", tokResult.Source)
+	var results []ConnSetupResult
+	var cleanupEnvFile string
 
-for _, def := range defs {
-if def.NeedsOrg && org == "" {
-org = prompt.ReadLine("GitHub organization slug")
-break
-}
-}
+	for _, def := range defs {
+		fmt.Printf("\n📡 Setting up %s connection...\n", def.DisplayName)
 
-var results []ConnSetupResult
-for _, def := range defs {
-fmt.Printf("\n📡 Creating %s connection...\n", def.DisplayName)
-params := ConnectionParams{
-Token:      tokResult.Token,
-Org:        org,
-Enterprise: enterprise,
-}
-r, err := buildAndCreateConnection(client, def, params, org, false)
-if err != nil {
-fmt.Printf("   ⚠️  Could not create %s connection: %v\n", def.DisplayName, err)
-continue
-}
-results = append(results, *r)
-}
+		// Resolve token per-plugin
+		fmt.Printf("\n🔑 Resolving %s token...\n", def.DisplayName)
+		tokResult, err := token.Resolve(token.ResolveOpts{
+			FlagValue:   tokenVal,
+			EnvFilePath: envFile,
+			EnvFileKeys: def.EnvFileKeys,
+			EnvVarNames: def.EnvVarNames,
+			DisplayName: def.DisplayName,
+			ScopeHint:   def.ScopeHint,
+		})
+		if err != nil {
+			fmt.Printf("   ⚠️  Could not resolve token for %s: %v\n", def.DisplayName, err)
+			continue
+		}
+		fmt.Printf("   Token loaded from: %s\n", tokResult.Source)
+		if tokResult.EnvFilePath != "" {
+			cleanupEnvFile = tokResult.EnvFilePath
+		}
 
-statePath, state := devlake.FindStateFile(disc.URL, disc.GrafanaURL)
-var stateConns []devlake.StateConnection
-for _, r := range results {
-stateConns = append(stateConns, devlake.StateConnection{
-Plugin:       r.Plugin,
-ConnectionID: r.ConnectionID,
-Name:         r.Name,
-Organization: r.Organization,
-Enterprise:   r.Enterprise,
-})
-}
-if err := devlake.UpdateConnections(statePath, state, stateConns); err != nil {
-fmt.Fprintf(os.Stderr, "⚠️  Could not update state file: %v\n", err)
-} else {
-fmt.Printf("\n💾 State saved to %s\n", statePath)
-}
+		// Resolve org per-plugin if needed
+		pluginOrg := org
+		if def.NeedsOrg && pluginOrg == "" {
+			orgPrompt := def.OrgPrompt
+			if orgPrompt == "" {
+				orgPrompt = "Organization slug"
+			}
+			pluginOrg = prompt.ReadLine(orgPrompt)
+			if pluginOrg == "" {
+				fmt.Printf("   ⚠️  Organization is required for %s, skipping\n", def.DisplayName)
+				continue
+			}
+		}
 
-if !skipClean && tokResult.EnvFilePath != "" {
-fmt.Printf("\n🧹 Cleaning up %s...\n", tokResult.EnvFilePath)
-if err := os.Remove(tokResult.EnvFilePath); err != nil && !os.IsNotExist(err) {
-fmt.Fprintf(os.Stderr, "⚠️  Could not delete env file: %v\n", err)
-} else {
-fmt.Println("   ✅ Env file deleted")
-}
-}
+		// Resolve enterprise per-plugin if needed
+		pluginEnterprise := enterprise
+		if def.NeedsEnterprise && pluginEnterprise == "" {
+			entPrompt := def.EnterprisePrompt
+			if entPrompt == "" {
+				entPrompt = "Enterprise slug (optional, press Enter to skip)"
+			}
+			pluginEnterprise = prompt.ReadLine(entPrompt)
+		}
 
-fmt.Println("\n" + strings.Repeat("─", 50))
-fmt.Println("✅ Connections configured successfully!")
-for _, r := range results {
-name := r.Plugin
-if def := FindConnectionDef(r.Plugin); def != nil {
-name = def.DisplayName
-}
-fmt.Printf("   %-18s  ID=%d  %q\n", name, r.ConnectionID, r.Name)
-}
-fmt.Println(strings.Repeat("─", 50))
+		params := ConnectionParams{
+			Token:      tokResult.Token,
+			Org:        pluginOrg,
+			Enterprise: pluginEnterprise,
+		}
+		r, err := buildAndCreateConnection(client, def, params, pluginOrg, false)
+		if err != nil {
+			fmt.Printf("   ⚠️  Could not create %s connection: %v\n", def.DisplayName, err)
+			continue
+		}
+		results = append(results, *r)
+	}
 
-return results, client, statePath, state, nil
+	statePath, state := devlake.FindStateFile(disc.URL, disc.GrafanaURL)
+	var stateConns []devlake.StateConnection
+	for _, r := range results {
+		stateConns = append(stateConns, devlake.StateConnection{
+			Plugin:       r.Plugin,
+			ConnectionID: r.ConnectionID,
+			Name:         r.Name,
+			Organization: r.Organization,
+			Enterprise:   r.Enterprise,
+		})
+	}
+	if err := devlake.UpdateConnections(statePath, state, stateConns); err != nil {
+		fmt.Fprintf(os.Stderr, "⚠️  Could not update state file: %v\n", err)
+	} else {
+		fmt.Printf("\n💾 State saved to %s\n", statePath)
+	}
+
+	if !skipClean && cleanupEnvFile != "" {
+		fmt.Printf("\n🧹 Cleaning up %s...\n", cleanupEnvFile)
+		if err := os.Remove(cleanupEnvFile); err != nil && !os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "⚠️  Could not delete env file: %v\n", err)
+		} else {
+			fmt.Println("   ✅ Env file deleted")
+		}
+	}
+
+	fmt.Println("\n" + strings.Repeat("─", 50))
+	fmt.Println("✅ Connections configured successfully!")
+	for _, r := range results {
+		name := r.Plugin
+		if def := FindConnectionDef(r.Plugin); def != nil {
+			name = def.DisplayName
+		}
+		fmt.Printf("   %-18s  ID=%d  %q\n", name, r.ConnectionID, r.Name)
+	}
+	fmt.Println(strings.Repeat("─", 50))
+
+	return results, client, statePath, state, nil
 }

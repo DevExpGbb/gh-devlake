@@ -63,7 +63,7 @@ type ConnectionUpdateRequest struct {
 	Enterprise   string `json:"enterprise,omitempty"`
 }
 
-// ConnectionCreateRequest is the payload for creating a GitHub or Copilot connection.
+// ConnectionCreateRequest is the payload for creating a plugin connection.
 type ConnectionCreateRequest struct {
 	Name                  string `json:"name"`
 	Endpoint              string `json:"endpoint"`
@@ -80,6 +80,7 @@ type ConnectionCreateRequest struct {
 
 // ConnectionTestRequest is the payload for testing a connection before creating.
 type ConnectionTestRequest struct {
+	Name             string `json:"name"`
 	Endpoint         string `json:"endpoint"`
 	AuthMethod       string `json:"authMethod"`
 	Token            string `json:"token"`

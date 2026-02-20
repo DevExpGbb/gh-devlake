@@ -5,16 +5,16 @@ import "testing"
 func TestBuildCreateRequest_RateLimit(t *testing.T) {
 	tests := []struct {
 		name     string
-		plugin   string
+		rate     int
 		wantRate int
 	}{
-		{"github uses 4500", "github", 4500},
-		{"gh-copilot uses 5000", "gh-copilot", 5000},
-		{"unknown uses 4500", "gitlab", 4500},
+		{"github uses 4500", 4500, 4500},
+		{"gh-copilot uses 5000", 5000, 5000},
+		{"zero uses default 4500", 0, 4500},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			def := &ConnectionDef{Plugin: tt.plugin, Endpoint: "https://api.github.com/"}
+			def := &ConnectionDef{Endpoint: "https://api.github.com/", RateLimitPerHour: tt.rate}
 			req := def.BuildCreateRequest("test", ConnectionParams{Token: "tok"})
 			if req.RateLimitPerHour != tt.wantRate {
 				t.Errorf("got rate limit %d, want %d", req.RateLimitPerHour, tt.wantRate)
@@ -74,14 +74,15 @@ func TestBuildCreateRequest_EnterpriseOrg(t *testing.T) {
 
 func TestBuildTestRequest_CopilotFields(t *testing.T) {
 	def := &ConnectionDef{
-		Plugin:          "gh-copilot",
-		Endpoint:        "https://api.github.com/",
-		NeedsOrg:        true,
-		NeedsEnterprise: true,
+		Plugin:           "gh-copilot",
+		Endpoint:         "https://api.github.com/",
+		NeedsOrg:         true,
+		NeedsEnterprise:  true,
+		RateLimitPerHour: 5000,
 	}
 
 	t.Run("includes org and enterprise", func(t *testing.T) {
-		req := def.BuildTestRequest(ConnectionParams{
+		req := def.BuildTestRequest("test", ConnectionParams{
 			Token:      "tok",
 			Org:        "my-org",
 			Enterprise: "my-ent",
@@ -95,15 +96,20 @@ func TestBuildTestRequest_CopilotFields(t *testing.T) {
 		if req.RateLimitPerHour != 5000 {
 			t.Errorf("got rate limit %d, want 5000", req.RateLimitPerHour)
 		}
+		if req.Name != "test" {
+			t.Errorf("got Name %q, want %q", req.Name, "test")
+		}
 	})
 
 	t.Run("github does not include org/enterprise", func(t *testing.T) {
 		ghDef := &ConnectionDef{
-			Plugin:       "github",
-			Endpoint:     "https://api.github.com/",
-			SupportsTest: true,
+			Plugin:           "github",
+			Endpoint:         "https://api.github.com/",
+			SupportsTest:     true,
+			RateLimitPerHour: 4500,
+			EnableGraphql:    true,
 		}
-		req := ghDef.BuildTestRequest(ConnectionParams{
+		req := ghDef.BuildTestRequest("test", ConnectionParams{
 			Token:      "tok",
 			Org:        "ignored",
 			Enterprise: "ignored",

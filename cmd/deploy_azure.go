@@ -119,6 +119,9 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Println("   ✅ Resource Group created")
 
+	// ── Write early checkpoint — ensures cleanup works even if deployment fails ──
+	savePartialAzureState(azureRG, azureLocation)
+
 	// ── Generate secrets ──
 	fmt.Println("\n🔐 Generating secrets...")
 	mysqlPwd, err := secrets.MySQLPassword()
@@ -378,4 +381,22 @@ func conditionalACR() any {
 		return nil
 	}
 	return "devlakeacr" + azure.Suffix(azureRG)
+}
+
+// savePartialAzureState writes a minimal state file immediately after the
+// Resource Group is created so that cleanup --azure always has a breadcrumb,
+// even when the deployment fails mid-flight (e.g. Docker build errors).
+// The full state write at the end of a successful deployment overwrites this.
+func savePartialAzureState(rg, region string) {
+	stateFile := ".devlake-azure.json"
+	partial := map[string]any{
+		"deployedAt":    time.Now().Format(time.RFC3339),
+		"resourceGroup": rg,
+		"region":        region,
+		"partial":       true,
+	}
+	data, _ := json.MarshalIndent(partial, "", "  ")
+	if err := os.WriteFile(stateFile, data, 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "⚠️  Could not save early state checkpoint: %v\n", err)
+	}
 }
