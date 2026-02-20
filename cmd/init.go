@@ -12,61 +12,54 @@ import (
 )
 
 var (
-initOrg        string
-initEnterprise string
-initToken      string
-initEnvFile    string
-initRepos      string
-initReposFile  string
+initToken   string
+initEnvFile string
 )
 
 func newInitCmd() *cobra.Command {
 cmd := &cobra.Command{
 Use:   "init",
-Short:   "Guided setup wizard \u2014 deploy and configure DevLake in one step",
+Short: "Guided setup wizard — deploy and configure DevLake in one step",
 Long: `Walks you through deploying and configuring DevLake from scratch.
 
 The wizard will:
   1. Ask where to deploy (local Docker or Azure)
   2. Deploy DevLake and wait for it to be ready
-  3. Create GitHub and Copilot connections
-  4. Configure repository scopes and create a project
-  5. Trigger the first data sync
+  3. Create connections for your chosen plugins
+  4. Configure scopes (repos for GitHub, org for Copilot, etc.)
+  5. Create a project and trigger the first data sync
 
-You can also pass flags to pre-fill answers and skip prompts:
-  gh devlake init --org my-org --repos owner/repo1,owner/repo2`,
+This command is fully interactive — use 'gh devlake configure full' for
+flag-driven setup, or individual commands (configure connection, configure
+scope, configure project) for fine-grained control.`,
 RunE: runInit,
 }
 
-cmd.Flags().StringVar(&initOrg, "org", "", "GitHub organization slug")
-cmd.Flags().StringVar(&initEnterprise, "enterprise", "", "GitHub enterprise slug (for Copilot enterprise metrics)")
-cmd.Flags().StringVar(&initToken, "token", "", "GitHub PAT")
+cmd.Flags().StringVar(&initToken, "token", "", "GitHub PAT (avoids interactive prompt)")
 cmd.Flags().StringVar(&initEnvFile, "env-file", ".devlake.env", "Path to env file containing GITHUB_PAT")
-cmd.Flags().StringVar(&initRepos, "repos", "", "Comma-separated repos (owner/repo)")
-cmd.Flags().StringVar(&initReposFile, "repos-file", "", "Path to file with repos (one per line)")
 
 return cmd
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
 fmt.Println()
-fmt.Println("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550")
-fmt.Println("  DevLake \u2014 Setup Wizard")
-fmt.Println("  Deploy \u2192 Connect \u2192 Configure")
-fmt.Println("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550")
+fmt.Println("════════════════════════════════════════")
+fmt.Println("  DevLake — Setup Wizard")
+fmt.Println("  Deploy → Connect → Scope → Project")
+fmt.Println("════════════════════════════════════════")
 
-// Phase 1: Choose deployment target
+// ── Phase 1: Deploy ──────────────────────────────────────────
 targets := []string{"local - Docker Compose on this machine", "azure - Azure Container Apps"}
-choice := prompt.Select("Where would you like to deploy DevLake?", targets)
+choice := prompt.Select("\nWhere would you like to deploy DevLake?", targets)
 if choice == "" {
 return fmt.Errorf("deployment target is required")
 }
 target := strings.SplitN(choice, " ", 2)[0]
 fmt.Printf("\n   Selected: %s\n", target)
 
-fmt.Println("\n\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557")
-fmt.Println("\u2551  PHASE 1: Deploy DevLake             \u2551")
-fmt.Println("\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d")
+fmt.Println("\n╔══════════════════════════════════════╗")
+fmt.Println("║  PHASE 1: Deploy DevLake             ║")
+fmt.Println("╚══════════════════════════════════════╝")
 
 switch target {
 case "local":
@@ -79,24 +72,24 @@ return fmt.Errorf("deployment failed: %w", err)
 }
 }
 
-// Verify DevLake is reachable
-fmt.Println("\n\U0001f50d Verifying DevLake is reachable...")
+fmt.Println("\n🔍 Verifying DevLake is reachable...")
 disc, err := devlake.Discover(cfgURL)
 if err != nil {
 return fmt.Errorf("cannot reach DevLake after deploy: %w", err)
 }
-fmt.Printf("   \u2705 DevLake at %s (via %s)\n", disc.URL, disc.Source)
+fmt.Printf("   ✅ DevLake at %s (via %s)\n", disc.URL, disc.Source)
 
-// Phase 2: Configure connections
-fmt.Println("\n\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557")
-fmt.Println("\u2551  PHASE 2: Configure Connections      \u2551")
-fmt.Println("\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d")
+client := devlake.NewClient(disc.URL)
+statePath, state := devlake.FindStateFile(disc.URL, disc.GrafanaURL)
 
-if initOrg == "" {
-initOrg = prompt.ReadLine("GitHub organization slug")
-if initOrg == "" {
-return fmt.Errorf("--org is required")
-}
+// ── Phase 2: Configure Connections ───────────────────────────
+fmt.Println("\n╔══════════════════════════════════════╗")
+fmt.Println("║  PHASE 2: Configure Connections      ║")
+fmt.Println("╚══════════════════════════════════════╝")
+
+org := prompt.ReadLine("\nGitHub organization slug")
+if org == "" {
+return fmt.Errorf("organization is required")
 }
 
 available := AvailableConnections()
@@ -104,11 +97,9 @@ var availLabels []string
 for _, d := range available {
 availLabels = append(availLabels, d.DisplayName)
 }
-selectedLabels := prompt.SelectMultiWithDefaults(
-"Which connections to set up? (GitHub + Copilot recommended)",
-availLabels,
-[]int{1, 2},
-)
+
+fmt.Println()
+selectedLabels := prompt.SelectMulti("Which connections to set up?", availLabels)
 var selectedDefs []*ConnectionDef
 for _, label := range selectedLabels {
 for _, d := range available {
@@ -119,110 +110,159 @@ break
 }
 }
 if len(selectedDefs) == 0 {
-selectedDefs = available
+return fmt.Errorf("at least one connection is required")
 }
 
-results, client, statePath, state, err := runConnectionsInternal(selectedDefs, initOrg, initEnterprise, initToken, initEnvFile, true)
+results, _, _, _, err := runConnectionsInternal(selectedDefs, org, "", initToken, initEnvFile, true)
 if err != nil {
 return fmt.Errorf("connection setup failed: %w", err)
 }
-fmt.Println("\n   \u2705 Connections configured.")
-
-// Phase 3: Configure scopes
-fmt.Println("\n\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557")
-fmt.Println("\u2551  PHASE 3: Configure Scopes           \u2551")
-fmt.Println("\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d")
-
-deployPattern := "(?i)deploy"
-prodPattern := "(?i)prod"
-incidentLabel := "incident"
-
-fmt.Println("\n   Default DORA patterns:")
-fmt.Printf("     Deployment: %s\n", deployPattern)
-fmt.Printf("     Production: %s\n", prodPattern)
-fmt.Printf("     Incidents:  label=%s\n", incidentLabel)
-if !prompt.Confirm("Use these defaults?") {
-deployPattern = prompt.ReadLine("Deployment workflow regex")
-if deployPattern == "" {
-deployPattern = "(?i)deploy"
+if len(results) == 0 {
+return fmt.Errorf("no connections were created — cannot continue")
 }
-prodPattern = prompt.ReadLine("Production environment regex")
-if prodPattern == "" {
-prodPattern = "(?i)prod"
-}
-incidentLabel = prompt.ReadLine("Incident issue label")
-if incidentLabel == "" {
-incidentLabel = "incident"
+fmt.Println("\n   ✅ Connections configured.")
+
+// Reload state after connections were saved
+statePath, state = devlake.FindStateFile(disc.URL, disc.GrafanaURL)
+
+// Resolve enterprise from connection results (for Copilot scope)
+enterprise := ""
+for _, r := range results {
+if r.Enterprise != "" {
+enterprise = r.Enterprise
+break
 }
 }
 
-scopeOpts := &ScopeOpts{
-Org:           initOrg,
-Enterprise:    initEnterprise,
-Repos:         initRepos,
-ReposFile:     initReposFile,
-DeployPattern: deployPattern,
-ProdPattern:   prodPattern,
-IncidentLabel: incidentLabel,
-}
+// ── Phase 3: Configure Scopes ────────────────────────────────
+fmt.Println("\n╔══════════════════════════════════════╗")
+fmt.Println("║  PHASE 3: Configure Scopes           ║")
+fmt.Println("╚══════════════════════════════════════╝")
 
 for _, r := range results {
+fmt.Printf("\n📡 Configuring scopes for %s (connection %d)...\n",
+pluginDisplayName(r.Plugin), r.ConnectionID)
+
 switch r.Plugin {
 case "github":
-scopeOpts.GHConnID = r.ConnectionID
-scopeOpts.Plugin = "github"
-scopeOpts.SkipCopilot = true
-scopeOpts.SkipGitHub = false
-if err := runConfigureScopes(cmd, args, scopeOpts); err != nil {
-fmt.Printf("   \u26a0\ufe0f  GitHub scope setup: %v\n", err)
+scopeOpts := &ScopeOpts{
+DeployPattern: "(?i)deploy",
+ProdPattern:   "(?i)prod",
+IncidentLabel: "incident",
 }
+
+fmt.Println("\n   Default DORA patterns:")
+fmt.Printf("     Deployment: %s\n", scopeOpts.DeployPattern)
+fmt.Printf("     Production: %s\n", scopeOpts.ProdPattern)
+fmt.Printf("     Incidents:  label=%s\n", scopeOpts.IncidentLabel)
+if !prompt.Confirm("   Use these defaults?") {
+v := prompt.ReadLine("   Deployment workflow regex")
+if v != "" {
+scopeOpts.DeployPattern = v
+}
+v = prompt.ReadLine("   Production environment regex")
+if v != "" {
+scopeOpts.ProdPattern = v
+}
+v = prompt.ReadLine("   Incident issue label")
+if v != "" {
+scopeOpts.IncidentLabel = v
+}
+}
+
+_, err := scopeGitHub(client, r.ConnectionID, org, scopeOpts)
+if err != nil {
+fmt.Printf("   ⚠️  GitHub scope setup failed: %v\n", err)
+}
+
 case "gh-copilot":
-scopeOpts.CopilotConnID = r.ConnectionID
-scopeOpts.Plugin = "gh-copilot"
-scopeOpts.SkipGitHub = true
-scopeOpts.SkipCopilot = false
-if err := runConfigureScopes(cmd, args, scopeOpts); err != nil {
-fmt.Printf("   \u26a0\ufe0f  Copilot scope setup: %v\n", err)
+_, err := scopeCopilot(client, r.ConnectionID, org, enterprise)
+if err != nil {
+fmt.Printf("   ⚠️  Copilot scope setup failed: %v\n", err)
 }
+
+default:
+fmt.Printf("   ⚠️  Scope configuration for %q is not yet supported\n", r.Plugin)
+}
+}
+fmt.Println("\n   ✅ Scopes configured.")
+
+// ── Phase 4: Create Project ──────────────────────────────────
+fmt.Println("\n╔══════════════════════════════════════╗")
+fmt.Println("║  PHASE 4: Project Setup              ║")
+fmt.Println("╚══════════════════════════════════════╝")
+
+projectName := prompt.ReadLine(fmt.Sprintf("\nProject name [%s]", org))
+if projectName == "" {
+projectName = org
+}
+
+// List existing scopes on each connection
+var connections []devlake.BlueprintConnection
+var allRepos []string
+hasGitHub := false
+hasCopilot := false
+
+for _, r := range results {
+choice := connChoice{
+plugin:     r.Plugin,
+id:         r.ConnectionID,
+label:      fmt.Sprintf("%s (ID: %d)", pluginDisplayName(r.Plugin), r.ConnectionID),
+enterprise: r.Enterprise,
+}
+ac, err := listConnectionScopes(client, choice, org, enterprise)
+if err != nil {
+fmt.Printf("   ⚠️  Could not list scopes for %s: %v\n", choice.label, err)
+continue
+}
+connections = append(connections, ac.bpConn)
+allRepos = append(allRepos, ac.repos...)
+switch r.Plugin {
+case "github":
+hasGitHub = true
+case "gh-copilot":
+hasCopilot = true
 }
 }
 
-// Phase 4: Create project
-fmt.Println("\n\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557")
-fmt.Println("\u2551  PHASE 4: Project Setup              \u2551")
-fmt.Println("\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d")
-
-projectOpts := &ProjectOpts{
-Org:        initOrg,
-Enterprise: initEnterprise,
-Wait:       true,
-Timeout:    5 * time.Minute,
-Client:     client,
-StatePath:  statePath,
-State:      state,
+if len(connections) == 0 {
+return fmt.Errorf("no scoped connections available — cannot create project")
 }
-if err := runConfigureProjects(cmd, args, projectOpts); err != nil {
+
+err = finalizeProject(finalizeProjectOpts{
+Client:      client,
+StatePath:   statePath,
+State:       state,
+ProjectName: projectName,
+Org:         org,
+Connections: connections,
+Repos:       allRepos,
+HasGitHub:   hasGitHub,
+HasCopilot:  hasCopilot,
+Cron:        "0 0 * * *",
+Wait:        true,
+Timeout:     5 * time.Minute,
+})
+if err != nil {
 return fmt.Errorf("project setup failed: %w", err)
 }
 
-// Summary
-fmt.Println("\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550")
-fmt.Println("  \u2705 DevLake is ready!")
-fmt.Println("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550")
+// ── Summary ──────────────────────────────────────────────────
+fmt.Println("\n════════════════════════════════════════")
+fmt.Println("  ✅ DevLake is ready!")
+fmt.Println("════════════════════════════════════════")
 fmt.Println()
 
-disc2, _ := devlake.Discover(cfgURL)
-if disc2 != nil {
-fmt.Printf("  Backend:  %s\n", disc2.URL)
-if disc2.GrafanaURL != "" {
-fmt.Printf("  Grafana:  %s\n", disc2.GrafanaURL)
+fmt.Printf("  Backend:  %s\n", disc.URL)
+if disc.GrafanaURL != "" {
+fmt.Printf("  Grafana:  %s\n", disc.GrafanaURL)
 }
-}
-fmt.Printf("  Org:      %s\n", initOrg)
+fmt.Printf("  Org:      %s\n", org)
+fmt.Printf("  Project:  %s\n", projectName)
 fmt.Println("\nNext steps:")
-fmt.Println("  \u2022 Open Grafana and explore the DORA dashboard")
-fmt.Println("  \u2022 Run 'gh devlake status' to check health")
-fmt.Println("  \u2022 Run 'gh devlake cleanup' when finished")
+fmt.Println("  • Open Grafana and explore the DORA dashboard")
+fmt.Println("  • Run 'gh devlake status' to check health")
+fmt.Println("  • Run 'gh devlake cleanup' when finished")
 
 return nil
 }
@@ -244,12 +284,12 @@ return err
 }
 cfgURL = backendURL
 
-fmt.Println("\n\U0001f504 Triggering database migration...")
-client := devlake.NewClient(backendURL)
-if err := client.TriggerMigration(); err != nil {
-fmt.Printf("   \u26a0\ufe0f  Migration may need manual trigger: %v\n", err)
+fmt.Println("\n🔄 Triggering database migration...")
+migClient := devlake.NewClient(backendURL)
+if err := migClient.TriggerMigration(); err != nil {
+fmt.Printf("   ⚠️  Migration may need manual trigger: %v\n", err)
 } else {
-fmt.Println("   \u2705 Migration triggered")
+fmt.Println("   ✅ Migration triggered")
 time.Sleep(5 * time.Second)
 }
 
