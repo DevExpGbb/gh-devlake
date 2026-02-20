@@ -30,9 +30,15 @@ internal/
 - **Generic API helpers**: `doPost[T]`, `doGet[T]`, `doPut[T]`, `doPatch[T]` in `internal/devlake/client.go`
 
 ### Plugin System
-Plugins are defined via `ConnectionDef` structs in `cmd/connection_types.go`. Each entry declares the plugin slug, endpoint, required fields (`NeedsOrg`, `NeedsEnterprise`), and PAT scopes. To add a new DevOps tool, add a `ConnectionDef` to `connectionRegistry` — no other registration needed.
+Plugins are defined via `ConnectionDef` structs in `cmd/connection_types.go`. Each entry declares the plugin slug, endpoint, rate limits, prompt labels, and PAT resolution keys. To add a new DevOps tool, add a `ConnectionDef` to `connectionRegistry` — token resolution, org prompts, and connection creation all derive from these fields automatically. See the `plugin-registry` skill for full details.
 
-**One plugin per invocation.** Flag-based commands target a single `--plugin`. Interactive mode walks through plugins sequentially. This keeps plugin-specific fields (org, enterprise, repos, tokens) self-contained.
+**One plugin per invocation.** Flag-based commands target a single `--plugin`. Interactive mode walks through plugins sequentially.
+
+### Design Principles
+- **Tool-agnostic**: No hardcoded plugin names outside `connectionRegistry` and plugin-specific scope functions
+- **Per-plugin resolution**: Orchestrators resolve token, org, and enterprise independently for each plugin
+- **Declarative over imperative**: Plugin behavior comes from `ConnectionDef` fields, not switch/case branches
+- **Interactive orchestrators**: `init` and `configure full` are interactive-only; flag-driven automation uses individual commands
 
 ### Copilot Scope ID Convention
 The `gh-copilot` plugin computes scope IDs as: enterprise + org → `"enterprise/org"`, enterprise only → `"enterprise"`, org only → `"org"`. See `copilotScopeID()` in `cmd/configure_scopes.go`. The scope ID must match the plugin's `listGhCopilotRemoteScopes` logic exactly or blueprint references will break.
@@ -105,6 +111,10 @@ import (
 - Command-specific flags as package-level vars with `cmd.Flags().StringVar()`
 - Required flags validated in `RunE` (not via `MarkFlagRequired`)
 
+## Documentation
+
+Each command group has a reference file in `docs/`. When adding a new command, create or update the matching `docs/<command>.md` and add a row to the Command Reference table in `README.md`.
+
 ## Testing
 
 - Unit tests: `*_test.go` alongside source
@@ -114,10 +124,12 @@ import (
 ## Build & Run
 
 ```bash
-go build -o gh-devlake .          # Build the extension
+go build -o gh-devlake.exe .      # Windows (always use .exe suffix)
+go build -o gh-devlake .          # Linux/macOS
 gh extension install .             # Install locally for testing
-gh devlake status                  # Run via gh CLI
-gh devlake configure connection    # Create a plugin connection
-gh devlake configure scope         # Configure collection scopes
-gh devlake configure project       # Create a project and start data collection
+gh devlake init                    # Guided wizard (deploy + configure)
+gh devlake configure full          # Configure connections + scopes + project
+gh devlake status                  # Health check and connection summary
 ```
+
+> **Windows**: Always build with `-o gh-devlake.exe`. PowerShell resolves `.exe` preferentially — a stale `.exe` will shadow a freshly built binary without the extension.

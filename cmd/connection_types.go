@@ -12,7 +12,7 @@ import (
 type ConnectionDef struct {
 	Plugin           string
 	DisplayName      string
-	Available        bool   // false = coming soon
+	Available        bool // false = coming soon
 	Endpoint         string
 	NeedsOrg         bool
 	NeedsEnterprise  bool

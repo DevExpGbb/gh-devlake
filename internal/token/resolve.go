@@ -19,9 +19,9 @@ import (
 
 // ResolveResult contains the resolved token and its source.
 type ResolveResult struct {
-	Token         string
-	Source        string // "flag", "envfile", "environment", "prompt"
-	EnvFilePath   string // non-empty if loaded from envfile (for cleanup)
+	Token       string
+	Source      string // "flag", "envfile", "environment", "prompt"
+	EnvFilePath string // non-empty if loaded from envfile (for cleanup)
 }
 
 // ResolveOpts holds the plugin-specific lookup data for token resolution.

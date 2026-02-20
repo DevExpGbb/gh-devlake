@@ -1,29 +1,37 @@
 # gh-devlake
 
-A [GitHub CLI extension](https://cli.github.com/manual/gh_extension) that deploys, configures, and monitors [Apache DevLake](https://devlake.apache.org/) instances from the command line.
+A [GitHub CLI extension](https://cli.github.com/manual/gh_extension) that deploys, configures, and monitors [Apache DevLake](https://devlake.apache.org/) from the terminal.
 
-One CLI to go from zero to DORA dashboards: deploy DevLake (locally or on Azure), create GitHub + Copilot connections, add repository scopes, build a DORA project, and trigger data syncs — all without touching the Config UI.
+Deploy DevLake locally or on Azure, create GitHub and Copilot connections, configure DORA project scopes, and trigger data syncs — without touching the Config UI.
+
+> **Blog post:** [Beyond Copilot Dashboards: Measuring What AI Actually Changes](https://github.com/DevExpGBB/gh-devlake) — why DORA + Copilot correlation matters and what this tool enables.
 
 ## Quick Start
 
 ```bash
-# Install the extension
 gh extension install DevExpGBB/gh-devlake
-
-# Deploy DevLake locally (downloads official Docker Compose files)
-gh devlake deploy local --dir ./my-devlake
-cd my-devlake && docker compose up -d
-
-# Wait ~2 minutes, then configure everything in one shot
+gh devlake deploy local --dir ./devlake
+cd devlake && docker compose up -d
+# wait ~2 minutes, then:
 gh devlake configure full --org my-org --repos my-org/repo1,my-org/repo2
-
-# Check health and connections
-gh devlake status
 ```
 
-## Installation
+Open Grafana at http://localhost:3002 (admin/admin). DORA and Copilot dashboards will be populated.
 
-### From GitHub Release (recommended)
+## How DevLake Configuration Works
+
+Four concepts to understand before the commands make sense:
+
+| Concept | What It Is |
+|---------|-----------|
+| **Connection** | An authenticated link to a data source. Each plugin (GitHub, Copilot) gets its own connection with its own PAT. |
+| **Scope** | What to collect from a connection — specific repos for GitHub, an org/enterprise for Copilot. Includes DORA pattern config. |
+| **Project** | Groups connections and scopes into a single view with DORA metrics enabled. |
+| **Blueprint** | The sync schedule (cron) that re-collects data on a recurring basis. Created automatically when you set up a project. |
+
+You can configure these through the Config UI at `:4000`, or through the DevLake REST API. This CLI automates the API path.
+
+## Installation
 
 ```bash
 gh extension install DevExpGBB/gh-devlake
@@ -51,398 +59,204 @@ gh extension install .
 
 **Required PAT scopes:**
 
-| Plugin | Required Scopes | Notes |
-|--------|----------------|-------|
-| GitHub | `repo`, `read:org`, `read:user` | `repo` covers `repo:status` and `repo_deployment` |
-| GitHub Copilot | `manage_billing:copilot`, `read:org` | Add `read:enterprise` for enterprise-level metrics |
-
-## How It Works
-
-The extension manages three phases of DevLake setup:
-
-```
-Phase 1 — Deploy          Phase 2 — Connections       Phase 3 — Scopes & Project
-─────────────────          ─────────────────────       ──────────────────────────
-deploy local               configure connection        configure scope
-deploy azure
-
-                            ─── or combine ───
-cleanup                     configure full  (Phase 2 + 3 in one step)
-```
-
-**Auto-discovery** finds your DevLake instance automatically:
-1. `--url` flag (explicit)
-2. State files (`.devlake-azure.json`, `.devlake-local.json`) in the current directory
-3. Well-known localhost ports (`8080`, `8085`)
-
-**State files** track deployment info, connection IDs, and project configuration so commands can chain together without re-specifying IDs.
+| Plugin | Required Scopes |
+|--------|----------------|
+| GitHub | `repo`, `read:org`, `read:user` |
+| GitHub Copilot | `manage_billing:copilot`, `read:org` (add `read:enterprise` for enterprise-level metrics) |
 
 ---
 
-## Commands
+## Deploy
 
-### `gh devlake status`
-
-Check DevLake health and list configured connections.
+### Local Docker (recommended to start)
 
 ```bash
-gh devlake status
-gh devlake status --url http://localhost:8085
+gh devlake deploy local --dir ./devlake
+cd devlake && docker compose up -d
 ```
 
-Output:
-```
-═══════════════════════════════════════════
-  DevLake Status
-═══════════════════════════════════════════
+Downloads the official Apache DevLake Docker Compose files, generates an `ENCRYPTION_SECRET`, and writes `.env`. After `docker compose up`, give it ~2 minutes.
 
-  Deployment  [.devlake-local.json]
-  ──────────────────────────────────────────
-  Method:    local
-  Deployed:  2026-02-18 12:00 UTC
+| Service | URL |
+|---------|-----|
+| Backend API | http://localhost:8080 |
+| Config UI | http://localhost:4000 |
+| Grafana | http://localhost:3002 (admin/admin) |
 
-  Services
-  ──────────────────────────────────────────
-  Backend    ✅  http://localhost:8080
-  Grafana    ✅  http://localhost:3002
+Flags: `--dir` (default: `.`), `--version` (default: `latest`). See [docs/deploy.md](docs/deploy.md).
 
-  Connections
-  ──────────────────────────────────────────
-  GitHub              ID=1    "GitHub - my-org"
-  GitHub Copilot      ID=1    "Copilot - my-org"  [org: my-org]
-
-  Project
-  ──────────────────────────────────────────
-  Name:       my-org
-  Blueprint:  1
-  Repos:      my-org/app1, my-org/app2
-
-═══════════════════════════════════════════
-```
-
----
-
-### `gh devlake deploy local`
-
-Download official Apache DevLake Docker Compose files, generate an encryption secret, and prepare for `docker compose up`.
+### Azure (for persistent deployments)
 
 ```bash
-gh devlake deploy local
-gh devlake deploy local --version v1.0.2 --dir ./devlake
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--dir` | `.` | Target directory for files |
-| `--version` | `latest` | DevLake release version (e.g., `v1.0.2`) |
-
-**What it does:**
-1. Fetches the latest release tag from GitHub (or uses `--version`)
-2. Downloads `docker-compose.yml` and `env.example`
-3. Renames `env.example` → `.env`
-4. Generates and injects a cryptographic `ENCRYPTION_SECRET`
-5. Checks that Docker is available
-
-**After running:** `cd <dir> && docker compose up -d`, then wait ~2 minutes.
-
-**Endpoints:**
-- Config UI: http://localhost:4000
-- Grafana: http://localhost:3002 (admin/admin)
-- Backend API: http://localhost:8080
-
----
-
-### `gh devlake deploy azure`
-
-Deploy DevLake to Azure using Bicep templates (Container Instances + MySQL Flexible Server + Key Vault).
-
-```bash
-# Official Apache images (no ACR, ~$30-50/month)
 gh devlake deploy azure --resource-group devlake-rg --location eastus --official
+```
 
-# Custom images built from source (with ACR, ~$50-75/month)
-gh devlake deploy azure --resource-group devlake-rg --location eastus
+Creates Azure Container Instances, MySQL Flexible Server, and Key Vault via Bicep. `--official` uses Docker Hub images (~$30–50/month). Omit `--resource-group` or `--location` to be prompted interactively.
 
-# Build from a remote fork
+```bash
+# Custom images from a fork
 gh devlake deploy azure --resource-group devlake-rg --location eastus \
     --repo-url https://github.com/my-fork/incubator-devlake
 ```
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--resource-group` | *(required)* | Azure Resource Group name |
-| `--location` | *(required)* | Azure region (e.g., `eastus`) |
-| `--base-name` | `devlake` | Base name for Azure resources |
-| `--official` | `false` | Use official Docker Hub images (no ACR) |
-| `--skip-image-build` | `false` | Skip Docker image build step |
-| `--repo-url` | | Clone a remote repo for building |
+> Tear down with `gh devlake cleanup --azure`.
 
-**What it does:**
-1. Checks Azure CLI login (prompts `az login` if needed)
-2. Creates the resource group
-3. Generates MySQL password and encryption secret
-4. Optionally builds + pushes Docker images to ACR
-5. Deploys infrastructure via Bicep
-6. Waits for the backend to respond, triggers DB migration
-7. Saves `.devlake-azure.json` state file
+See [docs/deploy.md](docs/deploy.md) for all flags.
+
+### Init Wizard
+
+```bash
+gh devlake init
+```
+
+Fully guided 4-phase wizard: deploy → connections → scopes → project. No flags required. Supports both local and Azure targets.
 
 ---
 
-### `gh devlake configure connection`
+## Configure
 
-Create a plugin connection in DevLake using a PAT. If `--plugin` is not specified, prompts interactively.
+### Step 1: Create Connections
+
+Create a token file (or use `--token` directly, or let the CLI prompt you):
+
+```bash
+echo "GITHUB_TOKEN=ghp_your_pat_here" > .devlake.env
+```
+
+**GitHub connection** (repos, PRs, deployments, workflows):
 
 ```bash
 gh devlake configure connection --plugin github --org my-org
+```
+
+**Copilot connection** (usage metrics, seats, acceptance rates):
+
+```bash
 gh devlake configure connection --plugin gh-copilot --org my-org
-gh devlake configure connection --org my-org --name "My GitHub" --proxy http://proxy:8080
-gh devlake configure connection --org my-org --endpoint https://github.example.com/api/v3/
+# For enterprise-level metrics:
+gh devlake configure connection --plugin gh-copilot --org my-org --enterprise my-enterprise
 ```
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin to configure (`github`, `gh-copilot`) |
-| `--org` | *(required for Copilot)* | GitHub organization slug |
-| `--enterprise` | | GitHub enterprise slug (for Copilot enterprise metrics) |
-| `--name` | `Plugin - org` | Connection display name |
-| `--endpoint` | `https://api.github.com/` | API endpoint (for GitHub Enterprise Server) |
-| `--proxy` | | HTTP proxy URL |
-| `--token` | | GitHub PAT (highest priority) |
-| `--env-file` | `.devlake.env` | Path to env file containing `GITHUB_PAT` |
-| `--skip-cleanup` | `false` | Don't delete `.devlake.env` after setup |
+The CLI tests each connection before saving. On success, `.devlake.env` is deleted — tokens are stored encrypted in DevLake.
 
-**Token resolution order (per plugin):**
-1. `--token` flag
-2. `.devlake.env` file — plugin-specific key first, e.g.:
-   - GitHub / GitHub Copilot: `GITHUB_PAT=`, `GITHUB_TOKEN=`, or `GH_TOKEN=`
-   - GitLab: `GITLAB_TOKEN=`
-   - Azure DevOps: `AZURE_DEVOPS_PAT=`
-3. Plugin-specific environment variable (same keys as above, without `GITHUB_PAT`)
-4. Interactive masked prompt (terminal only)
+```
+   🔑 Testing connection...
+   ✅ Connection test passed
+   ✅ Created GitHub connection (ID=1)
+```
 
-**What it does:**
-1. Auto-discovers DevLake instance
-2. Resolves the GitHub PAT
-3. Displays required PAT scopes for the selected plugin (regardless of token source)
-4. Prompts for connection name (Enter accepts default), proxy (Enter skips)
-5. For GitHub: offers Cloud vs Enterprise Server endpoint choice
-6. Tests the connection payload (GitHub only)
-7. Creates the plugin connection
-8. Saves connection ID to the state file
-9. Deletes `.devlake.env` (tokens now stored encrypted in DevLake)
+Omit `--plugin` to select interactively. See [docs/configure-connection.md](docs/configure-connection.md) for all flags and token resolution order.
 
-After creating connections, run `configure scope` to create a project and start data collection.
+### Step 2: Add Scopes
+
+Tell DevLake which repos or orgs to collect from:
+
+```bash
+# GitHub — specific repos
+gh devlake configure scope --plugin github --org my-org --repos my-org/repo1,my-org/repo2
+
+# GitHub — interactive repo selection (omit --repos)
+gh devlake configure scope --plugin github --org my-org
+
+# Copilot — org scope
+gh devlake configure scope --plugin gh-copilot --org my-org
+```
+
+DORA pattern defaults (override with flags):
+
+| Pattern | Default | Flag |
+|---------|---------|------|
+| Deployment workflow | `(?i)deploy` | `--deployment-pattern` |
+| Production environment | `(?i)prod` | `--production-pattern` |
+| Incident label | `incident` | `--incident-label` |
+
+`configure scope` only manages scopes — it does not create projects or trigger syncs.
+
+See [docs/configure-scope.md](docs/configure-scope.md) for all flags.
+
+### Step 3: Create a Project and Sync
+
+```bash
+gh devlake configure project --org my-org
+```
+
+Discovers existing connections and scopes, lets you include them interactively, creates a DevLake project with DORA metrics enabled, configures a daily sync blueprint, and triggers the first data collection.
+
+```
+   [10s] Status: TASK_RUNNING | Tasks: 2/8
+   [30s] Status: TASK_RUNNING | Tasks: 5/8
+   [60s] Status: TASK_COMPLETED | Tasks: 8/8
+
+   ✅ Data sync completed!
+```
+
+Key flags: `--project-name`, `--cron` (default: `0 0 * * *`), `--time-after` (default: 6 months ago), `--skip-sync`, `--timeout`. See [docs/configure-project.md](docs/configure-project.md).
+
+### Or: Do It All at Once
+
+`configure full` chains connections → scopes → project in 3 phases:
+
+```bash
+gh devlake configure full --org my-org --repos my-org/repo1,my-org/repo2
+```
+
+Use `--plugin` to limit to a single plugin. Accepts all flags from `configure connection`, `configure scope`, and `configure project`. See [docs/configure-full.md](docs/configure-full.md).
 
 ---
 
-### `gh devlake configure connection update`
+## Day-2 Operations
 
-Update an existing plugin connection in-place — for token rotation, endpoint changes, or org/enterprise updates — without recreating the connection (which would lose scope configs and blueprint associations).
+### Status
 
 ```bash
-# Token rotation
-gh devlake configure connection update --plugin github --id 1 --token ghp_newtoken
-
-# Change org or enterprise
-gh devlake configure connection update --plugin gh-copilot --id 2 --org new-org
-
-# Interactive (shows current values, prompt for each field)
-gh devlake configure connection update
+gh devlake status
 ```
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin slug (`github`, `gh-copilot`) |
-| `--id` | *(interactive)* | Connection ID to update |
-| `--token` | | New GitHub PAT for token rotation |
-| `--org` | | New GitHub organization slug |
-| `--enterprise` | | New GitHub enterprise slug |
-| `--name` | | New connection display name |
-| `--endpoint` | | New API endpoint URL |
-| `--proxy` | | New HTTP proxy URL |
+Shows deployment info, service health (Backend/Grafana/Config UI), connections, and project configuration.
 
-**Flag-based mode:** `--plugin` and `--id` are both required. Only the flags you specify are changed; all other fields remain unchanged.
+### Manage Connections
 
-**Interactive mode:** Lists all existing connections for selection, then shows current values as defaults. Press Enter to keep any field unchanged.
+```bash
+gh devlake configure connection list                                           # list all
+gh devlake configure connection test --plugin github --id 1                   # test a saved connection
+gh devlake configure connection update --plugin github --id 1 --token ghp_new # rotate token
+gh devlake configure connection delete --plugin gh-copilot --id 2             # remove a connection
+```
 
-**What it does:**
-1. Validates plugin and connection ID (flag mode)
-2. Discovers DevLake instance
-3. Fetches the current connection values
-4. Applies only the changed fields via `PATCH /plugins/{plugin}/connections/{id}`
-5. Tests the updated connection
-6. Saves updated connection info to the state file
+All connection subcommands support interactive mode — omit flags to be prompted. See [docs/configure-connection.md](docs/configure-connection.md).
+
+### Add More Repos
+
+Re-run `configure scope` — existing connections and projects are preserved.
+
+### Tear Down
+
+```bash
+gh devlake cleanup --local           # stop Docker Compose containers
+gh devlake cleanup --azure --force   # delete Azure resource group (no prompt)
+```
+
+See [docs/cleanup.md](docs/cleanup.md).
 
 ---
 
-### `gh devlake configure connection list`
+## Command Reference
 
-List all existing plugin connections. Useful for scripting, debugging, and answering "what do I have?".
-
-```bash
-gh devlake configure connection list
-gh devlake configure connection list --plugin gh-copilot
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--plugin` | *(all plugins)* | Filter by plugin (`github`, `gh-copilot`) |
-
-**Output:**
-```
-Plugin       ID  Name                         Organization  Enterprise
-──────────   ──  ──────────────────────────   ────────────  ──────────
-github        1  GitHub - my-org              my-org
-gh-copilot    2  GitHub Copilot - my-org      my-org        avocado-corp
-```
-
----
-
-### `gh devlake configure connection delete`
-
-Delete a plugin connection from DevLake. Removes broken, test, or unwanted connections.
-
-```bash
-gh devlake configure connection delete
-gh devlake configure connection delete --plugin github --id 3
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin of the connection to delete (`github`, `gh-copilot`) |
-| `--id` | *(interactive)* | ID of the connection to delete |
-
-**Interactive mode** (no flags): lists all connections across plugins, prompts to select one, then prompts for confirmation before deleting.
-
-**Flag mode**: `--plugin` and `--id` are both required.
-
-**What it does:**
-1. Auto-discovers DevLake instance
-2. In interactive mode: lists all connections and prompts for selection
-3. Confirms deletion with a warning that scopes will be lost
-4. Calls `DELETE /plugins/{plugin}/connections/{id}`
-5. Removes the connection from the state file
-
----
-
-### `gh devlake configure connection test`
-
-Test an existing DevLake connection by ID.
-
-```bash
-# Non-interactive: specify plugin and connection ID
-gh devlake configure connection test --plugin gh-copilot --id 2
-
-# Interactive: pick from all discovered connections
-gh devlake configure connection test
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin to test (`github`, `gh-copilot`) |
-| `--id` | `0` | Connection ID to test (required for non-interactive) |
-
-**Output on success:**
-```
-✅ Connection test passed
-```
-
-**Output on failure:**
-```
-❌ Connection test failed: <error message>
-   💡 Ensure your PAT has these scopes: <required scopes>
-```
-
-> **Note:** Both `--plugin` and `--id` must be provided for non-interactive mode. If either is missing, the command will enter interactive mode and prompt you to select a connection from all available plugins.
-
----
-
-### `gh devlake configure scope`
-
-Add repository scopes, create a DORA project with a blueprint, and trigger the first data sync.
-
-```bash
-# Specify repos directly
-gh devlake configure scope --org my-org --repos my-org/app1,my-org/app2
-
-# Load repos from a file (one owner/repo per line)
-gh devlake configure scope --org my-org --repos-file repos.txt
-
-# Interactive selection via gh CLI
-gh devlake configure scope --org my-org
-
-# Custom DORA patterns
-gh devlake configure scope --org my-org --repos my-org/app1 \
-    --deployment-pattern "(?i)(deploy|release)" \
-    --production-pattern "(?i)(prod|production)" \
-    --incident-label "bug/incident"
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--org` | | GitHub organization slug |
-| `--plugin` | *(interactive)* | Plugin to configure (`github`, `gh-copilot`) |
-| `--repos` | | Comma-separated repos (`owner/repo`) |
-| `--repos-file` | | Path to file with repos (one per line) |
-| `--project-name` | *(org name)* | DevLake project name |
-| `--deployment-pattern` | `(?i)deploy` | Regex matching deployment CI/CD workflows |
-| `--production-pattern` | `(?i)prod` | Regex matching production environments |
-| `--incident-label` | `incident` | Issue label identifying incidents |
-| `--cron` | `0 0 * * *` | Blueprint sync schedule (daily midnight) |
-| `--time-after` | *(6 months ago)* | Only collect data after this date |
-| `--skip-sync` | `false` | Skip triggering the first data sync |
-| `--wait` | `true` | Wait for pipeline to complete |
-| `--timeout` | `5m` | Max time to wait for pipeline |
-| `--github-connection-id` | *(auto)* | Override auto-detected GitHub connection ID |
-| `--copilot-connection-id` | *(auto)* | Override auto-detected Copilot connection ID |
-
-> **Note:** `--skip-copilot` and `--skip-github` are deprecated — use `--plugin github` or `--plugin gh-copilot` instead.
-
-**What it does:**
-1. Discovers DevLake and resolves connection IDs (from state file or API)
-2. Resolves repos (from flag, file, or interactive `gh repo list` selection)
-3. Looks up repo details via `gh api repos/<owner>/<repo>`
-4. Creates a DORA scope config (deployment/production patterns, incident label)
-5. Adds repo scopes to the GitHub connection
-6. Adds Copilot org scope (unless `--plugin github`)
-7. Creates a DevLake project with DORA metrics enabled
-8. Configures the project's blueprint with connection scopes
-9. Triggers the first data sync and monitors the pipeline
-
----
-
-### `gh devlake configure full`
-
-Combine connections + scopes configuration in one step (Phase 2 + Phase 3).
-
-```bash
-gh devlake configure full --org my-org --repos my-org/app1,my-org/app2
-gh devlake configure full --org my-org --repos-file repos.txt
-gh devlake configure full --org my-org --enterprise my-ent --skip-sync
-gh devlake configure full --org my-org --plugin github
-```
-
-Accepts all flags from both `configure connection` and `configure scope`. Use `--plugin` to limit the run to a single plugin (skips the interactive picker). Runs Phase 2 first, then Phase 3 — wiring connection IDs automatically between the two phases.
-
----
-
-### `gh devlake cleanup`
-
-Tear down DevLake resources. Auto-detects deployment type from state files.
-
-```bash
-gh devlake cleanup                  # auto-detect mode
-gh devlake cleanup --local          # stop Docker Compose containers
-gh devlake cleanup --azure --force  # delete Azure resource group (no prompt)
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--azure` | `false` | Force Azure cleanup mode |
-| `--local` | `false` | Force local cleanup mode |
-| `--force` | `false` | Skip confirmation prompt |
-| `--keep-resource-group` | `false` | Delete resources but keep the Azure RG |
-| `--state-file` | *(auto)* | Path to state file |
+| Command | Description | Reference |
+|---------|-------------|-----------|
+| `gh devlake init` | Guided 4-phase setup wizard | [docs/init.md](docs/init.md) |
+| `gh devlake status` | Health check and connection summary | [docs/status.md](docs/status.md) |
+| `gh devlake deploy local` | Local Docker Compose deploy | [docs/deploy.md](docs/deploy.md) |
+| `gh devlake deploy azure` | Azure Container Instance deploy | [docs/deploy.md](docs/deploy.md) |
+| `gh devlake configure connection` | Create a plugin connection | [docs/configure-connection.md](docs/configure-connection.md) |
+| `gh devlake configure connection list` | List all connections | [docs/configure-connection.md](docs/configure-connection.md) |
+| `gh devlake configure connection test` | Test a saved connection | [docs/configure-connection.md](docs/configure-connection.md) |
+| `gh devlake configure connection update` | Rotate token or update settings | [docs/configure-connection.md](docs/configure-connection.md) |
+| `gh devlake configure connection delete` | Remove a connection | [docs/configure-connection.md](docs/configure-connection.md) |
+| `gh devlake configure scope` | Add repo/org scopes to a connection | [docs/configure-scope.md](docs/configure-scope.md) |
+| `gh devlake configure project` | Create project + blueprint + first sync | [docs/configure-project.md](docs/configure-project.md) |
+| `gh devlake configure full` | Connections + scopes + project in one step | [docs/configure-full.md](docs/configure-full.md) |
+| `gh devlake cleanup` | Tear down local or Azure resources | [docs/cleanup.md](docs/cleanup.md) |
 
 ---
 
@@ -454,11 +268,8 @@ The extension **never** stores your PAT in command history or logs:
    ```
    GITHUB_TOKEN=ghp_your_token_here
    ```
-2. Run the configure command — the token is read from the file:
-   ```bash
-   gh devlake configure connection --org my-org
-   ```
-3. After success, `.devlake.env` is **automatically deleted** (use `--skip-cleanup` to keep it). Tokens are now stored encrypted in DevLake's database.
+2. Run the configure command — the token is read from the file.
+3. After success, `.devlake.env` is **automatically deleted** (use `--skip-cleanup` to keep it). Tokens are stored encrypted in DevLake's database.
 
 The `.devlake.env` file is in `.gitignore` by default.
 
@@ -468,53 +279,11 @@ The `.devlake.env` file is in `.gitignore` by default.
 
 | File | Created By | Purpose |
 |------|-----------|---------|
-| `.devlake-azure.json` | `deploy azure` | Azure resources, endpoints, suffix |
+| `.devlake-azure.json` | `deploy azure` | Azure resources, endpoints |
 | `.devlake-local.json` | `configure connection` | Endpoints, connection IDs (local deploys) |
-| `.devlake.env` | User (Phase 2) | **Ephemeral** — PATs for connection creation, auto-deleted |
+| `.devlake.env` | User | **Ephemeral** — PATs for connection creation, auto-deleted after use |
 
-State files enable command chaining — `configure scope` reads connection IDs saved by `configure connection`, so you don't need to pass `--github-connection-id`.
-
----
-
-## End-to-End Example
-
-```bash
-# 1. Install
-gh extension install DevExpGBB/gh-devlake
-
-# 2. Deploy DevLake locally
-gh devlake deploy local --dir ./devlake
-cd devlake && docker compose up -d
-# Wait ~2 minutes for services to start
-
-# 3. Check health
-gh devlake status
-
-# 4. Create a secrets file (paste your PAT, save it)
-echo "GITHUB_TOKEN=" > .devlake.env
-# Edit .devlake.env and add your PAT after the =
-
-# 5. Configure everything
-gh devlake configure full --org my-org --repos my-org/app1,my-org/app2
-
-# 6. Open Grafana dashboards
-# http://localhost:3002 (admin/admin)
-# Navigate to DORA dashboard
-
-# 7. When done, tear down
-gh devlake cleanup --local
-```
-
----
-
-## Global Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--url` | *(auto-discovered)* | DevLake API base URL |
-| `--help` | | Show help for any command |
-
-Use `--url` to target a specific DevLake instance. If omitted, the extension auto-discovers from state files or well-known localhost ports.
+State files enable command chaining. `configure scope` and `configure project` read connection IDs saved by `configure connection`, so you don't need to pass `--connection-id` manually.
 
 ---
 
@@ -527,34 +296,33 @@ go test ./... -v                  # Run tests
 gh extension install .            # Install locally for testing
 ```
 
-## Project Structure
+### Project Structure
 
 ```
-├── main.go                          # Entry point
+├── main.go
 ├── cmd/                             # Cobra command tree
 │   ├── root.go                      # Root command + global flags
-│   ├── status.go                    # status — health + connections
-│   ├── deploy.go                    # deploy parent + cleanup wiring
-│   ├── deploy_local.go              # deploy local (Docker Compose)
-│   ├── deploy_azure.go              # deploy azure (Bicep)
-│   ├── cleanup.go                   # cleanup (Azure + local)
-│   ├── configure.go                 # configure parent command
-│   ├── configure_connections.go     # configure connection (single plugin)
-│   ├── configure_scopes.go          # configure scope + project + sync
-│   ├── configure_full.go            # configure full (connections + scopes)
-│   ├── connection_types.go          # plugin registry & connection builder
-├── internal/
-│   ├── azure/                       # Azure CLI wrapper + embedded Bicep
-│   ├── devlake/                     # DevLake REST API client + discovery
-│   ├── docker/                      # Docker CLI wrapper
-│   ├── download/                    # HTTP download + GitHub releases
-│   ├── envfile/                     # .devlake.env parser
-│   ├── gh/                          # GitHub CLI wrapper (repo lookup)
-│   ├── prompt/                      # Interactive terminal prompts
-│   ├── repofile/                    # Repo list file parser (CSV/TXT)
-│   ├── secrets/                     # Cryptographic secret generation
-│   └── token/                       # PAT resolution chain
-└── LICENSE
+│   ├── status.go                    # status
+│   ├── init.go                      # init wizard
+│   ├── deploy.go / deploy_local.go / deploy_azure.go
+│   ├── cleanup.go
+│   ├── configure.go                 # configure parent
+│   ├── configure_connections.go     # configure connection + subcommands
+│   ├── configure_scopes.go          # configure scope
+│   ├── configure_projects.go        # configure project
+│   ├── configure_full.go            # configure full
+│   └── connection_types.go          # plugin registry
+└── internal/
+    ├── azure/                       # Azure CLI wrapper + Bicep templates
+    ├── devlake/                     # REST API client + auto-discovery
+    ├── docker/                      # Docker CLI wrapper
+    ├── download/                    # HTTP downloads + GitHub release tags
+    ├── envfile/                     # .devlake.env parser
+    ├── gh/                          # GitHub CLI wrapper
+    ├── prompt/                      # Interactive terminal prompts
+    ├── repofile/                    # Repo list file parser
+    ├── secrets/                     # Cryptographic secret generation
+    └── token/                       # PAT resolution chain
 ```
 
 ## License
