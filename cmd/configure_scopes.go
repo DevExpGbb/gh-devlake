@@ -20,8 +20,7 @@ Enterprise    string
 Plugin        string
 Repos         string
 ReposFile     string
-GHConnID      int
-CopilotConnID int
+ConnectionID  int
 ProjectName   string
 DeployPattern string
 ProdPattern   string
@@ -58,8 +57,7 @@ cmd.Flags().StringVar(&opts.Enterprise, "enterprise", "", "Enterprise slug (enab
 cmd.Flags().StringVar(&opts.Plugin, "plugin", "", fmt.Sprintf("Plugin to configure (%s)", strings.Join(availablePluginSlugs(), ", ")))
 cmd.Flags().StringVar(&opts.Repos, "repos", "", "Comma-separated repos (owner/repo)")
 cmd.Flags().StringVar(&opts.ReposFile, "repos-file", "", "Path to file with repos (one per line)")
-cmd.Flags().IntVar(&opts.GHConnID, "github-connection-id", 0, "GitHub connection ID (auto-detected if omitted)")
-cmd.Flags().IntVar(&opts.CopilotConnID, "copilot-connection-id", 0, "Copilot connection ID (auto-detected if omitted)")
+cmd.Flags().IntVar(&opts.ConnectionID, "connection-id", 0, "Connection ID (auto-detected if omitted)")
 cmd.Flags().StringVar(&opts.DeployPattern, "deployment-pattern", "(?i)deploy", "Regex to match deployment workflows")
 cmd.Flags().StringVar(&opts.ProdPattern, "production-pattern", "(?i)prod", "Regex to match production environment")
 cmd.Flags().StringVar(&opts.IncidentLabel, "incident-label", "incident", "Issue label for incidents")
@@ -176,8 +174,7 @@ selectedPlugin = opts.Plugin
 flagMode := cmd.Flags().Changed("org") ||
 cmd.Flags().Changed("repos") ||
 cmd.Flags().Changed("repos-file") ||
-cmd.Flags().Changed("github-connection-id") ||
-cmd.Flags().Changed("copilot-connection-id")
+cmd.Flags().Changed("connection-id")
 if flagMode {
 slugs := availablePluginSlugs()
 return fmt.Errorf("--plugin is required when using flags (choose: %s)", strings.Join(slugs, ", "))
@@ -214,7 +211,7 @@ client := devlake.NewClient(disc.URL)
 _, state := devlake.FindStateFile(disc.URL, disc.GrafanaURL)
 
 fmt.Println("\n\U0001f517 Resolving connection...")
-connID, err := resolveConnectionID(client, state, selectedPlugin, opts.GHConnID)
+connID, err := resolveConnectionID(client, state, selectedPlugin, opts.ConnectionID)
 if err != nil {
 return fmt.Errorf("no %s connection found \u2014 run 'configure connection' first: %w", pluginDisplayName(selectedPlugin), err)
 }

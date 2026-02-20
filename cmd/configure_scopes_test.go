@@ -41,8 +41,7 @@ func TestRunConfigureScopes_PluginFlag(t *testing.T) {
 		cmd.Flags().StringVar(&opts.Org, "org", "", "")
 		cmd.Flags().StringVar(&opts.Repos, "repos", "", "")
 		cmd.Flags().StringVar(&opts.ReposFile, "repos-file", "", "")
-		cmd.Flags().IntVar(&opts.GHConnID, "github-connection-id", 0, "")
-		cmd.Flags().IntVar(&opts.CopilotConnID, "copilot-connection-id", 0, "")
+		cmd.Flags().IntVar(&opts.ConnectionID, "connection-id", 0, "")
 		return cmd, opts
 	}
 
@@ -83,7 +82,7 @@ func TestRunConfigureScopes_PluginFlag(t *testing.T) {
 		opts.Plugin = "gh-copilot"
 		_ = cmd.Flags().Set("plugin", "gh-copilot")
 		_ = cmd.Flags().Set("org", "my-org")
-		_ = cmd.Flags().Set("copilot-connection-id", "999")
+		_ = cmd.Flags().Set("connection-id", "999")
 		err := runConfigureScopes(cmd, nil, opts)
 		// Should get past plugin validation to connection discovery phase
 		if err != nil && err.Error() == `unknown plugin "gh-copilot"` {
