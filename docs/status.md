@@ -111,6 +111,7 @@ gh devlake status --url http://my-devlake.example.com
 ## Related
 
 - [deploy.md](deploy.md)
+- [state-files.md](state-files.md) — state file format and discovery chain
 - [configure-connection.md](configure-connection.md)
 - [configure-project.md](configure-project.md)
 - [cleanup.md](cleanup.md)

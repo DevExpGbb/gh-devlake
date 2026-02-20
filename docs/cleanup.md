@@ -96,4 +96,5 @@ gh devlake cleanup --state-file /path/to/.devlake-azure.json
 ## Related
 
 - [deploy.md](deploy.md)
+- [state-files.md](state-files.md) — what gets cleaned up
 - [status.md](status.md)

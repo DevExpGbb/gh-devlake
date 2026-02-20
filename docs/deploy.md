@@ -141,5 +141,6 @@ See [cleanup.md](cleanup.md).
 ## Related
 
 - [init.md](init.md) — guided wizard that includes deployment as Phase 1
+- [state-files.md](state-files.md) — what `.devlake-local.json` and `.devlake-azure.json` contain
 - [cleanup.md](cleanup.md)
 - [status.md](status.md)

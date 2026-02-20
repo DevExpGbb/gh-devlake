@@ -14,6 +14,7 @@ gh devlake init [flags]
 |------|---------|-------------|
 | `--token` | | GitHub PAT (skips interactive token prompt) |
 | `--env-file` | `.devlake.env` | Path to env file containing PAT |
+| `--skip-cleanup` | `false` | Don't delete `.devlake.env` after setup |
 
 ## Phases
 
@@ -75,9 +76,9 @@ Fully interactive — no other flags needed for a standard setup.
 | | `init` | `configure full` |
 |--|--------|-----------------|
 | Deploy included | ✅ Phase 1 | ❌ DevLake must already be running |
-| Flag-driven | Mostly interactive | Fully scriptable |
-| Customization | Prompted at each step | Set via flags |
-| Best for | First time, exploratory | Repeatable / CI use |
+| Flag-driven | Mostly interactive | Mostly interactive |
+| Customization | Prompted at each step | Prompted at each step |
+| Best for | First time, exploratory | When DevLake is already deployed |
 
 ## Notes
 

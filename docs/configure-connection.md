@@ -42,7 +42,7 @@ Aliases: `connections`
 
 ### Token Resolution Order
 
-For each plugin, the CLI resolves the PAT in this order:
+For each plugin, the CLI resolves the PAT in this order (see [token-handling.md](token-handling.md) for the full guide):
 
 1. `--token` flag
 2. `.devlake.env` file — checked for plugin-specific keys:
@@ -234,6 +234,7 @@ gh devlake configure connection delete
 ## Related
 
 - [concepts.md](concepts.md) — what a connection is
+- [token-handling.md](token-handling.md) — PAT resolution, `.devlake.env`, security notes
 - [configure-scope.md](configure-scope.md) — add scopes to a connection
 - [configure-project.md](configure-project.md) — create a project that uses connections
 - [configure-full.md](configure-full.md) — create connections + scopes + project in one step

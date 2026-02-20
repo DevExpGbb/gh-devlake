@@ -1,8 +1,16 @@
 # configure full
 
-Run connections + scopes + project in one command (3 phases).
+Run connections + scopes + project in one interactive session.
 
-This is the recommended path for getting fully configured in one shot. It combines [`configure connection`](configure-connection.md), [`configure scope`](configure-scope.md), and [`configure project`](configure-project.md).
+This is the recommended path for getting fully configured without the deploy phase. It combines [`configure connection`](configure-connection.md), [`configure scope`](configure-scope.md), and [`configure project`](configure-project.md) — interactively, in sequence.
+
+For scripted/CI automation, chain the individual commands instead:
+
+```bash
+gh devlake configure connection --plugin github --org my-org --token $PAT
+gh devlake configure scope --plugin github --org my-org --repos owner/repo1
+gh devlake configure project --project-name my-project
+```
 
 ## Usage
 
@@ -14,75 +22,51 @@ gh devlake configure full [flags]
 
 ```
 Phase 1: Configure Connections
-  → Creates connections for selected plugins
+  → Multi-select picker for plugins; creates connections
 
 Phase 2: Configure Scopes
-  → Adds repo/org scopes using the connections from Phase 1
+  → Interactive scope setup per connection (repos for GitHub, org for Copilot)
 
 Phase 3: Project Setup
-  → Creates a project, configures the blueprint, triggers first sync
+  → Prompts for project name; creates project, blueprint, and triggers first sync
 ```
 
 Connection IDs from Phase 1 are automatically wired into Phases 2 and 3 — no manual ID passing required.
 
 ## Flags
 
-Accepts all flags from `configure connection`, `configure scope`, and `configure project`:
-
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--org` | *(prompt)* | GitHub organization slug |
-| `--enterprise` | | GitHub enterprise slug |
-| `--plugin` | *(interactive multi-select)* | Limit to one plugin (`github`, `gh-copilot`). Skips the picker. |
-| `--token` | | GitHub PAT (skips token prompt/file lookup) |
+| `--token` | | Personal access token (seeds token resolution; may still prompt per plugin) |
 | `--env-file` | `.devlake.env` | Path to env file containing PAT |
 | `--skip-cleanup` | `false` | Don't delete `.devlake.env` after setup |
-| `--repos` | | Comma-separated repos (`owner/repo`) |
-| `--repos-file` | | Path to file with repos (one per line) |
-| `--project-name` | *(org name)* | DevLake project name |
-| `--deployment-pattern` | `(?i)deploy` | Regex for deployment workflows |
-| `--production-pattern` | `(?i)prod` | Regex for production environments |
-| `--incident-label` | `incident` | Issue label for incidents |
-| `--time-after` | *(6 months ago)* | Only collect data after this date |
-| `--cron` | `0 0 * * *` | Blueprint sync schedule |
-| `--skip-sync` | `false` | Skip the first data sync |
+
+All other configuration (org, repos, DORA patterns, project name) is gathered interactively.
 
 ## Plugin Selection
 
-Without `--plugin`, the CLI shows a multi-select list of available plugins (GitHub, GitHub Copilot). You choose which ones to configure.
-
-With `--plugin github` or `--plugin gh-copilot`, the entire run is scoped to that one plugin (no picker shown).
+A multi-select list of all available plugins is always shown at the start. Select one or more to configure.
 
 ## Examples
 
 ```bash
-# Configure GitHub + Copilot with interactive pickers for repos
-gh devlake configure full --org my-org
+# Full interactive configuration
+gh devlake configure full
 
-# Specify repos — skips interactive selection
-gh devlake configure full --org my-org --repos my-org/api,my-org/frontend
+# Seed token from env file (avoids the token prompt)
+gh devlake configure full --env-file .devlake.env
 
-# GitHub only
-gh devlake configure full --org my-org --plugin github --repos my-org/api
-
-# Enterprise Copilot
-gh devlake configure full --org my-org --enterprise my-enterprise
-
-# Load repos from file, skip first sync
-gh devlake configure full --org my-org --repos-file repos.txt --skip-sync
-
-# Custom DORA patterns
-gh devlake configure full --org my-org --repos my-org/api \
-    --deployment-pattern "(?i)(deploy|release)" \
-    --production-pattern "(?i)(prod|live)"
+# Pass token directly
+gh devlake configure full --token $GITHUB_TOKEN
 ```
 
 ## Notes
 
-- `configure full` is equivalent to running `configure connection`, `configure scope`, and `configure project` in sequence with the same flags.
-- PAT scopes are displayed as a reminder at the start of Phase 1.
+- `configure full` is equivalent to running `configure connection`, `configure scope`, and `configure project` in sequence.
 - If a connection creation fails for one plugin, the run continues for remaining plugins.
 - Phase 3 uses the connections from Phase 1 — it does not try to discover pre-existing connections.
+- For fine-grained control or CI automation, use the individual commands directly.
+- If the token was loaded from an env file, `.devlake.env` is deleted at the end by default (use `--skip-cleanup` to keep it).
 
 ## Related
 

@@ -18,10 +18,7 @@ Aliases: `projects`
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--org` | *(state file or prompt)* | Organization slug |
-| `--enterprise` | *(state file or prompt)* | Enterprise slug |
-| `--plugin` | *(all connections)* | Limit to one plugin (`github`, `gh-copilot`) |
-| `--project-name` | *(org name)* | DevLake project name |
+| `--project-name` | *(derived from connections or `my-project`)* | DevLake project name |
 | `--cron` | `0 0 * * *` | Blueprint sync schedule (cron expression) |
 | `--time-after` | *(6 months ago)* | Only collect data after this date (`YYYY-MM-DD`) |
 | `--skip-sync` | `false` | Create the project + blueprint but don't trigger the first sync |
@@ -64,22 +61,20 @@ The first sync may take 5–30 minutes depending on data volume and how far back
 ## Examples
 
 ```bash
-# Create a project for my-org (interactive scope selection)
-gh devlake configure project --org my-org
+# Create a project (interactive — discovers connections, prompts for project name)
+gh devlake configure project
 
-# Custom project name and sync from 1 year ago
-gh devlake configure project --org my-org \
-    --project-name my-team \
-    --time-after 2025-01-01
+# Custom project name
+gh devlake configure project --project-name my-team
+
+# Sync from 1 year ago
+gh devlake configure project --project-name my-team --time-after 2025-01-01
 
 # Create project without triggering sync yet
-gh devlake configure project --org my-org --skip-sync
+gh devlake configure project --skip-sync
 
 # Longer timeout for large repos
-gh devlake configure project --org my-org --timeout 30m
-
-# Limit to GitHub connection only
-gh devlake configure project --org my-org --plugin github
+gh devlake configure project --timeout 30m
 ```
 
 ## Notes
@@ -87,7 +82,7 @@ gh devlake configure project --org my-org --plugin github
 - If a project with `--project-name` already exists, the command reuses its blueprint ID rather than creating a duplicate.
 - If `--time-after` is omitted, defaults to 6 months before today.
 - `--wait false` returns immediately after triggering the sync. Check pipeline status at `GET /pipelines/{id}` or via [`status`](status.md).
-- Org and enterprise are read from the state file if not passed as flags.
+- The project name defaults to the first org found in the state file, or `my-project` if none is found.
 
 ## Related
 
