@@ -5,7 +5,6 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/DevExpGBB/gh-devlake/internal/devlake"
 	"github.com/spf13/cobra"
 )
 
@@ -28,29 +27,20 @@ func init() {
 }
 
 func runListConnections(cmd *cobra.Command, args []string) error {
-	fmt.Println()
-	fmt.Println("════════════════════════════════════════")
-	fmt.Println("  DevLake — List Connections")
-	fmt.Println("════════════════════════════════════════")
+	printBanner("DevLake — List Connections")
 
 	// ── Validate --plugin flag ──
 	if connListPlugin != "" {
-		def := FindConnectionDef(connListPlugin)
-		if def == nil || !def.Available {
-			slugs := availablePluginSlugs()
-			return fmt.Errorf("unknown plugin %q — choose: %s", connListPlugin, strings.Join(slugs, ", "))
+		if _, err := requirePlugin(connListPlugin); err != nil {
+			return err
 		}
 	}
 
 	// ── Discover DevLake ──
-	fmt.Println("\n🔍 Discovering DevLake instance...")
-	disc, err := devlake.Discover(cfgURL)
+	client, _, err := discoverClient(cfgURL)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("   Found DevLake at %s (via %s)\n", disc.URL, disc.Source)
-
-	client := devlake.NewClient(disc.URL)
 
 	// ── Determine which plugins to query ──
 	var defs []*ConnectionDef

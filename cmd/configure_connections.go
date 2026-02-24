@@ -50,10 +50,7 @@ func init() {
 }
 
 func runConfigureConnections(cmd *cobra.Command, args []string) error {
-	fmt.Println()
-	fmt.Println("════════════════════════════════════════")
-	fmt.Println("  DevLake — Configure Connection")
-	fmt.Println("════════════════════════════════════════")
+	printBanner("DevLake — Configure Connection")
 
 	// ── Select plugin ──
 	def, err := selectPlugin(connPlugin)
@@ -81,14 +78,10 @@ func runConfigureConnections(cmd *cobra.Command, args []string) error {
 	}
 
 	// ── Discover DevLake ──
-	fmt.Println("\n🔍 Discovering DevLake instance...")
-	disc, err := devlake.Discover(cfgURL)
+	client, disc, err := discoverClient(cfgURL)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("   Found DevLake at %s (via %s)\n", disc.URL, disc.Source)
-
-	client := devlake.NewClient(disc.URL)
 
 	// ── Resolve token ──
 	fmt.Printf("\n🔑 Resolving %s PAT...\n", def.DisplayName)

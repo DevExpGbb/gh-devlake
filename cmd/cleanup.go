@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/DevExpGBB/gh-devlake/internal/azure"
 	dockerpkg "github.com/DevExpGBB/gh-devlake/internal/docker"
@@ -93,7 +94,7 @@ func detectCleanupMode() string {
 	if cleanupState != "" {
 		if _, err := os.Stat(cleanupState); err == nil {
 			// Guess from filename
-			if contains(cleanupState, "azure") {
+			if strings.Contains(cleanupState, "azure") {
 				return "azure"
 			}
 			return "local"
@@ -110,10 +111,7 @@ func detectCleanupMode() string {
 }
 
 func runAzureCleanup() error {
-	fmt.Println()
-	fmt.Println("════════════════════════════════════════")
-	fmt.Println("  DevLake Azure Cleanup")
-	fmt.Println("════════════════════════════════════════")
+	printBanner("DevLake Azure Cleanup")
 
 	stateFile := cleanupState
 	if stateFile == "" {
@@ -215,10 +213,7 @@ func runAzureCleanup() error {
 		fmt.Println("   ✅ State file removed")
 	}
 
-	fmt.Println("\n════════════════════════════════════════")
-	fmt.Println("  ✅ Cleanup Complete!")
-	fmt.Println("════════════════════════════════════════")
-	fmt.Println()
+	printBanner("✅ Cleanup Complete!")
 
 	if !cleanupKeepRG {
 		fmt.Println("\nNote: Resource group deletion runs in background.")
@@ -229,10 +224,7 @@ func runAzureCleanup() error {
 }
 
 func runLocalCleanup() error {
-	fmt.Println()
-	fmt.Println("════════════════════════════════════════")
-	fmt.Println("  DevLake Local Cleanup")
-	fmt.Println("════════════════════════════════════════")
+	printBanner("DevLake Local Cleanup")
 
 	stateFile := cleanupState
 	if stateFile == "" {
@@ -265,23 +257,7 @@ func runLocalCleanup() error {
 		}
 	}
 
-	fmt.Println("\n════════════════════════════════════════")
-	fmt.Println("  ✅ Cleanup Complete!")
-	fmt.Println("════════════════════════════════════════")
-	fmt.Println()
+	printBanner("✅ Cleanup Complete!")
 
 	return nil
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsStr(s, substr))
-}
-
-func containsStr(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

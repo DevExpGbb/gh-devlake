@@ -59,12 +59,44 @@ func LoadState(path string) (*State, error) {
 	return &s, nil
 }
 
+// LoadStateFromCwd loads the first known state file from the current directory.
+// Returns nil,nil when no state file exists.
+func LoadStateFromCwd() (*State, error) {
+	cwd, _ := os.Getwd()
+	for _, name := range []string{".devlake-azure.json", ".devlake-local.json"} {
+		path := filepath.Join(cwd, name)
+		state, err := LoadState(path)
+		if err == nil && state != nil {
+			return state, nil
+		}
+	}
+	return nil, nil
+}
+
 // FindStateFile finds the first existing state file in the working directory.
 // Returns the path and loaded state, or creates a new local state.
 func FindStateFile(apiURL, grafanaURL string) (string, *State) {
 	cwd, _ := os.Getwd()
 
-	for _, name := range []string{".devlake-azure.json", ".devlake-local.json"} {
+	// Prefer an existing state file that matches the discovered endpoints.
+	// This avoids accidentally writing local connection state into an unrelated
+	// Azure state file that happens to be present in the directory.
+	for _, name := range []string{".devlake-local.json", ".devlake-azure.json"} {
+		path := filepath.Join(cwd, name)
+		state, err := LoadState(path)
+		if err != nil || state == nil {
+			continue
+		}
+		if state.Endpoints.Backend == apiURL {
+			return path, state
+		}
+		if grafanaURL != "" && state.Endpoints.Grafana == grafanaURL {
+			return path, state
+		}
+	}
+
+	// Fall back to the first existing state file (for backward compatibility).
+	for _, name := range []string{".devlake-local.json", ".devlake-azure.json"} {
 		path := filepath.Join(cwd, name)
 		state, err := LoadState(path)
 		if err == nil && state != nil {

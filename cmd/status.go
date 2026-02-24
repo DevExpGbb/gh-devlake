@@ -28,12 +28,8 @@ func init() {
 }
 
 func runStatus(cmd *cobra.Command, args []string) error {
-	fmt.Println()
+	printBanner("DevLake Status")
 	sep := "  " + strings.Repeat("─", 42)
-
-	fmt.Println("════════════════════════════════════════")
-	fmt.Println("  DevLake Status")
-	fmt.Println("════════════════════════════════════════")
 
 	// ── Load state file ──
 	var state *devlake.State
@@ -57,9 +53,15 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		}
 		client := devlake.NewClient(disc.URL)
 		if _, herr := client.Health(); herr == nil {
-			fmt.Printf("\n  ✅ DevLake reachable at %s\n", disc.URL)
+			fmt.Printf("\n  ✅ Backend API: %s\n", disc.URL)
 		} else {
-			fmt.Printf("\n  ❌ DevLake unreachable at %s: %v\n", disc.URL, herr)
+			fmt.Printf("\n  ❌ Backend API unreachable at %s: %v\n", disc.URL, herr)
+		}
+		if disc.ConfigUIURL != "" {
+			fmt.Printf("  Config UI:  %s\n", disc.ConfigUIURL)
+		}
+		if disc.GrafanaURL != "" {
+			fmt.Printf("  Grafana:    %s\n", disc.GrafanaURL)
 		}
 		fmt.Println("  Run 'gh devlake configure full' to set up connections.")
 		return nil
@@ -78,15 +80,32 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	// ── Services section ──
+	backendURL := state.Endpoints.Backend
+	grafanaURL := state.Endpoints.Grafana
+	configUIURL := state.Endpoints.ConfigUI
+
+	// If the state file doesn't contain all endpoints (common for local deployments),
+	// infer companion URLs from the backend URL.
+	if backendURL != "" && (grafanaURL == "" || configUIURL == "") {
+		if disc, err := devlake.Discover(backendURL); err == nil {
+			if grafanaURL == "" {
+				grafanaURL = disc.GrafanaURL
+			}
+			if configUIURL == "" {
+				configUIURL = disc.ConfigUIURL
+			}
+		}
+	}
+
 	type svcEntry struct {
-		label     string
-		url       string
-		isGrafana bool
+		label string
+		url   string
+		kind  string
 	}
 	svcs := []svcEntry{
-		{"Backend  ", state.Endpoints.Backend, false},
-		{"Grafana  ", state.Endpoints.Grafana, true},
-		{"Config UI", state.Endpoints.ConfigUI, false},
+		{"Backend  ", backendURL, "backend"},
+		{"Grafana  ", grafanaURL, "grafana"},
+		{"Config UI", configUIURL, "config-ui"},
 	}
 	hasServices := false
 	for _, svc := range svcs {
@@ -102,7 +121,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 			if svc.url == "" {
 				continue
 			}
-			icon := pingEndpoint(svc.url, svc.isGrafana)
+			icon := pingEndpoint(svc.url, svc.kind)
 			fmt.Printf("  %s  %s  %s\n", svc.label, icon, svc.url)
 		}
 	}
@@ -151,9 +170,12 @@ func runStatus(cmd *cobra.Command, args []string) error {
 }
 
 // pingEndpoint returns ✅, ❌, or a warning icon for the given URL.
-func pingEndpoint(url string, isGrafana bool) string {
+func pingEndpoint(url string, kind string) string {
 	checkURL := strings.TrimRight(url, "/")
-	if isGrafana {
+	if kind == "backend" {
+		checkURL += "/ping"
+	}
+	if kind == "grafana" {
 		checkURL += "/api/health"
 	}
 	client := &http.Client{Timeout: 8 * time.Second}

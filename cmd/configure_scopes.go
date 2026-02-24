@@ -156,18 +156,13 @@ func scopeCopilot(client *devlake.Client, connID int, org, enterprise string) (*
 }
 
 func runConfigureScopes(cmd *cobra.Command, args []string, opts *ScopeOpts) error {
-	fmt.Println()
-	fmt.Println("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550")
-	fmt.Println("  DevLake \u2014 Configure Scopes")
-	fmt.Println("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550")
+	printBanner("DevLake \u2014 Configure Scopes")
 
 	// Determine which plugin to scope
 	var selectedPlugin string
 	if opts.Plugin != "" {
-		def := FindConnectionDef(opts.Plugin)
-		if def == nil || !def.Available {
-			slugs := availablePluginSlugs()
-			return fmt.Errorf("unknown plugin %q \u2014 choose: %s", opts.Plugin, strings.Join(slugs, ", "))
+		if _, err := requirePlugin(opts.Plugin); err != nil {
+			return err
 		}
 		selectedPlugin = opts.Plugin
 	} else {
@@ -200,14 +195,10 @@ func runConfigureScopes(cmd *cobra.Command, args []string, opts *ScopeOpts) erro
 		}
 	}
 
-	fmt.Println("\n\U0001f50d Discovering DevLake instance...")
-	disc, err := devlake.Discover(cfgURL)
+	client, disc, err := discoverClient(cfgURL)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("   Found DevLake at %s (via %s)\n", disc.URL, disc.Source)
-
-	client := devlake.NewClient(disc.URL)
 	_, state := devlake.FindStateFile(disc.URL, disc.GrafanaURL)
 
 	fmt.Println("\n\U0001f517 Resolving connection...")

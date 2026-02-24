@@ -53,10 +53,7 @@ func init() {
 }
 
 func runUpdateConnection(cmd *cobra.Command, args []string) error {
-	fmt.Println()
-	fmt.Println("════════════════════════════════════════")
-	fmt.Println("  DevLake — Update Connection")
-	fmt.Println("════════════════════════════════════════")
+	printBanner("DevLake — Update Connection")
 
 	flagMode := updateConnPlugin != "" || updateConnID != 0
 
@@ -66,22 +63,16 @@ func runUpdateConnection(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("--plugin and --id are both required in flag-based mode")
 		}
 
-		def := FindConnectionDef(updateConnPlugin)
-		if def == nil || !def.Available {
-			slugs := availablePluginSlugs()
-			return fmt.Errorf("unknown plugin %q — choose: %s", updateConnPlugin, strings.Join(slugs, ", "))
+		if _, err := requirePlugin(updateConnPlugin); err != nil {
+			return err
 		}
 	}
 
 	// ── Discover DevLake ──
-	fmt.Println("\n🔍 Discovering DevLake instance...")
-	disc, err := devlake.Discover(cfgURL)
+	client, disc, err := discoverClient(cfgURL)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("   Found DevLake at %s (via %s)\n", disc.URL, disc.Source)
-
-	client := devlake.NewClient(disc.URL)
 
 	var plugin string
 	var connID int
@@ -90,45 +81,13 @@ func runUpdateConnection(cmd *cobra.Command, args []string) error {
 		plugin = updateConnPlugin
 		connID = updateConnID
 	} else {
-		// ── Interactive: list all connections, let user pick ──
-		var entries []struct {
-			plugin string
-			conn   devlake.Connection
+		// ── Interactive: let user pick ──
+		picked, err := pickConnection(client, "Select connection to update")
+		if err != nil {
+			return err
 		}
-		var labels []string
-
-		for _, def := range AvailableConnections() {
-			conns, err := client.ListConnections(def.Plugin)
-			if err != nil {
-				fmt.Printf("\n⚠️  Could not list %s connections: %v\n", def.DisplayName, err)
-				continue
-			}
-			for _, c := range conns {
-				entries = append(entries, struct {
-					plugin string
-					conn   devlake.Connection
-				}{plugin: def.Plugin, conn: c})
-				label := fmt.Sprintf("%s / %d / %s", def.Plugin, c.ID, c.Name)
-				labels = append(labels, label)
-			}
-		}
-
-		if len(entries) == 0 {
-			return fmt.Errorf("no connections found — create one with 'gh devlake configure connection'")
-		}
-
-		fmt.Println()
-		chosen := prompt.Select("Select connection to update", labels)
-		if chosen == "" {
-			return fmt.Errorf("connection selection is required")
-		}
-		for i, label := range labels {
-			if label == chosen {
-				plugin = entries[i].plugin
-				connID = entries[i].conn.ID
-				break
-			}
-		}
+		plugin = picked.Plugin
+		connID = picked.ID
 	}
 
 	// ── GET current connection ──

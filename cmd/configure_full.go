@@ -38,10 +38,7 @@ func init() {
 }
 
 func runConfigureFull(cmd *cobra.Command, args []string) error {
-	fmt.Println()
-	fmt.Println("════════════════════════════════════════")
-	fmt.Println("  DevLake — Full Configuration")
-	fmt.Println("════════════════════════════════════════")
+	printBanner("DevLake — Full Configuration")
 
 	// ── Select connections ──
 	available := AvailableConnections()
@@ -65,9 +62,7 @@ func runConfigureFull(cmd *cobra.Command, args []string) error {
 	}
 
 	// ── Phase 1: Configure Connections ──
-	fmt.Println("\n╔══════════════════════════════════════╗")
-	fmt.Println("║  PHASE 1: Configure Connections      ║")
-	fmt.Println("╚══════════════════════════════════════╝")
+	printPhaseBanner("PHASE 1: Configure Connections")
 
 	results, client, statePath, state, err := runConnectionsInternal(defs, "", "", fullToken, fullEnvFile, fullSkipClean)
 	if err != nil {
@@ -87,119 +82,28 @@ func runConfigureFull(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// ── Phase 2: Scope Connections (call inner functions directly) ──
-	fmt.Println("\n╔══════════════════════════════════════╗")
-	fmt.Println("║  PHASE 2: Configure Scopes           ║")
-	fmt.Println("╚══════════════════════════════════════╝")
-
-	for _, r := range results {
-		fmt.Printf("\n📡 Configuring scopes for %s (connection %d)...\n",
-			pluginDisplayName(r.Plugin), r.ConnectionID)
-
-		switch r.Plugin {
-		case "github":
-			scopeOpts := &ScopeOpts{
-				DeployPattern: "(?i)deploy",
-				ProdPattern:   "(?i)prod",
-				IncidentLabel: "incident",
-			}
-
-			fmt.Println("\n   Default DORA patterns:")
-			fmt.Printf("     Deployment: %s\n", scopeOpts.DeployPattern)
-			fmt.Printf("     Production: %s\n", scopeOpts.ProdPattern)
-			fmt.Printf("     Incidents:  label=%s\n", scopeOpts.IncidentLabel)
-			if !prompt.Confirm("   Use these defaults?") {
-				v := prompt.ReadLine("   Deployment workflow regex")
-				if v != "" {
-					scopeOpts.DeployPattern = v
-				}
-				v = prompt.ReadLine("   Production environment regex")
-				if v != "" {
-					scopeOpts.ProdPattern = v
-				}
-				v = prompt.ReadLine("   Incident issue label")
-				if v != "" {
-					scopeOpts.IncidentLabel = v
-				}
-			}
-
-			_, err := scopeGitHub(client, r.ConnectionID, r.Organization, scopeOpts)
-			if err != nil {
-				fmt.Printf("   ⚠️  GitHub scope setup failed: %v\n", err)
-			}
-
-		case "gh-copilot":
-			_, err := scopeCopilot(client, r.ConnectionID, r.Organization, r.Enterprise)
-			if err != nil {
-				fmt.Printf("   ⚠️  Copilot scope setup failed: %v\n", err)
-			}
-
-		default:
-			fmt.Printf("   ⚠️  Scope configuration for %q is not yet supported\n", r.Plugin)
-		}
-	}
+	// ── Phase 2: Scope Connections ──
+	printPhaseBanner("PHASE 2: Configure Scopes")
+	scopeAllConnections(client, results)
 	fmt.Println("\n   ✅ Phase 2 complete.")
 
-	// ── Phase 3: Create Project (call inner functions directly) ──
-	fmt.Println("\n╔══════════════════════════════════════╗")
-	fmt.Println("║  PHASE 3: Project Setup              ║")
-	fmt.Println("╚══════════════════════════════════════╝")
+	// ── Phase 3: Create Project ──
+	printPhaseBanner("PHASE 3: Project Setup")
 
-	defaultProject := org
-	if defaultProject == "" {
-		defaultProject = "my-project"
-	}
-	projectName := prompt.ReadLine(fmt.Sprintf("\nProject name [%s]", defaultProject))
-	if projectName == "" {
-		projectName = defaultProject
-	}
-
-	// List existing scopes on each connection
-	var connections []devlake.BlueprintConnection
-	var allRepos []string
-	var pluginNames []string
-
-	for _, r := range results {
-		choice := connChoice{
-			plugin:     r.Plugin,
-			id:         r.ConnectionID,
-			label:      fmt.Sprintf("%s (ID: %d)", pluginDisplayName(r.Plugin), r.ConnectionID),
-			enterprise: r.Enterprise,
-		}
-		ac, err := listConnectionScopes(client, choice)
-		if err != nil {
-			fmt.Printf("   ⚠️  Could not list scopes for %s: %v\n", choice.label, err)
-			continue
-		}
-		connections = append(connections, ac.bpConn)
-		allRepos = append(allRepos, ac.repos...)
-		pluginNames = append(pluginNames, pluginDisplayName(r.Plugin))
-	}
-
-	if len(connections) == 0 {
-		return fmt.Errorf("no scoped connections available — cannot create project")
-	}
-
-	err = finalizeProject(finalizeProjectOpts{
-		Client:      client,
-		StatePath:   statePath,
-		State:       state,
-		ProjectName: projectName,
-		Org:         org,
-		Connections: connections,
-		Repos:       allRepos,
-		PluginNames: pluginNames,
-		Cron:        "0 0 * * *",
-		Wait:        true,
-		Timeout:     5 * time.Minute,
+	err = collectAndFinalizeProject(collectProjectOpts{
+		Client:    client,
+		Results:   results,
+		StatePath: statePath,
+		State:     state,
+		Org:       org,
+		Wait:      true,
+		Timeout:   5 * time.Minute,
 	})
 	if err != nil {
 		return fmt.Errorf("phase 3 (project setup) failed: %w", err)
 	}
 
-	fmt.Println("\n════════════════════════════════════════")
-	fmt.Println("  ✅ Full configuration complete!")
-	fmt.Println("════════════════════════════════════════")
+	printBanner("✅ Full configuration complete!")
 	fmt.Println()
 	return nil
 }
@@ -207,14 +111,10 @@ func runConfigureFull(cmd *cobra.Command, args []string) error {
 // runConnectionsInternal creates connections for the given defs, resolving
 // tokens and org/enterprise per-plugin. Returns (results, client, statePath, state, error).
 func runConnectionsInternal(defs []*ConnectionDef, org, enterprise, tokenVal, envFile string, skipClean bool) ([]ConnSetupResult, *devlake.Client, string, *devlake.State, error) {
-	fmt.Println("\n🔍 Discovering DevLake instance...")
-	disc, err := devlake.Discover(cfgURL)
+	client, disc, err := discoverClient(cfgURL)
 	if err != nil {
 		return nil, nil, "", nil, err
 	}
-	fmt.Printf("   Found DevLake at %s (via %s)\n", disc.URL, disc.Source)
-
-	client := devlake.NewClient(disc.URL)
 
 	var results []ConnSetupResult
 	var cleanupEnvFile string
@@ -243,6 +143,13 @@ func runConnectionsInternal(defs []*ConnectionDef, org, enterprise, tokenVal, en
 
 		// Resolve org per-plugin if needed
 		pluginOrg := org
+		if def.NeedsOrgOrEnt && pluginOrg == "" {
+			orgPrompt := def.OrgPrompt
+			if orgPrompt == "" {
+				orgPrompt = "Organization slug (optional if enterprise provided)"
+			}
+			pluginOrg = prompt.ReadLine(orgPrompt)
+		}
 		if def.NeedsOrg && pluginOrg == "" {
 			orgPrompt := def.OrgPrompt
 			if orgPrompt == "" {
@@ -257,6 +164,17 @@ func runConnectionsInternal(defs []*ConnectionDef, org, enterprise, tokenVal, en
 
 		// Resolve enterprise per-plugin if needed
 		pluginEnterprise := enterprise
+		if def.NeedsOrgOrEnt && pluginEnterprise == "" {
+			entPrompt := def.EnterprisePrompt
+			if entPrompt == "" {
+				entPrompt = "Enterprise slug (optional if org provided)"
+			}
+			pluginEnterprise = prompt.ReadLine(entPrompt)
+			if pluginOrg == "" && pluginEnterprise == "" {
+				fmt.Printf("   ⚠️  Either organization or enterprise is required for %s, skipping\n", def.DisplayName)
+				continue
+			}
+		}
 		if def.NeedsEnterprise && pluginEnterprise == "" {
 			entPrompt := def.EnterprisePrompt
 			if entPrompt == "" {
@@ -302,6 +220,13 @@ func runConnectionsInternal(defs []*ConnectionDef, org, enterprise, tokenVal, en
 		} else {
 			fmt.Println("   ✅ Env file deleted")
 		}
+	}
+
+	if len(results) == 0 {
+		fmt.Println("\n" + strings.Repeat("─", 50))
+		fmt.Println("⚠️  No connections were created.")
+		fmt.Println(strings.Repeat("─", 50))
+		return results, client, statePath, state, fmt.Errorf("no connections were created")
 	}
 
 	fmt.Println("\n" + strings.Repeat("─", 50))

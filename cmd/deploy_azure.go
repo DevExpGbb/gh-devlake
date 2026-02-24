@@ -23,6 +23,7 @@ var (
 	azureSkipImageBuild bool
 	azureRepoURL        string
 	azureOfficial       bool
+	deployAzureDir      string
 	deployAzureQuiet    bool // suppress "Next Steps" when called from init wizard
 )
 
@@ -45,6 +46,7 @@ Example:
 	cmd.Flags().BoolVar(&azureSkipImageBuild, "skip-image-build", false, "Skip Docker image building")
 	cmd.Flags().StringVar(&azureRepoURL, "repo-url", "", "Clone a remote DevLake repository for building")
 	cmd.Flags().BoolVar(&azureOfficial, "official", false, "Use official Apache images from Docker Hub (no ACR)")
+	cmd.Flags().StringVar(&deployAzureDir, "dir", ".", "Directory to save deployment state (.devlake-azure.json)")
 
 	return cmd
 }
@@ -57,6 +59,15 @@ var azureRegions = []string{
 }
 
 func runDeployAzure(cmd *cobra.Command, args []string) error {
+	homeDirTip("devlake")
+	if deployAzureDir == "" {
+		deployAzureDir = "."
+	}
+	warnIfWritingIntoGitRepo(deployAzureDir, ".devlake-azure.json")
+	if err := os.MkdirAll(deployAzureDir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", deployAzureDir, err)
+	}
+
 	// ── Interactive prompts for missing required flags ──
 	if azureLocation == "" {
 		azureLocation = prompt.SelectWithOther("Select Azure region", azureRegions, true)
@@ -76,15 +87,11 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 
 	fmt.Println()
 	if azureOfficial {
-		fmt.Println("════════════════════════════════════════")
-		fmt.Println("  DevLake Azure Deployment (Official)")
-		fmt.Println("════════════════════════════════════════")
+		printBanner("DevLake Azure Deployment (Official)")
 		fmt.Println("\nUsing official Apache DevLake images from Docker Hub")
 		azureSkipImageBuild = true
 	} else {
-		fmt.Println("════════════════════════════════════════")
-		fmt.Println("  DevLake Azure Deployment")
-		fmt.Println("════════════════════════════════════════")
+		printBanner("DevLake Azure Deployment")
 	}
 
 	fmt.Printf("\nConfiguration:\n")
@@ -241,9 +248,7 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Bicep deployment failed: %w", err)
 	}
 
-	fmt.Println("\n════════════════════════════════════════")
-	fmt.Println("  ✅ Deployment Complete!")
-	fmt.Println("════════════════════════════════════════")
+	printBanner("✅ Deployment Complete!")
 	fmt.Printf("\nEndpoints:\n")
 	fmt.Printf("  Backend API: %s\n", deployment.BackendEndpoint)
 	fmt.Printf("  Config UI:   %s\n", deployment.ConfigUIEndpoint)
@@ -251,24 +256,12 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 
 	// ── Wait for backend and trigger migration ──
 	fmt.Println("\n⏳ Waiting for backend to start...")
-	backendReady := false
-	httpClient := &http.Client{Timeout: 5 * time.Second}
-	for attempt := 1; attempt <= 30; attempt++ {
-		resp, err := httpClient.Get(deployment.BackendEndpoint + "/ping")
-		if err == nil {
-			resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				backendReady = true
-				fmt.Println("   ✅ Backend is responding!")
-				break
-			}
-		}
-		fmt.Printf("   Attempt %d/30 — waiting...\n", attempt)
-		time.Sleep(10 * time.Second)
-	}
+	backendReady := waitForReady(deployment.BackendEndpoint, 30, 10*time.Second) == nil
 
 	if backendReady {
+		fmt.Println("   ✅ Backend is responding!")
 		fmt.Println("\n🔄 Triggering database migration...")
+		httpClient := &http.Client{Timeout: 5 * time.Second}
 		resp, err := httpClient.Get(deployment.BackendEndpoint + "/proceed-db-migration")
 		if err == nil {
 			resp.Body.Close()
@@ -282,7 +275,7 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 	}
 
 	// ── Save state file ──
-	stateFile := filepath.Join(".", ".devlake-azure.json")
+	stateFile := filepath.Join(deployAzureDir, ".devlake-azure.json")
 	containers := []string{
 		fmt.Sprintf("%s-backend-%s", azureBaseName, suffix),
 		fmt.Sprintf("%s-grafana-%s", azureBaseName, suffix),
@@ -323,6 +316,10 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(os.Stderr, "⚠️  Could not save state file: %v\n", err)
 	} else {
 		fmt.Printf("\n💾 State saved to %s\n", stateFile)
+		if deployAzureDir != "." {
+			fmt.Println("   Next commands should be run from this directory:")
+			fmt.Printf("   cd %s\n", deployAzureDir)
+		}
 	}
 
 	if !deployAzureQuiet {

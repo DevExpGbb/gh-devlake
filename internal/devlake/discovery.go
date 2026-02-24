@@ -11,9 +11,10 @@ import (
 
 // DiscoveryResult contains the discovered DevLake instance details.
 type DiscoveryResult struct {
-	URL        string
-	GrafanaURL string
-	Source     string // "parameter", "statefile", "localhost"
+	URL         string
+	GrafanaURL  string
+	ConfigUIURL string
+	Source      string // "parameter", "statefile", "localhost"
 }
 
 // Discover finds a running DevLake instance by checking multiple sources.
@@ -25,7 +26,8 @@ func Discover(explicitURL string) (*DiscoveryResult, error) {
 		if err := pingURL(url); err != nil {
 			return nil, fmt.Errorf("cannot reach DevLake at %s: %w", url, err)
 		}
-		return &DiscoveryResult{URL: url, Source: "parameter"}, nil
+		grafanaURL, configUIURL := inferLocalCompanionURLs(url)
+		return &DiscoveryResult{URL: url, GrafanaURL: grafanaURL, ConfigUIURL: configUIURL, Source: "parameter"}, nil
 	}
 
 	// 2. State files
@@ -39,18 +41,20 @@ func Discover(explicitURL string) (*DiscoveryResult, error) {
 
 	// 3. Well-known local ports
 	candidates := []struct {
-		url     string
-		grafana string
+		url      string
+		grafana  string
+		configUI string
 	}{
-		{"http://localhost:8080", "http://localhost:3002"},
-		{"http://localhost:8085", "http://localhost:3004"},
+		{"http://localhost:8080", "http://localhost:3002", "http://localhost:4000"},
+		{"http://localhost:8085", "http://localhost:3004", "http://localhost:4004"},
 	}
 	for _, c := range candidates {
 		if err := pingURL(c.url); err == nil {
 			return &DiscoveryResult{
-				URL:        c.url,
-				GrafanaURL: c.grafana,
-				Source:     "localhost",
+				URL:         c.url,
+				GrafanaURL:  c.grafana,
+				ConfigUIURL: c.configUI,
+				Source:      "localhost",
 			}, nil
 		}
 	}
@@ -81,10 +85,25 @@ func tryStateFile(path string) *DiscoveryResult {
 	}
 
 	return &DiscoveryResult{
-		URL:        url,
-		GrafanaURL: state.Endpoints.Grafana,
-		Source:     "statefile",
+		URL:         url,
+		GrafanaURL:  state.Endpoints.Grafana,
+		ConfigUIURL: state.Endpoints.ConfigUI,
+		Source:      "statefile",
 	}
+}
+
+func inferLocalCompanionURLs(backendURL string) (grafanaURL, configUIURL string) {
+	// When the backend is running on a well-known localhost port, the sibling
+	// services are typically on matching well-known ports.
+	//
+	// This is intentionally conservative: only infer for localhost.
+	if strings.HasPrefix(backendURL, "http://localhost:8080") {
+		return "http://localhost:3002", "http://localhost:4000"
+	}
+	if strings.HasPrefix(backendURL, "http://localhost:8085") {
+		return "http://localhost:3004", "http://localhost:4004"
+	}
+	return "", ""
 }
 
 func pingURL(baseURL string) error {

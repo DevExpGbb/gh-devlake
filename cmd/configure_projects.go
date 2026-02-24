@@ -84,10 +84,7 @@ type addedConnection struct {
 }
 
 func runConfigureProjects(cmd *cobra.Command, args []string, opts *ProjectOpts) error {
-	fmt.Println()
-	fmt.Println("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550")
-	fmt.Println("  DevLake \u2014 Project Setup")
-	fmt.Println("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550")
+	printBanner("DevLake \u2014 Project Setup")
 	fmt.Println()
 	fmt.Println("   A DevLake project groups data from multiple connections into a")
 	fmt.Println("   single view with DORA metrics. Think of it as one project per")
@@ -99,14 +96,12 @@ func runConfigureProjects(cmd *cobra.Command, args []string, opts *ProjectOpts) 
 
 	// Discover DevLake if not pre-resolved by an orchestrator
 	if client == nil {
-		fmt.Println("\n\U0001f50d Discovering DevLake instance...")
-		disc, err := devlake.Discover(cfgURL)
+		var disc *devlake.DiscoveryResult
+		var err error
+		client, disc, err = discoverClient(cfgURL)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("   Found DevLake at %s (via %s)\n", disc.URL, disc.Source)
-
-		client = devlake.NewClient(disc.URL)
 		statePath, state = devlake.FindStateFile(disc.URL, disc.GrafanaURL)
 	}
 
@@ -328,7 +323,7 @@ func finalizeProject(opts finalizeProjectOpts) error {
 		cron = "0 0 * * *"
 	}
 
-	fmt.Println("\n\U0001f3d7\ufe0f  Creating DevLake project...")
+	fmt.Println("\n\U0001f3d7\ufe0f Creating DevLake project...")
 	blueprintID, err := ensureProjectWithFlags(opts.Client, opts.ProjectName, opts.PluginNames)
 	if err != nil {
 		return fmt.Errorf("failed to create project: %w", err)
@@ -376,7 +371,7 @@ func finalizeProject(opts finalizeProjectOpts) error {
 	fmt.Println("\u2705 Project configured successfully!")
 	fmt.Printf("   Project: %s\n", opts.ProjectName)
 	if len(opts.Repos) > 0 {
-		fmt.Printf("   Repos:   %s\n", strings.Join(opts.Repos, ", "))
+		printWrappedList("   Repos:", opts.Repos, 100)
 	}
 	for _, pn := range opts.PluginNames {
 		fmt.Printf("   Plugin:  %s\n", pn)
@@ -384,6 +379,38 @@ func finalizeProject(opts finalizeProjectOpts) error {
 	fmt.Println(strings.Repeat("\u2500", 50))
 
 	return nil
+}
+
+func printWrappedList(label string, items []string, maxWidth int) {
+	if len(items) == 0 {
+		return
+	}
+	if maxWidth <= 0 {
+		maxWidth = 100
+	}
+
+	indent := "   "
+	sep := ", "
+	prefixFirst := indent + label + " "
+	prefixNext := indent + strings.Repeat(" ", len(label)+1)
+
+	line := prefixFirst
+	for i, item := range items {
+		part := item
+		if i > 0 {
+			part = sep + part
+		}
+
+		if len(line)+len(part) > maxWidth && line != prefixFirst {
+			fmt.Println(line)
+			line = prefixNext + item
+			continue
+		}
+		line += part
+	}
+	if strings.TrimSpace(line) != "" {
+		fmt.Println(line)
+	}
 }
 
 // ensureProjectWithFlags creates a project or returns an existing one's blueprint ID.
@@ -446,7 +473,7 @@ func triggerAndPoll(client *devlake.Client, blueprintID int, wait bool, timeout 
 
 			switch p.Status {
 			case "TASK_COMPLETED":
-				fmt.Println("\n   \u2705 Data sync completed!")
+				fmt.Println("   \u2705 Data sync completed!")
 				return nil
 			case "TASK_FAILED":
 				return fmt.Errorf("pipeline failed \u2014 check DevLake logs")
@@ -454,7 +481,7 @@ func triggerAndPoll(client *devlake.Client, blueprintID int, wait bool, timeout 
 		}
 
 		if time.Now().After(deadline) {
-			fmt.Println("\n   \u231b Monitoring timed out. Pipeline is still running.")
+			fmt.Println("   \u26a0\ufe0f  Monitoring timed out. Pipeline is still running.")
 			fmt.Printf("   Check status: GET /pipelines/%d\n", pipeline.ID)
 			return nil
 		}
@@ -480,36 +507,6 @@ func removeChoice(choices []connChoice, remove connChoice) []connChoice {
 	return out
 }
 
-// discoverConnections finds all available connections from state and API.
-func discoverConnections(client *devlake.Client, state *devlake.State) []connChoice {
-	seen := make(map[string]bool)
-	var choices []connChoice
-	if state != nil {
-		for _, c := range state.Connections {
-			key := fmt.Sprintf("%s:%d", c.Plugin, c.ConnectionID)
-			seen[key] = true
-			label := fmt.Sprintf("%s (ID: %d, Name: %q)", pluginDisplayName(c.Plugin), c.ConnectionID, c.Name)
-			choices = append(choices, connChoice{plugin: c.Plugin, id: c.ConnectionID, label: label, enterprise: c.Enterprise})
-		}
-	}
-	for _, def := range AvailableConnections() {
-		conns, err := client.ListConnections(def.Plugin)
-		if err != nil {
-			continue
-		}
-		for _, c := range conns {
-			key := fmt.Sprintf("%s:%d", def.Plugin, c.ID)
-			if seen[key] {
-				continue
-			}
-			seen[key] = true
-			label := fmt.Sprintf("%s (ID: %d, Name: %q)", def.DisplayName, c.ID, c.Name)
-			choices = append(choices, connChoice{plugin: def.Plugin, id: c.ID, label: label, enterprise: c.Enterprise})
-		}
-	}
-	return choices
-}
-
 // filterChoicesByPlugin returns only the connections matching the given plugin slug.
 func filterChoicesByPlugin(choices []connChoice, plugin string) []connChoice {
 	var out []connChoice
@@ -519,12 +516,4 @@ func filterChoicesByPlugin(choices []connChoice, plugin string) []connChoice {
 		}
 	}
 	return out
-}
-
-// pluginDisplayName returns a friendly name for a plugin slug, sourced from the registry.
-func pluginDisplayName(plugin string) string {
-	if def := FindConnectionDef(plugin); def != nil {
-		return def.DisplayName
-	}
-	return plugin
 }

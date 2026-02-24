@@ -35,10 +35,7 @@ func init() {
 }
 
 func runDeleteConnection(cmd *cobra.Command, args []string) error {
-	fmt.Println()
-	fmt.Println("════════════════════════════════════════")
-	fmt.Println("  DevLake — Delete Connection")
-	fmt.Println("════════════════════════════════════════")
+	printBanner("DevLake — Delete Connection")
 
 	// ── Validate flags early before any I/O ──
 	pluginFlagSet := cmd.Flags().Changed("plugin")
@@ -52,73 +49,34 @@ func runDeleteConnection(cmd *cobra.Command, args []string) error {
 	}
 
 	if connDeletePlugin != "" {
-		def := FindConnectionDef(connDeletePlugin)
-		if def == nil || !def.Available {
-			slugs := availablePluginSlugs()
-			return fmt.Errorf("unknown plugin %q — choose: %s", connDeletePlugin, strings.Join(slugs, ", "))
+		if _, err := requirePlugin(connDeletePlugin); err != nil {
+			return err
 		}
 	}
 
 	// ── Discover DevLake ──
-	fmt.Println("\n🔍 Discovering DevLake instance...")
-	disc, err := devlake.Discover(cfgURL)
+	client, disc, err := discoverClient(cfgURL)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("   Found DevLake at %s (via %s)\n", disc.URL, disc.Source)
-
-	client := devlake.NewClient(disc.URL)
 
 	// ── Resolve plugin + ID ──
 	plugin := connDeletePlugin
 	connID := connDeleteID
 
 	if !(pluginFlagSet && idFlagSet) {
-		// Interactive: list connections and let user select one
-		type connEntry struct {
-			plugin string
-			id     int
-			label  string
-		}
-
-		fmt.Println("\n📋 Fetching connections...")
-		var entries []connEntry
-		for _, def := range AvailableConnections() {
-			conns, err := client.ListConnections(def.Plugin)
-			if err != nil {
-				fmt.Printf("\n⚠️  Could not list %s connections: %v\n", def.DisplayName, err)
-				continue
+		// Interactive: let user select one
+		picked, err := pickConnection(client, "Select a connection to delete")
+		if err != nil {
+			if picked == nil && err.Error() == "no connections found \u2014 create one with 'gh devlake configure connection'" {
+				fmt.Println("\n  No connections found.")
+				fmt.Println()
+				return nil
 			}
-			for _, c := range conns {
-				label := fmt.Sprintf("[%s] ID=%d  %s", def.Plugin, c.ID, c.Name)
-				entries = append(entries, connEntry{plugin: def.Plugin, id: c.ID, label: label})
-			}
+			return err
 		}
-
-		if len(entries) == 0 {
-			fmt.Println("\n  No connections found.")
-			fmt.Println()
-			return nil
-		}
-
-		labels := make([]string, len(entries))
-		for i, e := range entries {
-			labels[i] = e.label
-		}
-
-		fmt.Println()
-		chosen := prompt.Select("Select a connection to delete", labels)
-		if chosen == "" {
-			return fmt.Errorf("connection selection is required")
-		}
-
-		for _, e := range entries {
-			if e.label == chosen {
-				plugin = e.plugin
-				connID = e.id
-				break
-			}
-		}
+		plugin = picked.Plugin
+		connID = picked.ID
 	}
 
 	if plugin == "" || connID == 0 {

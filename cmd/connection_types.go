@@ -16,6 +16,7 @@ type ConnectionDef struct {
 	Endpoint         string
 	NeedsOrg         bool
 	NeedsEnterprise  bool
+	NeedsOrgOrEnt    bool
 	SupportsTest     bool
 	RateLimitPerHour int      // default rate limit; 0 = use 4500
 	EnableGraphql    bool     // send enableGraphql=true in create/test payloads
@@ -86,10 +87,10 @@ func (d *ConnectionDef) BuildCreateRequest(name string, params ConnectionParams)
 		RateLimitPerHour: d.rateLimitOrDefault(),
 		EnableGraphql:    d.EnableGraphql,
 	}
-	if d.NeedsOrg && params.Org != "" {
+	if (d.NeedsOrg || d.NeedsOrgOrEnt) && params.Org != "" {
 		req.Organization = params.Org
 	}
-	if d.NeedsEnterprise && params.Enterprise != "" {
+	if (d.NeedsEnterprise || d.NeedsOrgOrEnt) && params.Enterprise != "" {
 		req.Enterprise = params.Enterprise
 	}
 	return req
@@ -110,10 +111,10 @@ func (d *ConnectionDef) BuildTestRequest(name string, params ConnectionParams) *
 		Proxy:            params.Proxy,
 		EnableGraphql:    d.EnableGraphql,
 	}
-	if d.NeedsOrg && params.Org != "" {
+	if (d.NeedsOrg || d.NeedsOrgOrEnt) && params.Org != "" {
 		req.Organization = params.Org
 	}
-	if d.NeedsEnterprise && params.Enterprise != "" {
+	if (d.NeedsEnterprise || d.NeedsOrgOrEnt) && params.Enterprise != "" {
 		req.Enterprise = params.Enterprise
 	}
 	return req
@@ -140,15 +141,14 @@ var connectionRegistry = []*ConnectionDef{
 		DisplayName:      "GitHub Copilot",
 		Available:        true,
 		Endpoint:         "https://api.github.com/",
-		NeedsOrg:         true,
-		NeedsEnterprise:  true,
+		NeedsOrgOrEnt:    true,
 		SupportsTest:     true,
 		RateLimitPerHour: 5000,
 		RequiredScopes:   []string{"manage_billing:copilot", "read:org"},
 		ScopeHint:        "manage_billing:copilot, read:org (+ read:enterprise for enterprise metrics)",
 		TokenPrompt:      "GitHub Copilot PAT",
-		OrgPrompt:        "Organization slug",
-		EnterprisePrompt: "Enterprise slug (optional, press Enter to skip)",
+		OrgPrompt:        "Organization slug (optional if enterprise provided)",
+		EnterprisePrompt: "Enterprise slug (optional if org provided)",
 		EnvVarNames:      []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
 		EnvFileKeys:      []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
 	},
@@ -246,7 +246,20 @@ func buildAndCreateConnection(client *devlake.Client, def *ConnectionDef, params
 	createReq := def.BuildCreateRequest(connName, params)
 	conn, err := client.CreateConnection(def.Plugin, createReq)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create %s connection: %w", def.DisplayName, err)
+		// Workaround for older DevLake releases where the GitHub connections table
+		// has a NOT NULL token_expires_at column that defaults to an invalid
+		// zero-date (0000-00-00) under strict MySQL settings.
+		//
+		// PATs are effectively non-expiring, so use a far-future sentinel.
+		if (def.Plugin == "github" || def.Plugin == "gh-copilot") && looksLikeZeroDateTokenExpiresAt(err) {
+			fmt.Println("   ⚠️  DevLake rejected empty token expiry; retrying with a non-expiring sentinel...")
+			createReq.TokenExpiresAt = "2099-01-01T00:00:00Z"
+			createReq.RefreshTokenExpiresAt = "2099-01-01T00:00:00Z"
+			conn, err = client.CreateConnection(def.Plugin, createReq)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to create %s connection: %w", def.DisplayName, err)
+		}
 	}
 	fmt.Printf("   ✅ Created %s connection (ID=%d)\n", def.DisplayName, conn.ID)
 
@@ -257,6 +270,14 @@ func buildAndCreateConnection(client *devlake.Client, def *ConnectionDef, params
 		Organization: org,
 		Enterprise:   params.Enterprise,
 	}, nil
+}
+
+func looksLikeZeroDateTokenExpiresAt(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "token_expires_at") && strings.Contains(msg, "0000-00-00")
 }
 
 // aggregateScopeHints merges scope hints from multiple connection defs into one string.
