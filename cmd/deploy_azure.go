@@ -318,7 +318,10 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 		fmt.Printf("\n💾 State saved to %s\n", stateFile)
 		if deployAzureDir != "." {
 			fmt.Println("   Next commands should be run from this directory:")
-			fmt.Printf("   cd %s\n", deployAzureDir)
+			fmt.Println("   PowerShell:")
+			fmt.Printf("     Set-Location \"%s\"\n", deployAzureDir)
+			fmt.Println("   Bash/Zsh:")
+			fmt.Printf("     cd \"%s\"\n", deployAzureDir)
 		}
 	}
 

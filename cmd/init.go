@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -262,16 +261,12 @@ func printDedicatedDirCopyPaste(target string) {
 	}
 
 	fmt.Println("\nCopy/paste to use a dedicated directory:")
-	if runtime.GOOS == "windows" {
-		fmt.Println("  PowerShell:")
-		fmt.Printf("    $dir = \"%s\"\n", defaultDir)
-		fmt.Println("    New-Item -ItemType Directory -Force -Path $dir | Out-Null")
-		fmt.Println("    Set-Location $dir")
-		fmt.Println("    gh devlake init")
-		return
-	}
+	fmt.Println("  PowerShell:")
+	fmt.Printf("    $dir = \"%s\"\n", defaultDir)
+	fmt.Println("    New-Item -ItemType Directory -Force -Path $dir | Out-Null")
+	fmt.Println("    Set-Location $dir")
+	fmt.Println("    gh devlake init")
 
-	// POSIX shells
 	fmt.Println("  Bash/Zsh:")
 	fmt.Printf("    dir=\"%s\"\n", defaultDir)
 	fmt.Println("    mkdir -p \"$dir\"")
