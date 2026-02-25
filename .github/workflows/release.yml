@@ -18,4 +18,4 @@ jobs:
         with:
           go_version_file: go.mod
           go_build_options: >-
-            -ldflags "-X github.com/DevExpGBB/gh-devlake/cmd.version=${{ github.ref_name }}"
+            -ldflags=-X=github.com/DevExpGBB/gh-devlake/cmd.version=${{ github.ref_name }}
