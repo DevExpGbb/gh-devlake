@@ -30,7 +30,7 @@ internal/
 - **Generic API helpers**: `doPost[T]`, `doGet[T]`, `doPut[T]`, `doPatch[T]` in `internal/devlake/client.go`
 
 ### Plugin System
-Plugins are defined via `ConnectionDef` structs in `cmd/connection_types.go`. Each entry declares the plugin slug, endpoint, rate limits, prompt labels, and PAT resolution keys. To add a new DevOps tool, add a `ConnectionDef` to `connectionRegistry` — token resolution, org prompts, and connection creation all derive from these fields automatically. See the `plugin-registry` skill for full details.
+Plugins are defined via `ConnectionDef` structs in `cmd/connection_types.go`. Each entry declares the plugin slug, endpoint, rate limits, prompt labels, and PAT resolution keys. To add a new DevOps tool, add a `ConnectionDef` to `connectionRegistry` — token resolution, org prompts, and connection creation all derive from these fields automatically. See the `devlake-dev-integration` skill for full details.
 
 **One plugin per invocation.** Flag-based commands target a single `--plugin`. Interactive mode walks through plugins sequentially.
 
@@ -44,7 +44,7 @@ Plugins are defined via `ConnectionDef` structs in `cmd/connection_types.go`. Ea
 The `gh-copilot` plugin computes scope IDs as: enterprise + org → `"enterprise/org"`, enterprise only → `"enterprise"`, org only → `"org"`. See `copilotScopeID()` in `cmd/configure_scopes.go`. The scope ID must match the plugin's `listGhCopilotRemoteScopes` logic exactly or blueprint references will break.
 
 ## Roadmap
-See `.github/skills/gh-devlake-roadmap/SKILL.md` for version plan, milestones, and design decisions. Project board: https://github.com/orgs/DevExpGbb/projects/21
+See `.github/skills/devlake-dev-planning/SKILL.md` for version plan, milestones, and design decisions. Project board: https://github.com/orgs/DevExpGbb/projects/21
 
 ## Terminal Output & UX
 

@@ -1,43 +1,22 @@
 ---
-name: plugin-registry
-description: How the ConnectionDef plugin registry works — adding plugins, token resolution, scope handling, and the tool-agnostic design. Use when adding a new DevOps tool plugin, modifying ConnectionDef fields, changing how connections/scopes/tokens are resolved, or debugging plugin-specific behavior.
+name: devlake-dev-integration
+description: DevLake plugin registry and REST API integration patterns — ConnectionDef wiring, token resolution, scope handling, and typed API helpers. Use when adding plugins, modifying connections/scopes/tokens, or implementing DevLake API calls.
 ---
 
-# Plugin Registry — ConnectionDef as Single Source of Truth
+# Plugin Registry & API Integration
 
-## ConnectionDef Fields
-
-Each plugin is a `ConnectionDef` struct in `cmd/connection_types.go`:
-
-```go
-type ConnectionDef struct {
-    Plugin           string   // DevLake plugin slug (e.g. "github", "gh-copilot")
-    DisplayName      string   // User-facing name (e.g. "GitHub Copilot")
-    Available        bool     // false = "coming soon" in menus
-    Endpoint         string   // Default API endpoint
-    NeedsOrg         bool     // Prompt for org during connection creation
-    NeedsEnterprise  bool     // Prompt for enterprise during connection creation
-    SupportsTest     bool     // Test connection before creating
-    RateLimitPerHour int      // API rate limit (0 = default 4500)
-    EnableGraphql    bool     // Send enableGraphql=true in payloads
-    RequiredScopes   []string // PAT scopes for documentation
-    ScopeHint        string   // Displayed in token prompt
-    TokenPrompt      string   // Label for masked token prompt
-    OrgPrompt        string   // Label for org prompt (empty = not prompted)
-    EnterprisePrompt string   // Label for enterprise prompt (empty = not prompted)
-    EnvVarNames      []string // Environment variables for token resolution
-    EnvFileKeys      []string // .devlake.env keys for token resolution
-}
-```
+This skill covers how gh-devlake wires plugins into the CLI (via `ConnectionDef`) and how it communicates with the DevLake backend REST API.
 
 ## Adding a New Plugin
 
 1. Add a `ConnectionDef` entry to `connectionRegistry` in `cmd/connection_types.go`
 2. Set `Available: true` when ready (false = "coming soon")
 3. Add a scope function (e.g. `scopeGitLab`) in `cmd/configure_scopes.go`
-4. Add a `case` in the scope dispatch switch in `init.go`, `configure_full.go`, and `configure_scopes.go`
+4. Add a `case` in the scope dispatch switch in `configure_scopes.go` (this is the only file with a scope dispatch switch)
 
 No other registration needed — token resolution, connection creation, help text, and menu labels all derive from the `ConnectionDef` fields.
+
+See [ConnectionDef field reference](references/connection-def-fields.md) for the full struct definition and field-by-field documentation.
 
 ## Token Resolution Chain
 
@@ -60,12 +39,27 @@ There are NO switch/case statements on plugin names in the token package. All lo
 
 ## Build/Test Request Construction
 
-`BuildCreateRequest` and `BuildTestRequest` on `ConnectionDef` read fields directly:
+Both `BuildCreateRequest` and `BuildTestRequest` accept a `ConnectionParams` struct:
+
+```go
+type ConnectionParams struct {
+    Token      string
+    Org        string
+    Enterprise string
+    Name       string // override default connection name
+    Proxy      string // HTTP proxy URL
+    Endpoint   string // override default endpoint (e.g. GitHub Enterprise Server)
+}
+```
+
+Fields are mapped declaratively from `ConnectionDef`:
 
 - `RateLimitPerHour` → `req.RateLimitPerHour` (default 4500 if 0)
 - `EnableGraphql` → `req.EnableGraphql`
-- `NeedsOrg` → conditionally includes `req.Organization`
-- `NeedsEnterprise` → conditionally includes `req.Enterprise`
+- `NeedsOrg` or `NeedsOrgOrEnt` → conditionally includes `req.Organization`
+- `NeedsEnterprise` or `NeedsOrgOrEnt` → conditionally includes `req.Enterprise`
+
+`NeedsOrgOrEnt` means the plugin requires at least one of org or enterprise (e.g. `gh-copilot`), but not necessarily both. This is distinct from `NeedsOrg`/`NeedsEnterprise` which each require their specific field.
 
 No `if d.Plugin == "github"` branches — behavior is declarative.
 
@@ -106,9 +100,9 @@ Each plugin has different scope config shapes:
 ```
 for each selected ConnectionDef:
   1. Resolve token using def.EnvVarNames, def.TokenPrompt
-  2. Prompt for org if def.NeedsOrg (using def.OrgPrompt)
-  3. Prompt for enterprise if def.NeedsEnterprise (using def.EnterprisePrompt)
-  4. Test & create connection
+  2. Prompt for org if def.NeedsOrg or def.NeedsOrgOrEnt (using def.OrgPrompt)
+  3. Prompt for enterprise if def.NeedsEnterprise or def.NeedsOrgOrEnt (using def.EnterprisePrompt)
+  4. Build ConnectionParams, test & create connection
 ```
 
 This supports mixed-plugin flows where different plugins need different tokens (e.g. GitHub + GitLab).
@@ -120,6 +114,18 @@ This supports mixed-plugin flows where different plugins need different tokens (
 - Copilot: uses `id` (string) from scope response
 
 This is pragmatic — DevLake's scope API returns plugin-specific ID fields.
+
+## REST API Patterns
+
+All API calls use generic helpers in `internal/devlake/client.go`. See [API endpoint reference](references/api-endpoints.md) for the full endpoint table and helper signatures.
+
+Usage pattern:
+
+```go
+result, err := doPost[Connection](c, "/plugins/github/connections", req)
+```
+
+All helpers: marshal request → send → check status → unmarshal response into `*T`.
 
 ## State Files
 
@@ -136,6 +142,14 @@ StateConnection{
 ```
 
 State enables command chaining — `configure scope` and `configure project` read connection IDs from state.
+
+## Cross-Repo References
+
+For deeper API understanding, read these from related repos using MCP tools:
+
+- **apache/incubator-devlake**: `backend/server/api/` (routes), `backend/core/plugin/` (interfaces), `backend/plugins/github/api/` (reference impl)
+- **DevExpGBB/incubator-devlake**: `backend/plugins/gh-copilot/` (custom Copilot plugin with `listGhCopilotRemoteScopes`)
+- **eldrick-test-org/devlake-demo**: `scripts/` (PowerShell API call examples), `README.md` (payload examples)
 
 ## Common Pitfalls
 

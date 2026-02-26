@@ -1,9 +1,4 @@
----
-name: devlake-api-patterns
-description: DevLake REST API integration patterns — typed generic helpers, endpoint conventions, and cross-repo API references. Use when implementing or modifying DevLake API calls.
----
-
-# DevLake API Patterns
+# API Endpoint Reference
 
 ## Generic Typed Helpers
 
@@ -40,23 +35,3 @@ DevLake REST API follows consistent URL patterns:
 | Blueprints | `PATCH /blueprints/{id}`, `POST /blueprints/{id}/trigger` | |
 | Pipelines | `GET /pipelines/{id}` | |
 | Health | `GET /ping` | |
-
-## Cross-Repo References
-
-For deeper API understanding, read these from related repos using MCP tools:
-
-### apache/incubator-devlake (official upstream)
-
-- `backend/server/api/` — route registration and handler definitions
-- `backend/core/plugin/` — plugin interfaces (`PluginSource`, `PluginTask`, etc.)
-- `backend/plugins/github/api/` — reference implementation for connection/scope endpoints
-
-### DevExpGBB/incubator-devlake (fork)
-
-- `backend/plugins/gh-copilot/` — custom Copilot plugin with `listGhCopilotRemoteScopes`
-- Check for unreleased API changes not yet in upstream
-
-### eldrick-test-org/devlake-demo
-
-- `scripts/` — PowerShell examples of API calls via `Invoke-RestMethod`
-- `README.md` — API payload examples for connections, scopes, blueprints

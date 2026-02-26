@@ -1,6 +1,6 @@
 ---
-name: cli-architecture
-description: gh-devlake CLI command architecture, cascade flow, and design principles. Use when restructuring commands, adding new commands, fixing inconsistencies between entry points, or understanding how init/deploy/configure relate to each other.
+name: devlake-dev-architecture
+description: gh-devlake CLI architecture, command cascade flow, and design principles. Use when restructuring commands, adding new commands, fixing inconsistencies between entry points, or understanding how init/deploy/configure relate.
 ---
 
 # CLI Architecture — Command Cascade & Flow

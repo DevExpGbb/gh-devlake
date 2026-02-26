@@ -1,6 +1,6 @@
 ---
-name: gh-devlake-roadmap
-description: Look up the gh-devlake CLI roadmap, milestones, issues, version plans, and release priorities. Use when the user asks about roadmap, priorities, what's planned, what version something is in, or what issues exist for a milestone.
+name: devlake-dev-planning
+description: gh-devlake roadmap, milestones, versioning, and release priorities. Use when asking about what's planned, what version something targets, or what issues exist for a milestone.
 ---
 
 # gh-devlake Roadmap Lookup
@@ -54,11 +54,13 @@ Semantic versioning: `MAJOR.MINOR.PATCH`
 
 | Version | Theme | Status |
 |---------|-------|--------|
-| v0.3.3 | Enterprise Support | In progress — scope ID fix, connection testing, rate limit, enterprise threading |
-| v0.3.4 | CLI Restructure | Planned — singular commands, --plugin flag, list command, CLI versioning |
-| v0.3.5 | Connection Lifecycle | Planned — delete and test commands |
-| v0.3.6 | Connection Update + Skill | Planned — update command, this roadmap skill |
+| v0.3.3 | Enterprise Support | Shipped — scope ID fix, connection testing, rate limit, enterprise threading |
+| v0.3.4 | CLI Restructure | Shipped — singular commands, --plugin flag, list command |
+| v0.3.5 | Connection Lifecycle | Shipped — delete, test, and update commands |
+| v0.3.6 | Skills & Polish | Shipped — roadmap skill, skill rename/consolidation |
 | v0.4.0 | Multi-Tool Expansion | Future — GitLab, Azure DevOps, per-plugin token chains |
+
+> **Note:** Always query GitHub milestones for the latest status — this table is a snapshot.
 
 ## CLI Command Architecture (Option A)
 
