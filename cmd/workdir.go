@@ -4,16 +4,62 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"github.com/DevExpGBB/gh-devlake/internal/prompt"
 )
 
-func homeDirTip(exampleSubdir string) {
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		fmt.Println("\n💡 Tip: It's recommended to run this command from your home directory (~/) or a dedicated folder.")
-		return
+// expectedDirName returns the recommended directory name for a deployment target.
+func expectedDirName(target string) string {
+	if target == "azure" {
+		return "devlake-azure"
 	}
-	example := filepath.Join(home, exampleSubdir)
-	fmt.Printf("\n💡 Tip: It's recommended to run this command from your home directory (~/) or a dedicated folder (e.g. %s).\n", example)
+	return "devlake-local"
+}
+
+// suggestDedicatedDir checks whether the user is running from the expected
+// dedicated directory (e.g. devlake-local or devlake-azure). If not, it
+// prints cross-platform commands to create and cd into the right directory,
+// then offers "exit" vs "continue". Returns true if the user chose to exit.
+func suggestDedicatedDir(target string, rerunCmd string) bool {
+	dirName := expectedDirName(target)
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return false
+	}
+	base := filepath.Base(cwd)
+	if strings.EqualFold(base, dirName) {
+		return false // already in the right directory
+	}
+
+	fmt.Printf("\n💡 We recommend running from a dedicated directory (%s).\n", dirName)
+	fmt.Println("   This keeps DevLake files isolated from your other projects.")
+	fmt.Println()
+	fmt.Println("  PowerShell:")
+	fmt.Printf("    $dir = \"$HOME\\%s\"\n", dirName)
+	fmt.Println("    New-Item -ItemType Directory -Force $dir | Out-Null")
+	fmt.Println("    Set-Location $dir")
+	fmt.Printf("    %s\n", rerunCmd)
+	fmt.Println()
+	fmt.Println("  Bash / Zsh:")
+	fmt.Printf("    dir=\"$HOME/%s\"\n", dirName)
+	fmt.Println("    mkdir -p \"$dir\"")
+	fmt.Println("    cd \"$dir\"")
+	fmt.Printf("    %s\n", rerunCmd)
+	fmt.Println()
+
+	choices := []string{
+		"exit     - run the commands above first (recommended)",
+		"continue - keep going in the current directory",
+	}
+	picked := prompt.Select("How do you want to proceed?", choices)
+	if strings.HasPrefix(picked, "exit") {
+		fmt.Println("\n✅ Exiting. Re-run after changing directory.")
+		fmt.Println()
+		return true
+	}
+	return false
 }
 
 func findGitRepoRoot(start string) (string, bool) {
@@ -33,16 +79,4 @@ func findGitRepoRoot(start string) (string, bool) {
 		current = parent
 	}
 	return "", false
-}
-
-func warnIfWritingIntoGitRepo(targetDir string, files string) {
-	abs, err := filepath.Abs(targetDir)
-	if err != nil {
-		abs = targetDir
-	}
-	if root, ok := findGitRepoRoot(abs); ok {
-		fmt.Printf("\n⚠️  You're running inside a git repository: %s\n", root)
-		fmt.Printf("   %s will be written to: %s\n", files, abs)
-		fmt.Println("   Consider running from ~/ (home) or a dedicated folder, or pass --dir.")
-	}
 }
