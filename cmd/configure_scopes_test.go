@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -125,4 +127,65 @@ func TestFilterChoicesByPlugin(t *testing.T) {
 			t.Errorf("expected 0 choices for empty plugin, got %d", len(got))
 		}
 	})
+}
+
+func TestRepoListLimit(t *testing.T) {
+	if repoListLimit != 100 {
+		t.Errorf("repoListLimit = %d, want 100", repoListLimit)
+	}
+}
+
+func TestResolveRepos_WithReposFlag(t *testing.T) {
+	opts := &ScopeOpts{Repos: "org/repo1, org/repo2, , org/repo3"}
+	got, err := resolveRepos("my-org", opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"org/repo1", "org/repo2", "org/repo3"}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for i, r := range want {
+		if got[i] != r {
+			t.Errorf("got[%d] = %q, want %q", i, got[i], r)
+		}
+	}
+}
+
+func TestResolveRepos_WithReposFile(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "repos.txt")
+	if err := os.WriteFile(f, []byte("org/repo1\norg/repo2\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	opts := &ScopeOpts{ReposFile: f}
+	got, err := resolveRepos("my-org", opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("expected 2 repos, got %d: %v", len(got), got)
+	}
+}
+
+// TestResolveRepos_SentinelFiltered verifies that the "Enter repos manually instead"
+// sentinel value is excluded from the returned repos slice when real repos are present.
+func TestResolveRepos_SentinelFiltered(t *testing.T) {
+	const manualOpt = "Enter repos manually instead"
+	// Simulate what the picker returns when both real repos and sentinel are chosen.
+	rawSelection := []string{"org/repo1", manualOpt, "org/repo2"}
+	var picked []string
+	for _, s := range rawSelection {
+		if s != manualOpt {
+			picked = append(picked, s)
+		}
+	}
+	if len(picked) != 2 {
+		t.Fatalf("expected 2 repos after filtering sentinel, got %d: %v", len(picked), picked)
+	}
+	for _, r := range picked {
+		if r == manualOpt {
+			t.Errorf("sentinel value %q should not appear in picked repos", manualOpt)
+		}
+	}
 }

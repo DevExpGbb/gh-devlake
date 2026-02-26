@@ -334,10 +334,14 @@ func resolveRepos(org string, opts *ScopeOpts) ([]string, error) {
 	if gh.IsAvailable() {
 		fmt.Printf("   Listing repos in %q via gh CLI...\n", org)
 		available, err := gh.ListRepos(org, repoListLimit)
+		if err != nil {
+			fmt.Printf("   \u26a0\ufe0f  Could not list repos: %v\n", err)
+		}
 		if err != nil || len(available) == 0 {
 			fmt.Printf("   No repos found in %q \u2014 enter repos manually\n", org)
 		} else {
 			const manualOpt = "Enter repos manually instead"
+			fmt.Println()
 			selected := prompt.SelectMulti(
 				fmt.Sprintf("Available repos in %s (showing up to %d)", org, repoListLimit),
 				append(available, manualOpt),
