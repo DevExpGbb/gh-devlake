@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -58,6 +60,16 @@ func printPhaseBanner(title string) {
 	fmt.Printf("║  %-37s║\n", title)
 	fmt.Println("╚══════════════════════════════════════╝")
 	fmt.Println()
+}
+
+// printJSON marshals v to compact JSON and writes it to stdout followed by a newline.
+func printJSON(v any) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Errorf("marshaling JSON: %w", err)
+	}
+	_, err = fmt.Fprintf(os.Stdout, "%s\n", data)
+	return err
 }
 
 // ── Interactive connection picker ────────────────────────────────

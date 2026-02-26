@@ -8,7 +8,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var cfgURL string   // --url flag (global)
+var cfgURL string    // --url flag (global)
+var outputJSON bool  // --json flag (global)
 var version = "dev" // overridden at build time via -ldflags "-X github.com/DevExpGBB/gh-devlake/cmd.version=<tag>"
 
 var rootCmd = &cobra.Command{
@@ -30,6 +31,7 @@ func init() {
 
 	rootCmd.Version = version
 	rootCmd.PersistentFlags().StringVar(&cfgURL, "url", "", "DevLake API base URL (auto-discovered if omitted)")
+	rootCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "Output as JSON (suppresses banners and interactive prompts)")
 
 	rootCmd.AddGroup(
 		&cobra.Group{ID: "deploy", Title: "Deployment:"},
@@ -40,8 +42,13 @@ func init() {
 
 // Execute runs the root command.
 func Execute() {
+	rootCmd.SilenceErrors = true
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		if outputJSON {
+			_ = printJSON(map[string]string{"error": err.Error()})
+		} else {
+			fmt.Fprintln(os.Stderr, err)
+		}
 		os.Exit(1)
 	}
 }
