@@ -220,14 +220,28 @@ func buildAndCreateConnection(client *devlake.Client, def *ConnectionDef, params
 
 	existing, _ := client.FindConnectionByName(def.Plugin, connName)
 	if existing != nil {
-		fmt.Printf("   Connection already exists (ID=%d), skipping.\n", existing.ID)
-		return &ConnSetupResult{
-			Plugin:       def.Plugin,
-			ConnectionID: existing.ID,
-			Name:         existing.Name,
-			Organization: org,
-			Enterprise:   params.Enterprise,
-		}, nil
+		fmt.Printf("   Connection \"%s\" already exists (ID=%d).\n", existing.Name, existing.ID)
+		useExisting := true
+		if interactive {
+			fmt.Println()
+			useExisting = prompt.Confirm("   Use existing connection?")
+		}
+		if useExisting {
+			fmt.Printf("   Using existing connection (ID=%d).\n", existing.ID)
+			return &ConnSetupResult{
+				Plugin:       def.Plugin,
+				ConnectionID: existing.ID,
+				Name:         existing.Name,
+				Organization: org,
+				Enterprise:   params.Enterprise,
+			}, nil
+		}
+		fmt.Println()
+		newName := prompt.ReadLine("   New connection name")
+		if newName == "" {
+			return nil, fmt.Errorf("connection name is required when creating a second %s connection", def.DisplayName)
+		}
+		connName = newName
 	}
 
 	if def.SupportsTest {
