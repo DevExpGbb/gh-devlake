@@ -114,19 +114,21 @@ sequenceDiagram
     end
     Foreman-->>Human: "Dispatched 2 issues.<br/>Agents working in background."
 
-    Note over Foreman,CodingAgent: ═══ PHASE 2b: MONITOR ═══
-    loop Poll until all PRs created
+    Note over Foreman,PRs: ═══ PHASE 2b: MONITOR (automatic) ═══
+    Foreman->>Foreman: Sleep 5 minutes (initial wait)
+    loop Poll every 2min until all PRs created
         Foreman->>CodingAgent: get_copilot_job_status
         CodingAgent-->>Foreman: ⏳ Working / 📄 PR created / ❌ Failed
+        alt Still working
+            Foreman->>Foreman: Sleep 2 minutes
+        end
     end
-    Foreman-->>Human: "All PRs are in.<br/>Ready to run reviews?"
 
-    Note over CodingAgent,PRs: Agents work autonomously...
     CodingAgent->>PRs: PR #A created (draft)
     CodingAgent->>PRs: PR #B created (draft)
+    Foreman-->>Human: "All PRs are in. Starting reviews."
 
-    Note over Human,Docs: ═══ PHASE 3: REVIEW ═══
-    Human->>Foreman: "PRs are ready — review the wave"
+    Note over Human,Docs: ═══ PHASE 3: REVIEW (automatic) ═══
 
     par Automated reviews
         Foreman->>CodeReview: Request review on PR #A
@@ -136,27 +138,43 @@ sequenceDiagram
 
     par Local subagent checks
         Foreman->>WaveReview: Check cross-PR consistency
-        Foreman->>QA: Run go build / test / vet
+        Foreman->>QA: Run go build / test / vet + CLI smoke tests
         Foreman->>Docs: Verify docs are updated
     end
 
     WaveReview-->>Foreman: Consistency findings
-    QA-->>Foreman: Build + test results
+    QA-->>Foreman: Build + test + CLI results
     Docs-->>Foreman: Doc completeness report
+
+    Foreman->>PRs: Collect Code Review Agent comments
+    PRs-->>Foreman: Review comments by severity
 
     Note over Human,Foreman: ═══ PHASE 4: HUMAN GATE ═══
     Foreman-->>Human: Wave summary:<br/>✅ Code review: clean<br/>✅ Cross-PR: consistent<br/>✅ Tests: passing<br/>⚠️ README: missing 1 entry
 
     Human->>Foreman: "Fix the README"
-    Foreman->>Docs: Update README command table
-    Docs-->>Foreman: Fixed
-    Foreman->>PRs: Push fix via @copilot comment
+    Foreman->>PRs: Post @copilot fix comment
+
+    Note over Foreman,QA: ═══ PHASE 4b: FIX LOOP (automatic) ═══
+    Foreman->>Foreman: Sleep 3 minutes
+    loop Poll every 2min for new commits
+        Foreman->>PRs: Check for new commits
+        alt New commits found
+            Foreman->>QA: Re-run QA Enforcer
+            QA-->>Foreman: Updated results
+            Foreman->>PRs: Re-collect review comments
+        else Still waiting
+            Foreman->>Foreman: Sleep 2 minutes
+        end
+    end
+    Foreman-->>Human: Fix status:<br/>✅ Fix applied, QA passing
 
     Note over Human,PRs: ═══ PHASE 5: MERGE ═══
     Human->>PRs: Review + Approve + Merge PR #A
     Human->>PRs: Review + Approve + Merge PR #B
 
     Note over Human,Foreman: ═══ PHASE 6: ADVANCE ═══
+    Foreman->>PRs: Delete copilot/ branches
     Human->>Foreman: "Wave complete — next"
     Foreman->>Foreman: Update state, find next wave
     Foreman-->>Human: "Next wave: issues #C, #D..."
