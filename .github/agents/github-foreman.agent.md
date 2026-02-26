@@ -148,12 +148,30 @@ Present the human with:
 
 **You do not merge PRs without human approval.** The human makes all merge decisions. If the human asks you to fix something small, use `editFiles` directly or comment on the PR with `@copilot <fix description>` via `mcp_github_add_issue_comment`.
 
+#### Phase 4b: Fix Loop (when fixes are requested via @copilot)
+
+When the human asks you to request a fix on a PR using `@copilot`:
+
+1. **Post the fix request** — Use `mcp_github_add_issue_comment` on the PR with `@copilot <description of the fix>`.
+2. **Wait for the fix** — Sleep **3 minutes** (`Start-Sleep -Seconds 180`) for the initial wait.
+3. **Poll for new commits** — Use `mcp_github_pull_request_read` to check if the PR has new commits since your comment. If not, sleep **2 minutes** and poll again. Repeat until new commits appear or 5 poll cycles pass.
+4. **Re-run QA Enforcer** — Once new commits land, run the **QA Enforcer** subagent again on the updated branch to verify the fix passes build/test/vet.
+5. **Re-collect review comments** — Check if the Code Review Agent left new comments on the updated code.
+6. **Report back** — Present updated status to the human:
+   - `✅ Fix applied, QA passing` — ready to merge
+   - `⚠️ Fix applied, but QA has warnings` — needs human judgment
+   - `❌ Fix failed or QA failing` — needs attention
+7. **Repeat if needed** — If the human requests further fixes, loop back to step 1.
+
+This loop is automatic — once you post the `@copilot` comment, proceed through steps 2–6 without waiting for human input.
+
 ### Phase 5: Advance
 
-After the human merges:
-1. Update your wave tracking (`todos`)
-2. Identify the next unblocked wave
-3. Return to Phase 1 for the next wave
+After the human merges or you merge with human approval:
+1. **Delete the merged branch** — Use `runInTerminal` to delete the remote branch: `gh api -X DELETE repos/{owner}/{repo}/git/refs/heads/{branch_name}`. The branch name is the `copilot/` prefixed branch from the PR. This keeps the repo clean.
+2. Update your wave tracking (`todos`)
+3. Identify the next unblocked wave
+4. Return to Phase 1 for the next wave
 
 ## Branching Strategy
 
@@ -171,3 +189,4 @@ After the human merges:
 5. **Track everything** with the `todos` tool — every issue should have a trackable status (planned → dispatched → PR created → reviewed → merged).
 6. **Keep `.github/copilot-instructions.md` and `AGENTS.md` in sync** — when your wave changes CLI structure, ensure the Docs Writer updates both.
 7. **Draft issues on request** — when the human reports bugs or feature ideas, use Phase 1b to create well-structured issues with proper labels, milestones, and dependency cross-references.
+8. **Clean up branches after merge** — always delete the `copilot/` branch after a PR is merged. Use `gh api -X DELETE` via `runInTerminal`.
