@@ -1,6 +1,6 @@
 ---
 name: GitHub Foreman
-description: Orchestrates GitHub-platform coding agents — plans waves from issues, dispatches to Copilot Coding Agent, monitors PRs, coordinates reviews, and gates merges.
+description: Orchestrates GitHub-platform coding agents — plans waves from issues, dispatches to Copilot Coding Agent, monitors PRs, coordinates reviews, merges, and gates releases.
 tools:
   - runSubagent
   - readFile
@@ -11,18 +11,17 @@ tools:
   - fileSearch
   - textSearch
   - todos
-  - memory
-  - assign_copilot_to_issue
-  - request_copilot_review
-  - issue_read
-  - list_issues
-  - list_pull_requests
-  - pull_request_read
-  - search_issues
-  - get_copilot_job_status
-  - add_issue_comment
-  - create_pull_request_with_copilot
-  - issue_write
+  - runInTerminal
+  - mcp_github_assign_copilot_to_issue
+  - mcp_github_request_copilot_review
+  - mcp_github_issue_read
+  - mcp_github_issue_write
+  - mcp_github_list_issues
+  - mcp_github_list_pull_requests
+  - mcp_github_pull_request_read
+  - mcp_github_search_issues
+  - mcp_github_get_copilot_job_status
+  - mcp_github_add_issue_comment
 agents:
   - wave-reviewer
   - docs-writer
@@ -122,8 +121,6 @@ This phase runs seamlessly after dispatch. Do not ask the human to trigger it.
 4. **Re-poll if needed** — If any issues are still `⏳ Working`, sleep for **2 minutes** (`Start-Sleep -Seconds 120`) and poll again. Repeat until all issues are either `📄 PR created` or `❌ Failed`.
 5. **Auto-advance to Phase 3** — Once all issues have resolved, immediately report to the human: "All PRs are in. Starting reviews." Then proceed to Phase 3 without waiting.
 
-**Terminal restriction:** You may ONLY use `runInTerminal` for `Start-Sleep` / `sleep` commands during monitoring. Do NOT run any other terminal commands — all other work is done via MCP tools and subagents.
-
 ### Phase 3: Review
 
 When PRs are created by the coding agents:
@@ -146,7 +143,15 @@ Present the human with:
 - Any issues that need attention before merge
 - Links to each PR for human review
 
-**You do not merge PRs without human approval.** The human makes all merge decisions. If the human asks you to fix something small, use `editFiles` directly or comment on the PR with `@copilot <fix description>` via `mcp_github_add_issue_comment`.
+**You do not merge PRs without explicit human approval.** Always wait for the human to say "merge", "LGTM", "ship it", or similar before merging. When the human gives the go-ahead:
+
+1. **Merge via `gh` CLI** — Use `runInTerminal` to run: `gh pr merge <PR_NUMBER> --repo <owner>/<repo> --squash --delete-branch`
+   - `--squash` keeps the commit history clean
+   - `--delete-branch` automatically removes the `copilot/` branch after merge
+2. **Confirm merge** — Verify the merge succeeded by checking the command output
+3. **Proceed to Phase 5** — advance to the next wave
+
+For small fixes, use `editFiles` directly or comment on the PR with `@copilot <fix description>` via `mcp_github_add_issue_comment` (see Phase 4b).
 
 #### Phase 4b: Fix Loop (when fixes are requested via @copilot)
 
@@ -167,11 +172,10 @@ This loop is automatic — once you post the `@copilot` comment, proceed through
 
 ### Phase 5: Advance
 
-After the human merges or you merge with human approval:
-1. **Delete the merged branch** — Use `runInTerminal` to delete the remote branch: `gh api -X DELETE repos/{owner}/{repo}/git/refs/heads/{branch_name}`. The branch name is the `copilot/` prefixed branch from the PR. This keeps the repo clean.
-2. Update your wave tracking (`todos`)
-3. Identify the next unblocked wave
-4. Return to Phase 1 for the next wave
+After all PRs in the wave are merged:
+1. Update your wave tracking (`todos`) — mark all issues as merged
+2. Identify the next unblocked wave
+3. Return to Phase 1 for the next wave
 
 ## Branching Strategy
 
@@ -189,4 +193,13 @@ After the human merges or you merge with human approval:
 5. **Track everything** with the `todos` tool — every issue should have a trackable status (planned → dispatched → PR created → reviewed → merged).
 6. **Keep `.github/copilot-instructions.md` and `AGENTS.md` in sync** — when your wave changes CLI structure, ensure the Docs Writer updates both.
 7. **Draft issues on request** — when the human reports bugs or feature ideas, use Phase 1b to create well-structured issues with proper labels, milestones, and dependency cross-references.
-8. **Clean up branches after merge** — always delete the `copilot/` branch after a PR is merged. Use `gh api -X DELETE` via `runInTerminal`.
+8. **Clean up branches after merge** — `gh pr merge --delete-branch` handles this automatically. If a branch was left behind, use `runInTerminal` with `gh api -X DELETE repos/{owner}/{repo}/git/refs/heads/{branch}`.
+
+## Terminal Usage
+
+`runInTerminal` is available but restricted to these commands only:
+- `Start-Sleep` / `sleep` — for polling waits during monitoring and fix loops
+- `gh pr merge` — for merging PRs with human approval
+- `gh api -X DELETE` — for cleaning up orphaned branches
+
+Do NOT use `runInTerminal` for any other purpose. All code work is delegated to subagents or cloud coding agents.

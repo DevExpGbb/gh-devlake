@@ -35,9 +35,9 @@ graph TB
     end
 
     %% Human interacts only with Foreman and PRs
-    H -->|"prompt: plan / dispatch / review"| F
-    H -->|"approve + merge"| PR1
-    H -->|"approve + merge"| PR2
+    H -->|"prompt: plan / dispatch / review / merge"| F
+    H -->|"approve"| PR1
+    H -->|"approve"| PR2
 
     %% Foreman reads issues
     F -->|"MCP: list_issues,<br/>issue_read"| IS
@@ -170,11 +170,13 @@ sequenceDiagram
     Foreman-->>Human: Fix status:<br/>✅ Fix applied, QA passing
 
     Note over Human,PRs: ═══ PHASE 5: MERGE ═══
-    Human->>PRs: Review + Approve + Merge PR #A
-    Human->>PRs: Review + Approve + Merge PR #B
+    Human->>Foreman: "LGTM — merge them"
+    Foreman->>PRs: gh pr merge --squash --delete-branch (PR #A)
+    PRs-->>Foreman: ✅ Merged, branch deleted
+    Foreman->>PRs: gh pr merge --squash --delete-branch (PR #B)
+    PRs-->>Foreman: ✅ Merged, branch deleted
 
     Note over Human,Foreman: ═══ PHASE 6: ADVANCE ═══
-    Foreman->>PRs: Delete copilot/ branches
     Human->>Foreman: "Wave complete — next"
     Foreman->>Foreman: Update state, find next wave
     Foreman-->>Human: "Next wave: issues #C, #D..."
