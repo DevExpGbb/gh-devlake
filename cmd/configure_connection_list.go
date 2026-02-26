@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"text/tabwriter"
 
@@ -84,7 +85,11 @@ func runListConnections(cmd *cobra.Command, args []string) error {
 	for _, def := range defs {
 		conns, err := client.ListConnections(def.Plugin)
 		if err != nil {
-			fmt.Printf("\n⚠️  Could not list %s connections: %v\n", def.DisplayName, err)
+			if outputJSON {
+				fmt.Fprintf(os.Stderr, "⚠️  Could not list %s connections: %v\n", def.DisplayName, err)
+			} else {
+				fmt.Printf("\n⚠️  Could not list %s connections: %v\n", def.DisplayName, err)
+			}
 			continue
 		}
 		for _, c := range conns {

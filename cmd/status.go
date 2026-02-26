@@ -275,30 +275,31 @@ func runStatusJSON(state *devlake.State, stateFile string) error {
 			}
 		}
 	} else {
-		// No state file — try discovery
+		// No state file — try discovery; fail with an error in JSON mode if unreachable
 		disc, err := devlake.Discover(cfgURL)
-		if err == nil {
-			client := devlake.NewClient(disc.URL)
-			_, healthy := client.Health()
+		if err != nil {
+			return fmt.Errorf("discovering DevLake: %w", err)
+		}
+		client := devlake.NewClient(disc.URL)
+		_, healthy := client.Health()
+		out.Endpoints = append(out.Endpoints, statusEndpoint{
+			Name:    "backend",
+			URL:     disc.URL,
+			Healthy: healthy == nil,
+		})
+		if disc.GrafanaURL != "" {
 			out.Endpoints = append(out.Endpoints, statusEndpoint{
-				Name:    "backend",
-				URL:     disc.URL,
-				Healthy: healthy == nil,
+				Name:    "grafana",
+				URL:     disc.GrafanaURL,
+				Healthy: checkEndpointHealth(disc.GrafanaURL, "grafana"),
 			})
-			if disc.GrafanaURL != "" {
-				out.Endpoints = append(out.Endpoints, statusEndpoint{
-					Name:    "grafana",
-					URL:     disc.GrafanaURL,
-					Healthy: checkEndpointHealth(disc.GrafanaURL, "grafana"),
-				})
-			}
-			if disc.ConfigUIURL != "" {
-				out.Endpoints = append(out.Endpoints, statusEndpoint{
-					Name:    "config-ui",
-					URL:     disc.ConfigUIURL,
-					Healthy: checkEndpointHealth(disc.ConfigUIURL, "config-ui"),
-				})
-			}
+		}
+		if disc.ConfigUIURL != "" {
+			out.Endpoints = append(out.Endpoints, statusEndpoint{
+				Name:    "config-ui",
+				URL:     disc.ConfigUIURL,
+				Healthy: checkEndpointHealth(disc.ConfigUIURL, "config-ui"),
+			})
 		}
 	}
 

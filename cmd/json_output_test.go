@@ -3,6 +3,8 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -62,41 +64,28 @@ func TestPrintJSON_EmptySlice(t *testing.T) {
 	}
 }
 
-func TestRunStatusJSON_NoState(t *testing.T) {
-	orig := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("os.Pipe: %v", err)
-	}
-	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = orig })
-
+func TestRunStatusJSON_NoState_DiscoveryError(t *testing.T) {
 	origCfgURL := cfgURL
 	cfgURL = "http://127.0.0.1:1" // unreachable — discover will fail
 	t.Cleanup(func() { cfgURL = origCfgURL })
 
-	// Should not error even if discovery fails — just returns empty output
-	if err := runStatusJSON(nil, ""); err != nil {
-		t.Fatalf("runStatusJSON returned error: %v", err)
+	// Discovery failure should surface as an error so Execute() can emit {"error":...}
+	err := runStatusJSON(nil, "")
+	if err == nil {
+		t.Fatal("expected error when discovery fails, got nil")
 	}
-	w.Close()
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	out := strings.TrimSpace(buf.String())
-
-	var got statusOutput
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatalf("output is not valid JSON: %v — got: %q", err, out)
-	}
-	if got.Deployment != nil {
-		t.Errorf("expected nil deployment when no state, got %+v", got.Deployment)
-	}
-	if got.Connections == nil {
-		t.Errorf("expected non-nil connections slice")
+	if !strings.Contains(err.Error(), "discovering DevLake") {
+		t.Errorf("unexpected error message: %v", err)
 	}
 }
 
 func TestRunStatusJSON_WithState(t *testing.T) {
+	// Start a mock backend that responds 200 to /ping
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
 	orig := os.Stdout
 	r, w, err := os.Pipe()
 	if err != nil {
@@ -109,7 +98,7 @@ func TestRunStatusJSON_WithState(t *testing.T) {
 		Method:     "local",
 		DeployedAt: "2024-01-01T00:00:00Z",
 		Endpoints: devlake.StateEndpoints{
-			Backend: "http://localhost:8080",
+			Backend: srv.URL,
 		},
 		Connections: []devlake.StateConnection{
 			{Plugin: "github", ConnectionID: 1, Name: "GitHub - my-org", Organization: "my-org"},
@@ -159,6 +148,14 @@ func TestRunStatusJSON_WithState(t *testing.T) {
 	if got.Project.BlueprintID != 7 {
 		t.Errorf("expected blueprintId=7, got %d", got.Project.BlueprintID)
 	}
+	// Verify backend endpoint is included and healthy (mock server returns 200 to /ping)
+	if len(got.Endpoints) == 0 {
+		t.Error("expected at least one endpoint")
+	} else if got.Endpoints[0].Name != "backend" {
+		t.Errorf("expected first endpoint name=backend, got %q", got.Endpoints[0].Name)
+	} else if !got.Endpoints[0].Healthy {
+		t.Errorf("expected backend endpoint to be healthy")
+	}
 }
 
 func TestConnectionListItem_JSONFields(t *testing.T) {
@@ -184,3 +181,4 @@ func TestConnectionListItem_JSONFields(t *testing.T) {
 		t.Errorf("enterprise field should be omitted when empty, got: %q", out)
 	}
 }
+
