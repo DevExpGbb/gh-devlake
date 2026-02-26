@@ -13,12 +13,13 @@ import (
 )
 
 var (
-	cleanupForce  bool
-	cleanupState  string
-	cleanupKeepRG bool
-	cleanupAzure  bool
-	cleanupLocal  bool
-	cleanupRG     string
+	cleanupForce    bool
+	cleanupState    string
+	cleanupKeepRG   bool
+	cleanupAzure    bool
+	cleanupLocal    bool
+	cleanupRG       string
+	cleanupKeepData bool
 )
 
 func newCleanupCmd() *cobra.Command {
@@ -43,6 +44,7 @@ Example:
 	cmd.Flags().BoolVar(&cleanupAzure, "azure", false, "Force Azure cleanup mode")
 	cmd.Flags().BoolVar(&cleanupLocal, "local", false, "Force local cleanup mode")
 	cmd.Flags().StringVar(&cleanupRG, "resource-group", "", "Azure resource group name (overrides state file)")
+	cmd.Flags().BoolVar(&cleanupKeepData, "keep-data", false, "Preserve Docker data volumes (database, Grafana dashboards)")
 
 	return cmd
 }
@@ -105,6 +107,11 @@ func detectCleanupMode() string {
 		return "azure"
 	}
 	if _, err := os.Stat(".devlake-local.json"); err == nil {
+		return "local"
+	}
+	// Fall back to partial artifacts — a docker-compose.yml without a state file
+	// indicates a deploy that failed before writing state.
+	if _, err := os.Stat("docker-compose.yml"); err == nil {
 		return "local"
 	}
 	return ""
@@ -205,12 +212,19 @@ func runAzureCleanup() error {
 		fmt.Println("   Deletion initiated (running in background)")
 	}
 
-	// Remove state file
+	// Remove state file and local artifacts
 	fmt.Println("\n   Removing state file...")
 	if err := os.Remove(stateFile); err != nil && !os.IsNotExist(err) {
 		fmt.Printf("   ⚠️  Could not remove state file: %v\n", err)
 	} else {
 		fmt.Println("   ✅ State file removed")
+	}
+
+	// Clean up .devlake.env if present
+	if _, err := os.Stat(".devlake.env"); err == nil {
+		if removeErr := os.Remove(".devlake.env"); removeErr == nil {
+			fmt.Println("   ✅ Removed .devlake.env")
+		}
 	}
 
 	printBanner("✅ Cleanup Complete!")
@@ -231,33 +245,85 @@ func runLocalCleanup() error {
 		stateFile = ".devlake-local.json"
 	}
 
+	// Build list of files/dirs that will be removed
+	filesToRemove := []string{
+		"docker-compose.yml",
+		".env",
+		".env.bak",
+		stateFile,
+		".devlake.env",
+	}
+	// Cloned build-context directories (from fork flow)
+	dirsToRemove := []string{"backend", "config-ui", "grafana"}
+
+	// Show what will be cleaned
+	fmt.Println("\n🧹 The following will be removed:")
+	fmt.Println("  • Docker containers and images")
+	if !cleanupKeepData {
+		fmt.Println("  • Docker data volumes (database, Grafana)")
+	}
+	for _, f := range filesToRemove {
+		if _, err := os.Stat(f); err == nil {
+			fmt.Printf("  • %s\n", f)
+		}
+	}
+	for _, d := range dirsToRemove {
+		if info, err := os.Stat(d); err == nil && info.IsDir() {
+			fmt.Printf("  • %s/ (cloned source)\n", d)
+		}
+	}
+
 	if !cleanupForce {
-		if !prompt.Confirm("\nStop and remove local DevLake Docker containers?") {
+		if !prompt.Confirm("\nProceed with cleanup?") {
 			fmt.Println("Cleanup cancelled.")
 			return nil
 		}
 	}
 
+	// Stop and remove containers, volumes, and images
 	fmt.Println("\n🐳 Running docker compose down...")
 	cwd, _ := os.Getwd()
-	if err := dockerpkg.ComposeDown(cwd); err != nil {
+	removeVolumes := !cleanupKeepData
+	if err := dockerpkg.ComposeDown(cwd, removeVolumes); err != nil {
 		fmt.Printf("   ⚠️  docker compose down failed: %v\n", err)
 		fmt.Println("   You may need to stop containers manually.")
 	} else {
-		fmt.Println("   ✅ Containers stopped and removed")
+		if removeVolumes {
+			fmt.Println("   ✅ Containers, volumes, and images removed")
+		} else {
+			fmt.Println("   ✅ Containers and images removed (data volumes preserved)")
+		}
 	}
 
-	// Remove state file
-	if _, err := os.Stat(stateFile); err == nil {
-		fmt.Printf("\n   Removing %s...\n", stateFile)
-		if err := os.Remove(stateFile); err != nil {
-			fmt.Printf("   ⚠️  Could not remove state file: %v\n", err)
-		} else {
-			fmt.Println("   ✅ State file removed")
+	// Remove files
+	for _, f := range filesToRemove {
+		if _, err := os.Stat(f); err == nil {
+			if err := os.Remove(f); err != nil {
+				fmt.Printf("   ⚠️  Could not remove %s: %v\n", f, err)
+			} else {
+				fmt.Printf("   ✅ Removed %s\n", f)
+			}
+		}
+	}
+
+	// Remove cloned build-context directories
+	for _, d := range dirsToRemove {
+		if info, err := os.Stat(d); err == nil && info.IsDir() {
+			if err := os.RemoveAll(d); err != nil {
+				fmt.Printf("   ⚠️  Could not remove %s/: %v\n", d, err)
+			} else {
+				fmt.Printf("   ✅ Removed %s/\n", d)
+			}
 		}
 	}
 
 	printBanner("✅ Cleanup Complete!")
+
+	if cleanupKeepData {
+		fmt.Println("  Note: Docker data volumes were preserved.")
+		fmt.Println("  Re-run without --keep-data for a full wipe.")
+		fmt.Println()
+	}
 
 	return nil
 }
