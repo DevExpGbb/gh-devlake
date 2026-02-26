@@ -5,10 +5,11 @@ import (
 	"os"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/DevExpGBB/gh-devlake/internal/devlake"
 	"github.com/DevExpGBB/gh-devlake/internal/prompt"
 	"github.com/DevExpGBB/gh-devlake/internal/token"
-	"github.com/spf13/cobra"
 )
 
 var (
