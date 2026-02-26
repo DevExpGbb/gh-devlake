@@ -6,6 +6,8 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+
+	"github.com/DevExpGBB/gh-devlake/internal/devlake"
 )
 
 var connListPlugin string
@@ -26,9 +28,17 @@ func init() {
 	configureConnectionsCmd.AddCommand(listConnectionsCmd)
 }
 
-func runListConnections(cmd *cobra.Command, args []string) error {
-	printBanner("DevLake — List Connections")
+// connectionListItem is the JSON representation of a single connection entry.
+type connectionListItem struct {
+	ID           int    `json:"id"`
+	Plugin       string `json:"plugin"`
+	Name         string `json:"name"`
+	Endpoint     string `json:"endpoint,omitempty"`
+	Organization string `json:"organization,omitempty"`
+	Enterprise   string `json:"enterprise,omitempty"`
+}
 
+func runListConnections(cmd *cobra.Command, args []string) error {
 	// ── Validate --plugin flag ──
 	if connListPlugin != "" {
 		if _, err := requirePlugin(connListPlugin); err != nil {
@@ -36,10 +46,20 @@ func runListConnections(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// ── Discover DevLake ──
-	client, _, err := discoverClient(cfgURL)
-	if err != nil {
-		return err
+	// ── Discover DevLake (quietly in JSON mode to keep stdout clean) ──
+	var client *devlake.Client
+	if outputJSON {
+		disc, err := devlake.Discover(cfgURL)
+		if err != nil {
+			return err
+		}
+		client = devlake.NewClient(disc.URL)
+	} else {
+		c, _, err := discoverClient(cfgURL)
+		if err != nil {
+			return err
+		}
+		client = c
 	}
 
 	// ── Determine which plugins to query ──
@@ -53,8 +73,9 @@ func runListConnections(cmd *cobra.Command, args []string) error {
 	// ── Collect connections from all relevant plugins ──
 	type row struct {
 		plugin       string
-		id           int
+		ID           int
 		name         string
+		endpoint     string
 		organization string
 		enterprise   string
 	}
@@ -69,15 +90,33 @@ func runListConnections(cmd *cobra.Command, args []string) error {
 		for _, c := range conns {
 			rows = append(rows, row{
 				plugin:       def.Plugin,
-				id:           c.ID,
+				ID:           c.ID,
 				name:         c.Name,
+				endpoint:     c.Endpoint,
 				organization: c.Organization,
 				enterprise:   c.Enterprise,
 			})
 		}
 	}
 
+	// ── JSON output path ──
+	if outputJSON {
+		items := make([]connectionListItem, len(rows))
+		for i, r := range rows {
+			items[i] = connectionListItem{
+				ID:           r.ID,
+				Plugin:       r.plugin,
+				Name:         r.name,
+				Endpoint:     r.endpoint,
+				Organization: r.organization,
+				Enterprise:   r.enterprise,
+			}
+		}
+		return printJSON(items)
+	}
+
 	// ── Render table ──
+	printBanner("DevLake — List Connections")
 	fmt.Println()
 	if len(rows) == 0 {
 		fmt.Println("  No connections found.")
@@ -89,7 +128,7 @@ func runListConnections(cmd *cobra.Command, args []string) error {
 	fmt.Fprintln(w, "Plugin\tID\tName\tOrganization\tEnterprise")
 	fmt.Fprintln(w, strings.Repeat("─", 10)+"\t"+strings.Repeat("─", 4)+"\t"+strings.Repeat("─", 30)+"\t"+strings.Repeat("─", 14)+"\t"+strings.Repeat("─", 12))
 	for _, r := range rows {
-		fmt.Fprintf(w, "%s\t%d\t%s\t%s\t%s\n", r.plugin, r.id, r.name, r.organization, r.enterprise)
+		fmt.Fprintf(w, "%s\t%d\t%s\t%s\t%s\n", r.plugin, r.ID, r.name, r.organization, r.enterprise)
 	}
 	w.Flush()
 	fmt.Println()

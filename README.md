@@ -211,6 +211,42 @@ See [Token Handling](docs/token-handling.md) for env key names and multi-plugin 
 | `gh devlake configure full` | Connections + scopes + project in one step | [configure-full.md](docs/configure-full.md) |
 | `gh devlake cleanup` | Tear down local or Azure resources | [cleanup.md](docs/cleanup.md) |
 
+### Global Flags
+
+| Flag | Description |
+|------|-------------|
+| `--url <url>` | DevLake API base URL (auto-discovered if omitted) |
+| `--json` | Output as JSON — suppresses banners and interactive prompts. Useful for scripting and agent consumption. |
+
+#### `--json` output
+
+Read commands emit a single compact JSON line on success, or `{"error":"<message>"}` on failure. No emoji, banners, or interactive prompts are printed.
+
+```bash
+# Human (default)
+$ gh devlake status
+
+════════════════════════════════════════
+  DevLake Status
+════════════════════════════════════════
+  ...
+
+# Machine-readable
+$ gh devlake status --json
+{"deployment":{"method":"local","stateFile":".devlake-local.json"},"endpoints":[{"name":"backend","url":"http://localhost:8080","healthy":true}],"connections":[{"plugin":"github","id":1,"name":"GitHub - my-org","organization":"my-org"}],"project":{"name":"my-project","blueprintId":1}}
+
+# Pipe into jq
+$ gh devlake configure connection list --json | jq '.[].name'
+"GitHub - my-org"
+```
+
+Commands that support `--json`:
+
+| Command | JSON shape |
+|---------|-----------|
+| `gh devlake status` | `{deployment, endpoints[], connections[], project}` |
+| `gh devlake configure connection list` | `[{id, plugin, name, endpoint, organization, enterprise}]` |
+
 Additional references: [Token Handling](docs/token-handling.md) · [State Files](docs/state-files.md) · [DevLake Concepts](docs/concepts.md) · [Day-2 Operations](docs/day-2.md)
 
 ---
