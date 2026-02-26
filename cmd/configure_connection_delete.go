@@ -68,7 +68,7 @@ func runDeleteConnection(cmd *cobra.Command, args []string) error {
 		// Interactive: let user select one
 		picked, err := pickConnection(client, "Select a connection to delete")
 		if err != nil {
-			if picked == nil && err.Error() == "no connections found \u2014 create one with 'gh devlake configure connection'" {
+			if picked == nil && err.Error() == "no connections found — create one with 'gh devlake configure connection add'" {
 				fmt.Println("\n  No connections found.")
 				fmt.Println()
 				return nil
