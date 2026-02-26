@@ -129,7 +129,7 @@ func runConfigureProjects(cmd *cobra.Command, args []string, opts *ProjectOpts) 
 	fmt.Println("\n\U0001f50d Discovering connections...")
 	choices := discoverConnections(client, state)
 	if len(choices) == 0 {
-		return fmt.Errorf("no connections found \u2014 run 'gh devlake configure connection' first")
+		return fmt.Errorf("no connections found — run 'gh devlake configure connection add' first")
 	}
 
 	// Iterative connection addition loop

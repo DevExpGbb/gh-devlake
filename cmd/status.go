@@ -130,7 +130,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	fmt.Println("\n  Connections")
 	fmt.Println(sep)
 	if len(state.Connections) == 0 {
-		fmt.Println("  (none — run 'gh devlake configure connection')")
+		fmt.Println("  (none — run 'gh devlake configure connection add')")
 	} else {
 		for _, c := range state.Connections {
 			displayName := c.Plugin

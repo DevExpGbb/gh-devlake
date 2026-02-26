@@ -115,10 +115,10 @@ The CLI will prompt you for your PAT. You can also pass `--token`, use an `--env
 
 ```bash
 # GitHub (repos, PRs, workflows, deployments)
-gh devlake configure connection --plugin github --org my-org
+gh devlake configure connection add --plugin github --org my-org
 
 # Copilot (usage metrics, seats, acceptance rates)
-gh devlake configure connection --plugin gh-copilot --org my-org
+gh devlake configure connection add --plugin gh-copilot --org my-org
 ```
 
 The CLI tests each connection before saving. On success:
@@ -201,7 +201,8 @@ See [Token Handling](docs/token-handling.md) for env key names and multi-plugin 
 | `gh devlake status` | Health check and connection summary | [status.md](docs/status.md) |
 | `gh devlake deploy local` | Local Docker Compose deploy | [deploy.md](docs/deploy.md) |
 | `gh devlake deploy azure` | Azure Container Instance deploy | [deploy.md](docs/deploy.md) |
-| `gh devlake configure connection` | Create a plugin connection | [configure-connection.md](docs/configure-connection.md) |
+| `gh devlake configure connection` | Manage plugin connections (subcommands below) | [configure-connection.md](docs/configure-connection.md) |
+| `gh devlake configure connection add` | Create a new plugin connection | [configure-connection.md](docs/configure-connection.md) |
 | `gh devlake configure connection list` | List all connections | [configure-connection.md](docs/configure-connection.md) |
 | `gh devlake configure connection test` | Test a saved connection | [configure-connection.md](docs/configure-connection.md) |
 | `gh devlake configure connection update` | Rotate token or update settings | [configure-connection.md](docs/configure-connection.md) |

@@ -94,7 +94,7 @@ func pickConnection(client *devlake.Client, promptLabel string) (*pickedConnecti
 	}
 
 	if len(entries) == 0 {
-		return nil, fmt.Errorf("no connections found — create one with 'gh devlake configure connection'")
+		return nil, fmt.Errorf("no connections found — create one with 'gh devlake configure connection add'")
 	}
 
 	labels := make([]string, len(entries))

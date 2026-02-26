@@ -24,7 +24,7 @@ var configureFullCmd = &cobra.Command{
 Equivalent to 'gh devlake init' but skips the deploy phase.
 
 For scripted/CI use, chain individual commands instead:
-  gh devlake configure connection --plugin github --org my-org
+  gh devlake configure connection add --plugin github --org my-org
   gh devlake configure scope --plugin github --org my-org --repos owner/repo1
   gh devlake configure project --project-name my-project`,
 	RunE: runConfigureFull,
