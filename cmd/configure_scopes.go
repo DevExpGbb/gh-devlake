@@ -306,6 +306,11 @@ func resolveEnterprise(state *devlake.State, flagValue string) string {
 	return ""
 }
 
+// repoListLimit is the maximum number of repos fetched from the gh CLI for
+// the interactive picker. Increase this to reduce "repo not found" surprises
+// in large orgs.
+const repoListLimit = 100
+
 // resolveRepos determines repos from flags, file, or interactive gh CLI selection.
 func resolveRepos(org string, opts *ScopeOpts) ([]string, error) {
 	if opts.Repos != "" {
@@ -328,16 +333,31 @@ func resolveRepos(org string, opts *ScopeOpts) ([]string, error) {
 	}
 	if gh.IsAvailable() {
 		fmt.Printf("   Listing repos in %q via gh CLI...\n", org)
-		available, err := gh.ListRepos(org, 30)
+		available, err := gh.ListRepos(org, repoListLimit)
 		if err != nil {
 			fmt.Printf("   \u26a0\ufe0f  Could not list repos: %v\n", err)
-		} else if len(available) == 0 {
-			fmt.Println("   \u26a0\ufe0f  No repos found \u2014 verify the org name and PAT scopes (read:org)")
+		}
+		if err != nil || len(available) == 0 {
+			fmt.Printf("   No repos found in %q \u2014 enter repos manually\n", org)
 		} else {
-			selected := prompt.SelectMulti(fmt.Sprintf("Available repos in %s (up to 30)", org), available)
-			return selected, nil
+			const manualOpt = "Enter repos manually instead"
+			fmt.Println()
+			selected := prompt.SelectMulti(
+				fmt.Sprintf("Available repos in %s (showing up to %d)", org, repoListLimit),
+				append(available, manualOpt),
+			)
+			var picked []string
+			for _, s := range selected {
+				if s != manualOpt {
+					picked = append(picked, s)
+				}
+			}
+			if len(picked) > 0 {
+				return picked, nil
+			}
 		}
 	}
+	fmt.Println()
 	input := prompt.ReadLine("Enter repos (comma-separated, e.g. org/repo1,org/repo2)")
 	var repos []string
 	for _, r := range strings.Split(input, ",") {
