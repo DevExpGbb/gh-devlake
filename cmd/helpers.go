@@ -131,6 +131,26 @@ func pluginDisplayName(plugin string) string {
 	return plugin
 }
 
+// deduplicateResults removes duplicate (Plugin, ConnectionID) pairs,
+// keeping the first occurrence. Multiple connections of the same plugin
+// with different IDs are preserved.
+func deduplicateResults(results []ConnSetupResult) []ConnSetupResult {
+	type key struct {
+		plugin string
+		id     int
+	}
+	seen := make(map[key]bool)
+	var out []ConnSetupResult
+	for _, r := range results {
+		k := key{r.Plugin, r.ConnectionID}
+		if !seen[k] {
+			seen[k] = true
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
 // ── Health polling ───────────────────────────────────────────────
 
 // waitForReady polls the DevLake /ping endpoint until it responds 200 or
@@ -150,6 +170,25 @@ func waitForReady(baseURL string, maxAttempts int, interval time.Duration) error
 		time.Sleep(interval)
 	}
 	return fmt.Errorf("DevLake not ready after %d attempts — check logs", maxAttempts)
+}
+
+// waitForMigration polls until DevLake finishes database migration.
+// During migration the API returns 428 (Precondition Required).
+func waitForMigration(baseURL string, maxAttempts int, interval time.Duration) error {
+	httpClient := &http.Client{Timeout: 5 * time.Second}
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		resp, err := httpClient.Get(baseURL + "/ping")
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				fmt.Println("   ✅ Migration complete!")
+				return nil
+			}
+		}
+		fmt.Printf("   Migrating... (%d/%d)\n", attempt, maxAttempts)
+		time.Sleep(interval)
+	}
+	return fmt.Errorf("migration did not complete after %d attempts", maxAttempts)
 }
 
 // ── Scope orchestration ─────────────────────────────────────────
@@ -276,6 +315,176 @@ func collectAndFinalizeProject(opts collectProjectOpts) error {
 }
 
 // ── Connection discovery (moved from configure_projects.go) ─────
+
+// ConfigureAllOpts holds parameters for the shared configureAllPhases orchestrator.
+type ConfigureAllOpts struct {
+	Token     string
+	EnvFile   string
+	SkipClean bool
+	ReAddLoop bool // true for init wizard (re-prompt), false for configure full (one-shot)
+}
+
+// configureAllPhases runs the connection → scope → project pipeline.
+// It is the single implementation used by both init (Phase 2-4) and configure full.
+func configureAllPhases(opts ConfigureAllOpts) error {
+	available := AvailableConnections()
+	var results []ConnSetupResult
+	var client *devlake.Client
+	var statePath string
+	var state *devlake.State
+
+	if opts.ReAddLoop {
+		// Interactive re-add loop (init wizard)
+		for {
+			remaining := available
+			if len(results) > 0 {
+				fmt.Println()
+				fmt.Println("   " + strings.Repeat("─", 44))
+				fmt.Println("   Connections configured so far:")
+				for _, r := range results {
+					name := r.Plugin
+					if def := FindConnectionDef(r.Plugin); def != nil {
+						name = def.DisplayName
+					}
+					fmt.Printf("     ✅ %-18s  ID=%d  %q\n", name, r.ConnectionID, r.Name)
+				}
+				fmt.Println("   " + strings.Repeat("─", 44))
+			}
+
+			var remainingLabels []string
+			for _, d := range remaining {
+				remainingLabels = append(remainingLabels, d.DisplayName)
+			}
+
+			fmt.Println()
+			selectedLabels := prompt.SelectMulti("Which connections to set up?", remainingLabels)
+			if len(selectedLabels) == 0 {
+				if len(results) == 0 {
+					return fmt.Errorf("at least one connection is required")
+				}
+				break
+			}
+
+			var selectedDefs []*ConnectionDef
+			for _, label := range selectedLabels {
+				for _, d := range remaining {
+					if d.DisplayName == label {
+						selectedDefs = append(selectedDefs, d)
+						break
+					}
+				}
+			}
+			if len(selectedDefs) == 0 {
+				if len(results) == 0 {
+					return fmt.Errorf("at least one connection is required")
+				}
+				break
+			}
+
+			newResults, c, sp, st, err := runConnectionsInternal(selectedDefs, "", "", opts.Token, opts.EnvFile, opts.SkipClean)
+			if err != nil {
+				if len(results) == 0 {
+					return fmt.Errorf("connection setup failed: %w", err)
+				}
+				fmt.Printf("\n   ⚠️  %v\n", err)
+				if !prompt.Confirm("\nWould you like to try another connection?") {
+					break
+				}
+				continue
+			}
+			client = c
+			statePath = sp
+			state = st
+			for _, r := range newResults {
+				dupe := false
+				for _, existing := range results {
+					if existing.Plugin == r.Plugin && existing.ConnectionID == r.ConnectionID {
+						dupe = true
+						break
+					}
+				}
+				if !dupe {
+					results = append(results, r)
+				}
+			}
+			fmt.Println("\n   ✅ Connections configured.")
+
+			if !prompt.Confirm("\nWould you like to add another connection?") {
+				break
+			}
+		}
+	} else {
+		// One-shot selection (configure full)
+		var labels []string
+		for _, d := range available {
+			labels = append(labels, d.DisplayName)
+		}
+		fmt.Println()
+		selectedLabels := prompt.SelectMulti("Which connections to configure?", labels)
+		var defs []*ConnectionDef
+		for _, label := range selectedLabels {
+			for _, d := range available {
+				if d.DisplayName == label {
+					defs = append(defs, d)
+					break
+				}
+			}
+		}
+		if len(defs) == 0 {
+			return fmt.Errorf("at least one connection is required")
+		}
+
+		var err error
+		results, client, statePath, state, err = runConnectionsInternal(defs, "", "", opts.Token, opts.EnvFile, opts.SkipClean)
+		if err != nil {
+			return fmt.Errorf("connection setup failed: %w", err)
+		}
+		if len(results) == 0 {
+			return fmt.Errorf("no connections were created — cannot continue")
+		}
+	}
+
+	if client == nil {
+		// Re-discover if connections loop didn't run (shouldn't happen)
+		var err error
+		client, _, err = discoverClient(cfgURL)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Resolve org from connection results
+	org := ""
+	for _, r := range results {
+		if r.Organization != "" {
+			org = r.Organization
+			break
+		}
+	}
+
+	// ── Scopes ──
+	printPhaseBanner("Configure Scopes")
+	results = deduplicateResults(results)
+	scopeAllConnections(client, results)
+	fmt.Println("\n   ✅ Scopes configured.")
+
+	// ── Project ──
+	printPhaseBanner("Project Setup")
+	err := collectAndFinalizeProject(collectProjectOpts{
+		Client:    client,
+		Results:   results,
+		StatePath: statePath,
+		State:     state,
+		Org:       org,
+		Wait:      true,
+		Timeout:   5 * time.Minute,
+	})
+	if err != nil {
+		return fmt.Errorf("project setup failed: %w", err)
+	}
+
+	return nil
+}
 
 // discoverConnections finds all available connections from state and API.
 func discoverConnections(client *devlake.Client, state *devlake.State) []connChoice {

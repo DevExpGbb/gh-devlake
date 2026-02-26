@@ -334,6 +334,7 @@ func finalizeProject(opts finalizeProjectOpts) error {
 	enable := true
 	patch := &devlake.BlueprintPatch{
 		Enable:      &enable,
+		Mode:        "NORMAL",
 		CronConfig:  cron,
 		TimeAfter:   timeAfter,
 		Connections: opts.Connections,

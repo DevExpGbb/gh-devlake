@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/DevExpGBB/gh-devlake/internal/devlake"
 	"github.com/DevExpGBB/gh-devlake/internal/prompt"
@@ -40,67 +39,13 @@ func init() {
 func runConfigureFull(cmd *cobra.Command, args []string) error {
 	printBanner("DevLake — Full Configuration")
 
-	// ── Select connections ──
-	available := AvailableConnections()
-	var labels []string
-	for _, d := range available {
-		labels = append(labels, d.DisplayName)
-	}
-	fmt.Println()
-	selectedLabels := prompt.SelectMulti("Which connections to configure?", labels)
-	var defs []*ConnectionDef
-	for _, label := range selectedLabels {
-		for _, d := range available {
-			if d.DisplayName == label {
-				defs = append(defs, d)
-				break
-			}
-		}
-	}
-	if len(defs) == 0 {
-		return fmt.Errorf("at least one connection is required")
-	}
-
-	// ── Phase 1: Configure Connections ──
-	printPhaseBanner("PHASE 1: Configure Connections")
-
-	results, client, statePath, state, err := runConnectionsInternal(defs, "", "", fullToken, fullEnvFile, fullSkipClean)
-	if err != nil {
-		return fmt.Errorf("phase 1 (connections) failed: %w", err)
-	}
-	if len(results) == 0 {
-		return fmt.Errorf("no connections were created — cannot continue")
-	}
-	fmt.Println("\n   ✅ Phase 1 complete.")
-
-	// Derive org from connection results for project name default
-	org := ""
-	for _, r := range results {
-		if r.Organization != "" {
-			org = r.Organization
-			break
-		}
-	}
-
-	// ── Phase 2: Scope Connections ──
-	printPhaseBanner("PHASE 2: Configure Scopes")
-	scopeAllConnections(client, results)
-	fmt.Println("\n   ✅ Phase 2 complete.")
-
-	// ── Phase 3: Create Project ──
-	printPhaseBanner("PHASE 3: Project Setup")
-
-	err = collectAndFinalizeProject(collectProjectOpts{
-		Client:    client,
-		Results:   results,
-		StatePath: statePath,
-		State:     state,
-		Org:       org,
-		Wait:      true,
-		Timeout:   5 * time.Minute,
-	})
-	if err != nil {
-		return fmt.Errorf("phase 3 (project setup) failed: %w", err)
+	if err := configureAllPhases(ConfigureAllOpts{
+		Token:     fullToken,
+		EnvFile:   fullEnvFile,
+		SkipClean: fullSkipClean,
+		ReAddLoop: false,
+	}); err != nil {
+		return err
 	}
 
 	printBanner("✅ Full configuration complete!")
@@ -188,7 +133,7 @@ func runConnectionsInternal(defs []*ConnectionDef, org, enterprise, tokenVal, en
 			Org:        pluginOrg,
 			Enterprise: pluginEnterprise,
 		}
-		r, err := buildAndCreateConnection(client, def, params, pluginOrg, false)
+		r, err := buildAndCreateConnection(client, def, params, pluginOrg, true)
 		if err != nil {
 			fmt.Printf("   ⚠️  Could not create %s connection: %v\n", def.DisplayName, err)
 			continue
