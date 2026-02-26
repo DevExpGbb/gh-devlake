@@ -41,8 +41,14 @@ func TagAndPush(localTag, remoteTag string) error {
 }
 
 // ComposeDown runs docker compose down in the specified directory.
-func ComposeDown(dir string) error {
-	cmd := exec.Command("docker", "compose", "down")
+// If removeVolumes is true, it passes the -v flag to also remove data volumes.
+// Images built from local Dockerfiles are always removed (--rmi local).
+func ComposeDown(dir string, removeVolumes ...bool) error {
+	args := []string{"compose", "down", "--rmi", "local"}
+	if len(removeVolumes) > 0 && removeVolumes[0] {
+		args = append(args, "-v")
+	}
+	cmd := exec.Command("docker", args...)
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("docker compose down failed: %s\n%s", err, string(out))
@@ -51,8 +57,15 @@ func ComposeDown(dir string) error {
 }
 
 // ComposeUp runs docker compose up -d in the specified directory.
-func ComposeUp(dir string) error {
-	cmd := exec.Command("docker", "compose", "up", "-d")
+// If build is true, images are rebuilt from local Dockerfiles (--build).
+// If services are provided, only those services are started.
+func ComposeUp(dir string, build bool, services ...string) error {
+	args := []string{"compose", "up", "-d"}
+	if build {
+		args = append(args, "--build")
+	}
+	args = append(args, services...)
+	cmd := exec.Command("docker", args...)
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("docker compose up failed: %s\n%s", err, string(out))

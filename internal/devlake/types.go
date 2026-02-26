@@ -93,6 +93,7 @@ type Blueprint struct {
 // BlueprintPatch is the payload for PATCH /blueprints/:id.
 type BlueprintPatch struct {
 	Enable      *bool                 `json:"enable,omitempty"`
+	Mode        string                `json:"mode,omitempty"`
 	CronConfig  string                `json:"cronConfig,omitempty"`
 	TimeAfter   string                `json:"timeAfter,omitempty"`
 	Connections []BlueprintConnection `json:"connections,omitempty"`

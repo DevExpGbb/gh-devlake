@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/DevExpGBB/gh-devlake/internal/azure"
 	dockerpkg "github.com/DevExpGBB/gh-devlake/internal/docker"
+	"github.com/DevExpGBB/gh-devlake/internal/gitclone"
 	"github.com/DevExpGBB/gh-devlake/internal/prompt"
 	"github.com/DevExpGBB/gh-devlake/internal/secrets"
 	"github.com/spf13/cobra"
@@ -59,13 +60,48 @@ var azureRegions = []string{
 }
 
 func runDeployAzure(cmd *cobra.Command, args []string) error {
-	homeDirTip("devlake")
+	// Suggest a dedicated directory unless already in the right place or called from init
+	if !deployAzureQuiet {
+		if suggestDedicatedDir("azure", "gh devlake deploy azure") {
+			return nil
+		}
+	}
 	if deployAzureDir == "" {
 		deployAzureDir = "."
 	}
-	warnIfWritingIntoGitRepo(deployAzureDir, ".devlake-azure.json")
 	if err := os.MkdirAll(deployAzureDir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", deployAzureDir, err)
+	}
+
+	// ── Interactive image-source prompt (when no explicit flag set) ──
+	if !cmd.Flags().Changed("official") && !cmd.Flags().Changed("repo-url") {
+		imageChoices := []string{
+			"official - Apache DevLake images from Docker Hub (recommended)",
+			"fork    - Clone a DevLake repo and build from source",
+			"custom  - Use a local repo or pre-built images",
+		}
+		fmt.Println()
+		imgChoice := prompt.Select("Which DevLake images to use?", imageChoices)
+		if imgChoice == "" {
+			return fmt.Errorf("image choice is required")
+		}
+		switch {
+		case strings.HasPrefix(imgChoice, "official"):
+			azureOfficial = true
+		case strings.HasPrefix(imgChoice, "fork"):
+			azureOfficial = false
+			if azureRepoURL == "" {
+				azureRepoURL = prompt.ReadLine(fmt.Sprintf("Repository URL [%s]", gitclone.DefaultForkURL))
+				if azureRepoURL == "" {
+					azureRepoURL = gitclone.DefaultForkURL
+				}
+			}
+		default: // custom
+			azureOfficial = false
+			if azureRepoURL == "" {
+				azureRepoURL = prompt.ReadLine("Path or URL to DevLake repo (leave blank to auto-detect)")
+			}
+		}
 	}
 
 	// ── Interactive prompts for missing required flags ──
@@ -338,15 +374,13 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 
 func findRepoRoot() (string, error) {
 	if azureRepoURL != "" {
-		// Clone to temp dir
 		tmpDir, err := os.MkdirTemp("", "devlake-clone-*")
 		if err != nil {
 			return "", err
 		}
 		fmt.Printf("   Cloning %s...\n", azureRepoURL)
-		cmd := newGitClone(azureRepoURL, tmpDir)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return "", fmt.Errorf("git clone failed: %s\n%s", err, string(out))
+		if err := gitclone.Clone(azureRepoURL, tmpDir); err != nil {
+			return "", err
 		}
 		return tmpDir, nil
 	}
@@ -363,10 +397,6 @@ func findRepoRoot() (string, error) {
 		"Options:\n" +
 		"  --repo-url <url>  Clone a fork with the custom Dockerfile\n" +
 		"  --official        Use official Apache images (no build needed)")
-}
-
-func newGitClone(url, dir string) *exec.Cmd {
-	return exec.Command("git", "clone", "--depth", "1", url, dir)
 }
 
 func methodName() string {
