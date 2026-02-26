@@ -11,17 +11,18 @@ tools:
   - fileSearch
   - textSearch
   - todos
-  - mcp_github_assign_copilot_to_issue
-  - mcp_github_request_copilot_review
-  - mcp_github_issue_read
-  - mcp_github_list_issues
-  - mcp_github_list_pull_requests
-  - mcp_github_pull_request_read
-  - mcp_github_search_issues
-  - mcp_github_get_copilot_job_status
-  - mcp_github_add_issue_comment
-  - mcp_github_create_pull_request_with_copilot
-  - mcp_github_issue_write
+  - memory
+  - assign_copilot_to_issue
+  - request_copilot_review
+  - issue_read
+  - list_issues
+  - list_pull_requests
+  - pull_request_read
+  - search_issues
+  - get_copilot_job_status
+  - add_issue_comment
+  - create_pull_request_with_copilot
+  - issue_write
 agents:
   - wave-reviewer
   - docs-writer
@@ -106,18 +107,22 @@ For each issue in the approved wave:
    - `custom_instructions`: composed context
 4. For parallel issues within a wave, dispatch all simultaneously.
 5. Track progress with `todos` — create a todo item per issue showing dispatch status.
+6. **Immediately begin monitoring** — do NOT wait for the human. Proceed directly to Phase 2b.
 
-### Phase 2b: Monitor
+### Phase 2b: Monitor (automatic — no human intervention)
 
-After dispatching, actively monitor progress rather than waiting passively:
+This phase runs seamlessly after dispatch. Do not ask the human to trigger it.
 
-1. **Poll for completion** — Use `mcp_github_get_copilot_job_status` to check if coding agent sessions have finished. Poll when the human asks for a status update, or proactively when the human says "monitor" or "watch."
-2. **Check for PRs** — Use `mcp_github_list_pull_requests` to detect when draft PRs appear from `copilot/` branches.
-3. **Report status** — When asked "status?" or "how's the wave going?", check all dispatched issues and report:
-   - `⏳ Working` — coding agent session still active
-   - `📄 PR created` — draft PR exists, ready for review phase
-   - `❌ Failed` — session errored out (read the session log for details)
-4. **Auto-advance** — Once all issues in the wave have PRs, proactively tell the human: "All PRs are in. Ready to run reviews?"
+1. **Initial wait** — Use `runInTerminal` to sleep for **5 minutes** (`Start-Sleep -Seconds 300` on Windows / `sleep 300` on Linux/macOS). Coding agents typically take ~5 minutes for a task.
+2. **Poll for completion** — After the initial wait, use `mcp_github_get_copilot_job_status` to check each dispatched session, and `mcp_github_list_pull_requests` to detect new `copilot/` branch PRs.
+3. **Assess status** — For each dispatched issue:
+   - `⏳ Working` — session still active, no PR yet
+   - `📄 PR created` — draft PR exists, this issue is done
+   - `❌ Failed` — session errored out
+4. **Re-poll if needed** — If any issues are still `⏳ Working`, sleep for **2 minutes** (`Start-Sleep -Seconds 120`) and poll again. Repeat until all issues are either `📄 PR created` or `❌ Failed`.
+5. **Auto-advance to Phase 3** — Once all issues have resolved, immediately report to the human: "All PRs are in. Starting reviews." Then proceed to Phase 3 without waiting.
+
+**Terminal restriction:** You may ONLY use `runInTerminal` for `Start-Sleep` / `sleep` commands during monitoring. Do NOT run any other terminal commands — all other work is done via MCP tools and subagents.
 
 ### Phase 3: Review
 
@@ -127,7 +132,11 @@ When PRs are created by the coding agents:
 2. **Cross-PR consistency** (multi-PR waves only) — Run the **Wave Reviewer** subagent to check consistency across all PRs in the wave.
 3. **Quality check** — Run the **QA Enforcer** subagent to verify builds, tests, and coverage on each branch.
 4. **Documentation check** — Run the **Docs Writer** subagent to verify README and AGENTS.md are updated if the wave adds/changes commands.
-5. **Synthesize results** — Compile findings from all checks into a summary for the human.
+5. **Collect Code Review Agent comments** — Use `mcp_github_pull_request_read` with `method: "get_review_comments"` on each PR to pull in all review comments left by the Code Review Agent (and any other reviewers). Summarize findings by severity:
+   - **Blocking** — security issues, logic errors, broken tests
+   - **Suggestions** — style improvements, naming, refactoring opportunities
+   - **Informational** — notes, questions, minor observations
+6. **Synthesize results** — Compile findings from all checks into a summary for the human. Include the Code Review Agent's comments grouped by PR and severity.
 
 ### Phase 4: Human Gate
 
@@ -137,7 +146,7 @@ Present the human with:
 - Any issues that need attention before merge
 - Links to each PR for human review
 
-**You do not merge PRs.** The human makes all merge decisions. If the human asks you to fix something small, use `editFiles` directly or comment on the PR with `@copilot <fix description>` via `mcp_github_add_issue_comment`.
+**You do not merge PRs without human approval.** The human makes all merge decisions. If the human asks you to fix something small, use `editFiles` directly or comment on the PR with `@copilot <fix description>` via `mcp_github_add_issue_comment`.
 
 ### Phase 5: Advance
 

@@ -30,7 +30,14 @@ Run the full validation suite and report results to the Foreman.
 1. **Build check** — Run `go build ./...` and report any compilation errors
 2. **Static analysis** — Run `go vet ./...` and report findings
 3. **Test suite** — Run `go test ./...` and report pass/fail with details on any failures
-4. **Coverage analysis** — Identify new exported functions, commands, or types that lack test coverage by inspecting:
+4. **Live CLI testing** — Build the binary and run smoke tests against it:
+   - Build: `go build -o gh-devlake.exe .` (Windows) or `go build -o gh-devlake .` (Linux/macOS)
+   - Run `./gh-devlake --help` and verify it exits cleanly with expected output
+   - Run `./gh-devlake status --help` and verify flag registration
+   - Run `./gh-devlake configure connection list --help` and verify subcommand structure
+   - For any new commands added in the wave, run `./gh-devlake <new-command> --help` to verify they're registered and reachable
+   - **Do NOT run commands that connect to a live DevLake instance** unless the human explicitly asks — stick to `--help` and flag verification
+5. **Coverage analysis** — Identify new exported functions, commands, or types that lack test coverage by inspecting:
    - New files in `cmd/` that don't have corresponding `_test.go` files
    - New exported functions without test cases
    - New Cobra commands without at least basic command construction tests
@@ -49,6 +56,11 @@ Run the full validation suite and report results to the Foreman.
 ### Tests
 - Total: X pass, Y fail, Z skip
 - [Failed test details if any]
+
+### Live CLI Smoke Tests
+- `--help`: [PASS / FAIL]
+- New commands reachable: [list of commands tested]
+- [any unexpected output or exit codes]
 
 ### Coverage Gaps
 - [New files without tests]
