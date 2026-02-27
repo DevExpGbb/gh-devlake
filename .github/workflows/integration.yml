@@ -1,0 +1,164 @@
+name: Integration
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*-rc*"
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build gh-devlake
+        run: go build -o gh-devlake .
+
+      - name: Prepare dedicated deploy directory
+        run: mkdir -p ./devlake-local
+
+      - name: Deploy DevLake locally (GitHub runner)
+        if: ${{ !env.ACT }}
+        working-directory: ./devlake-local
+        run: ../gh-devlake deploy local --dir . --source official --start
+
+      - name: Deploy DevLake locally (act)
+        if: ${{ env.ACT }}
+        working-directory: ./devlake-local
+        run: |
+          ../gh-devlake deploy local --dir . --source official --start=false
+          sed -i 's/^API_TIMEOUT=.*/API_TIMEOUT=30s/' .env
+          sed -i 's/^API_RETRY=.*/API_RETRY=1/' .env
+          docker compose up -d
+
+      - name: Set DevLake URL
+        run: |
+          if [ -n "${ACT:-}" ]; then
+            echo "DEVLAKE_URL=http://host.docker.internal:8080" >> "$GITHUB_ENV"
+            echo "GRAFANA_URL=http://host.docker.internal:4000/grafana" >> "$GITHUB_ENV"
+            echo "CONFIG_UI_URL=http://host.docker.internal:4000" >> "$GITHUB_ENV"
+          else
+            echo "DEVLAKE_URL=http://localhost:8080" >> "$GITHUB_ENV"
+            echo "GRAFANA_URL=http://localhost:4000/grafana" >> "$GITHUB_ENV"
+            echo "CONFIG_UI_URL=http://localhost:4000" >> "$GITHUB_ENV"
+          fi
+
+      - name: Wait for DevLake API
+        run: |
+          for i in $(seq 1 36); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$DEVLAKE_URL/plugins" || echo 000)
+            if [ "$code" = "200" ]; then
+              echo "DevLake API is ready"
+              exit 0
+            fi
+            echo "Waiting for DevLake API... ($i/36) status=$code"
+            sleep 10
+          done
+          echo "DevLake not ready after 6 minutes" >&2
+          if [ -d ./devlake-local ]; then
+            docker compose -f ./devlake-local/docker-compose.yml logs devlake || true
+          fi
+          exit 1
+
+      - name: Trigger migration
+        run: |
+          curl -sf "$DEVLAKE_URL/proceed-db-migration" >/dev/null || true
+
+      - name: Wait for migration completion
+        run: |
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$DEVLAKE_URL/plugins" || echo 000)
+            if [ "$code" = "200" ]; then
+              echo "Migration complete"
+              exit 0
+            fi
+            echo "Migrating... ($i/60) status=$code"
+            sleep 5
+          done
+          echo "Migration did not complete in time" >&2
+          exit 1
+
+      - name: Verify service health
+        run: |
+          curl -sf "$DEVLAKE_URL/ping"
+          curl -sf "$CONFIG_UI_URL"
+          curl -sf "$GRAFANA_URL/api/health"
+
+      - name: Local act mode note
+        if: ${{ env.ACT }}
+        run: |
+          echo "Running in local act mode: stopping after deploy+health smoke checks."
+          echo "Full connection/scope/project E2E runs on GitHub runners (workflow_dispatch or v*-rc* tags)."
+
+      - name: Configure GitHub connection
+        if: ${{ !env.ACT }}
+        timeout-minutes: 6
+        env:
+          DEVLAKE_TEST_PAT: ${{ secrets.DEVLAKE_TEST_PAT }}
+          DEVLAKE_TEST_ORG: ${{ secrets.DEVLAKE_TEST_ORG }}
+        run: |
+          if [ -z "$DEVLAKE_TEST_PAT" ]; then
+            echo "DEVLAKE_TEST_PAT secret is required" >&2
+            exit 1
+          fi
+          TEST_ORG="${DEVLAKE_TEST_ORG:-DevExpGbb}"
+          curl -sf \
+            -H "Authorization: Bearer $DEVLAKE_TEST_PAT" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/user >/dev/null
+          ./gh-devlake configure connection add \
+            --url "$DEVLAKE_URL" \
+            --plugin github \
+            --org "$TEST_ORG" \
+            --token "$DEVLAKE_TEST_PAT" \
+            --endpoint https://api.github.com \
+            --name "ci-test"
+
+      - name: Dump DevLake logs on connection failure
+        if: ${{ !env.ACT && failure() }}
+        run: |
+          if [ -d ./devlake-local ]; then
+            docker compose -f ./devlake-local/docker-compose.yml logs --tail=200 devlake || true
+          fi
+
+      - name: Configure GitHub scopes
+        if: ${{ !env.ACT }}
+        env:
+          DEVLAKE_TEST_ORG: ${{ secrets.DEVLAKE_TEST_ORG }}
+          DEVLAKE_TEST_REPO: ${{ secrets.DEVLAKE_TEST_REPO }}
+        run: |
+          TEST_ORG="${DEVLAKE_TEST_ORG:-DevExpGbb}"
+          TEST_REPO="${DEVLAKE_TEST_REPO:-DevExpGbb/gh-devlake}"
+          ./gh-devlake configure scope \
+            --url "$DEVLAKE_URL" \
+            --plugin github \
+            --org "$TEST_ORG" \
+            --repos "$TEST_REPO"
+
+      - name: Create project and trigger first sync
+        if: ${{ !env.ACT }}
+        run: |
+          printf "1\n" | ./gh-devlake configure project --url "$DEVLAKE_URL" --project-name ci-test
+
+      - name: Check status
+        if: ${{ !env.ACT }}
+        run: ./gh-devlake status --url "$DEVLAKE_URL"
+
+      - name: Cleanup stack
+        if: always()
+        run: |
+          if [ -d ./devlake-local ]; then
+            cd ./devlake-local
+            docker compose down -v
+          fi
