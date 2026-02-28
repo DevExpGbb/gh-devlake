@@ -19,6 +19,7 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+*.code-workspace
 
 # Test artifacts
 smoke-test*.txt
