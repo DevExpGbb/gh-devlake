@@ -57,7 +57,7 @@ jobs:
       - name: Wait for DevLake API
         run: |
           for i in $(seq 1 36); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "$DEVLAKE_URL/plugins" || true)
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$DEVLAKE_URL/ping" || true)
             if [ "$code" = "200" ]; then
               echo "DevLake API is ready"
               exit 0
@@ -78,7 +78,7 @@ jobs:
       - name: Wait for migration completion
         run: |
           for i in $(seq 1 60); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "$DEVLAKE_URL/plugins" || true)
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$DEVLAKE_URL/ping" || true)
             if [ "$code" = "200" ]; then
               echo "Migration complete"
               exit 0
