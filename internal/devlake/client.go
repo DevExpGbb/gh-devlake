@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -380,6 +381,28 @@ func (c *Client) DeleteProject(name string) error {
 	}
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("DELETE /projects/%s returned %d: %s", name, resp.StatusCode, body)
+	}
+	return nil
+}
+
+// DeleteScope removes a scope from a plugin connection.
+func (c *Client) DeleteScope(plugin string, connID int, scopeID string) error {
+	url := fmt.Sprintf("%s/plugins/%s/connections/%d/scopes/%s", c.BaseURL, plugin, connID, url.PathEscape(scopeID))
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("scope not found: plugin=%s connID=%d scopeID=%s", plugin, connID, scopeID)
+	}
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("DELETE /plugins/%s/connections/%d/scopes/%s returned %d: %s", plugin, connID, scopeID, resp.StatusCode, body)
 	}
 	return nil
 }

@@ -137,10 +137,10 @@ Tell DevLake which repos or orgs to collect from:
 
 ```bash
 # GitHub — pick repos interactively, or pass --repos explicitly
-gh devlake configure scope --plugin github --org my-org
+gh devlake configure scope add --plugin github --org my-org
 
 # Copilot — org-level metrics
-gh devlake configure scope --plugin gh-copilot --org my-org
+gh devlake configure scope add --plugin gh-copilot --org my-org
 ```
 
 DORA patterns (deployment workflow, production environment, incident label) use sensible defaults. See [docs/configure-scope.md](docs/configure-scope.md) for overrides.
@@ -170,7 +170,7 @@ See [docs/configure-project.md](docs/configure-project.md) for flags (`--project
 gh devlake status                                                              # health + summary
 gh devlake configure connection list                                           # list connections
 gh devlake configure connection update --plugin github --id 1 --token ghp_new # rotate token
-gh devlake configure scope --plugin github --org my-org                        # add more repos
+gh devlake configure scope add --plugin github --org my-org                    # add more repos
 gh devlake cleanup --local                                                     # tear down Docker
 ```
 
@@ -207,7 +207,10 @@ See [Token Handling](docs/token-handling.md) for env key names and multi-plugin 
 | `gh devlake configure connection test` | Test a saved connection | [configure-connection.md](docs/configure-connection.md) |
 | `gh devlake configure connection update` | Rotate token or update settings | [configure-connection.md](docs/configure-connection.md) |
 | `gh devlake configure connection delete` | Remove a connection | [configure-connection.md](docs/configure-connection.md) |
-| `gh devlake configure scope` | Add repo/org scopes to a connection | [configure-scope.md](docs/configure-scope.md) |
+| `gh devlake configure scope` | Manage scopes on connections (subcommands below) | [configure-scope.md](docs/configure-scope.md) |
+| `gh devlake configure scope add` | Add repo/org scopes to a connection | [configure-scope.md](docs/configure-scope.md) |
+| `gh devlake configure scope list` | List scopes on a connection | [configure-scope.md](docs/configure-scope.md) |
+| `gh devlake configure scope delete` | Remove a scope from a connection | [configure-scope.md](docs/configure-scope.md) |
 | `gh devlake configure project` | Manage DevLake projects (subcommands below) | [configure-project.md](docs/configure-project.md) |
 | `gh devlake configure project add` | Create a project + blueprint + first sync | [configure-project.md](docs/configure-project.md) |
 | `gh devlake configure project list` | List all projects | [configure-project.md](docs/configure-project.md) |

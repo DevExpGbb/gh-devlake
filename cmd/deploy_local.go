@@ -171,13 +171,13 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 
 	// ── Check Docker ──
 	fmt.Println("\n🐳 Checking Docker...")
-	dockerOut, err := exec.Command("docker", "version", "--format", "{{.Server.Version}}").Output()
-	if err != nil {
-		fmt.Println("   ⚠️  Docker not found or not running")
+	if err := dockerpkg.CheckAvailable(); err != nil {
+		fmt.Println("   ❌ Docker not found or not running")
 		fmt.Println("   Install Docker Desktop: https://docs.docker.com/get-docker")
-	} else {
-		fmt.Printf("   ✅ Docker %s found\n", strings.TrimSpace(string(dockerOut)))
+		fmt.Println("   Start Docker Desktop, then re-run: gh devlake deploy local")
+		return fmt.Errorf("Docker is not available — start Docker Desktop and retry")
 	}
+	fmt.Println("   ✅ Docker found")
 
 	// ── Start containers (unless --start=false) ──
 	if deployLocalStart {
@@ -210,8 +210,8 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 			fmt.Printf("\n  Backend API: %s\n", backendURL)
 			fmt.Println("  Config UI:   http://localhost:4000")
 			fmt.Println("  Grafana:     http://localhost:3002 (admin/admin)")
-			fmt.Println("\nTo stop DevLake:")
-			fmt.Printf("  cd %s && docker compose down\n", absDir)
+			fmt.Println("\nTo stop/remove DevLake:")
+			fmt.Printf("  cd \"%s\" && gh devlake cleanup\n", absDir)
 		}
 	} else {
 		// Print manual instructions
@@ -226,8 +226,8 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 			fmt.Println("  4. Backend API:    http://localhost:8080")
 			fmt.Println("  5. Open Config UI: http://localhost:4000")
 			fmt.Println("  6. Open Grafana:   http://localhost:3002 (admin/admin)")
-			fmt.Println("\nTo stop DevLake:")
-			fmt.Println("  docker compose down")
+			fmt.Println("\nTo stop/remove DevLake later:")
+			fmt.Printf("  cd \"%s\" && gh devlake cleanup\n", absDir)
 		}
 	}
 
@@ -453,7 +453,7 @@ func startLocalContainers(dir string, build bool, services ...string) (string, e
 						}
 					} else if workDir != "" {
 						// Fallback for older Docker versions: assume docker-compose.yml under working_dir.
-						composePath := fmt.Sprintf("%s\\docker-compose.yml", workDir)
+						composePath := filepath.Join(workDir, "docker-compose.yml")
 						if _, statErr := os.Stat(composePath); statErr == nil {
 							fmt.Println("\n   Stop it with:")
 							fmt.Printf("   docker compose -f \"%s\" down\n", composePath)

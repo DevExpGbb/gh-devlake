@@ -52,15 +52,7 @@ Semantic versioning: `MAJOR.MINOR.PATCH`
 
 ## Current Release Plan
 
-| Version | Theme | Status |
-|---------|-------|--------|
-| v0.3.3 | Enterprise Support | Shipped — scope ID fix, connection testing, rate limit, enterprise threading |
-| v0.3.4 | CLI Restructure | Shipped — singular commands, --plugin flag, list command |
-| v0.3.5 | Connection Lifecycle | Shipped — delete, test, and update commands |
-| v0.3.6 | Skills & Polish | Shipped — roadmap skill, skill rename/consolidation |
-| v0.4.0 | Multi-Tool Expansion | Future — GitLab, Azure DevOps, per-plugin token chains |
-
-> **Note:** Always query GitHub milestones for the latest status — this table is a snapshot.
+> **Note:** Always query GitHub milestones, current and upcoming releases, and issues for the latest status — this table is a snapshot.
 
 ## CLI Command Architecture (Option A)
 
