@@ -54,8 +54,10 @@ graph TB
     CA1 -.->|"reads"| INST
     CA2 -.->|"reads"| INST
 
-    %% Foreman triggers code review
-    F -->|"github/request_copilot_review"| CRA
+    %% Code review is primarily triggered by PR ready-for-review ruleset
+    PR1 -->|"mark ready for review<br/>(ruleset assigns Code Review Agent)"| CRA
+    PR2 -->|"mark ready for review<br/>(ruleset assigns Code Review Agent)"| CRA
+    F -->|"github/request_copilot_review<br/>(fallback trigger)"| CRA
     CRA -->|"review comments"| PR1
     CRA -->|"review comments"| PR2
     CRA -.->|"reads review guidance"| INST
