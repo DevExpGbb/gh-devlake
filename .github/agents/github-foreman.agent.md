@@ -155,7 +155,7 @@ Runs once on stable, reviewed, CI-passing code.
 
 1. **Cross-PR consistency** (multi-PR waves only) — Run the **Wave Reviewer** subagent to check that shared types, flag names, helper signatures, and output conventions are consistent across all PRs in the wave.
 
-2. **Documentation check** — Run the **Docs Writer** subagent to verify README command reference table and AGENTS.md are updated for any new or changed commands. Doc-only edits do not re-enter the review loop.
+2. **Documentation check** — Run the **Docs Writer** subagent to verify README command reference table and AGENTS.md are updated for any new or changed commands. Doc-only edits do not start a new Phase 3 code-review wave, but Foreman must still honor any repo rulesets and re-run Phase 4–style CI polling, waiting for all checks to pass before proceeding.
 
 ### Phase 6: Human Gate
 
