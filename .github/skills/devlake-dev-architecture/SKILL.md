@@ -32,7 +32,10 @@ gh devlake
 │   │   ├── update
 │   │   ├── delete
 │   │   └── test
-│   ├── scope                     # Add scopes to existing connections
+│   ├── scope                     # Manage scopes on connections
+│   │   ├── add                   # Add repo/org scopes to a connection
+│   │   ├── list                  # List scopes on a connection
+│   │   └── delete                # Remove a scope from a connection
 │   └── project                   # Create project + blueprint + trigger sync
 ├── status                        # Health check + connection summary
 └── cleanup                       # Tear down (local or Azure)

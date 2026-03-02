@@ -19,7 +19,7 @@ func newScopeAddCmd() *cobra.Command {
 
 This command only manages scopes on connections -- it does not create projects
 or trigger data syncs. To create a project after scoping, run:
-  gh devlake configure project
+  gh devlake configure project add
 
 Example:
   gh devlake configure scope add --plugin github --org my-org --repos owner/repo1,owner/repo2
@@ -124,7 +124,7 @@ func runScopeAdd(cmd *cobra.Command, args []string, opts *ScopeOpts) error {
 	fmt.Printf("   Connection %d: scopes added\n", connID)
 	fmt.Println(strings.Repeat("\u2500", 50))
 	fmt.Println("\nNext step:")
-	fmt.Println("  Run 'gh devlake configure project' to create a project and start data collection.")
+	fmt.Println("  Run 'gh devlake configure project add' to create a project and start data collection.")
 
 	return nil
 }

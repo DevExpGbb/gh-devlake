@@ -137,10 +137,10 @@ Tell DevLake which repos or orgs to collect from:
 
 ```bash
 # GitHub — pick repos interactively, or pass --repos explicitly
-gh devlake configure scope --plugin github --org my-org
+gh devlake configure scope add --plugin github --org my-org
 
 # Copilot — org-level metrics
-gh devlake configure scope --plugin gh-copilot --org my-org
+gh devlake configure scope add --plugin gh-copilot --org my-org
 ```
 
 DORA patterns (deployment workflow, production environment, incident label) use sensible defaults. See [docs/configure-scope.md](docs/configure-scope.md) for overrides.
@@ -170,7 +170,7 @@ See [docs/configure-project.md](docs/configure-project.md) for flags (`--project
 gh devlake status                                                              # health + summary
 gh devlake configure connection list                                           # list connections
 gh devlake configure connection update --plugin github --id 1 --token ghp_new # rotate token
-gh devlake configure scope --plugin github --org my-org                        # add more repos
+gh devlake configure scope add --plugin github --org my-org                    # add more repos
 gh devlake cleanup --local                                                     # tear down Docker
 ```
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -355,7 +356,7 @@ func (c *Client) ListScopes(plugin string, connID int) (*ScopeListResponse, erro
 
 // DeleteScope removes a scope from a plugin connection.
 func (c *Client) DeleteScope(plugin string, connID int, scopeID string) error {
-	url := fmt.Sprintf("%s/plugins/%s/connections/%d/scopes/%s", c.BaseURL, plugin, connID, scopeID)
+	url := fmt.Sprintf("%s/plugins/%s/connections/%d/scopes/%s", c.BaseURL, plugin, connID, url.PathEscape(scopeID))
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
 		return err
