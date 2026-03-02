@@ -31,7 +31,7 @@ graph TB
         IS["📂 Issues &<br/>Milestones"]
         PR1["PR #1<br/>copilot/issue-X"]
         PR2["PR #2<br/>copilot/issue-Y"]
-        INST["copilot-instructions.md"]
+        INST[".github/copilot-instructions.md"]
     end
 
     %% Human interacts only with Foreman and PRs
@@ -147,7 +147,7 @@ sequenceDiagram
     Note over Foreman,CI: ═══ PHASE 4: CI GATE (automatic) ═══
     CI->>PRs: go build / go vet / go test (Linux/Windows/macOS)
     loop Poll every 2min until checks complete
-        Foreman->>PRs: get_status (check runs)
+        Foreman->>PRs: github/pull_request_read (method: "get_checks")
         alt All green
             Note over Foreman: Proceed to Phase 5
         else Any red
