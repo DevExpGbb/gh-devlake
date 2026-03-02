@@ -40,11 +40,11 @@ graph TB
     H -->|"approve"| PR2
 
     %% Foreman reads issues
-    F -->|"MCP: list_issues,<br/>issue_read"| IS
+    F -->|"github/list_issues,<br/>github/issue_read"| IS
 
     %% Foreman dispatches to cloud coding agents
-    F -->|"MCP: assign_copilot_to_issue<br/>(base_branch, model)"| CA1
-    F -->|"MCP: assign_copilot_to_issue"| CA2
+    F -->|"github/assign_copilot_to_issue<br/>(base_branch, model)"| CA1
+    F -->|"github/assign_copilot_to_issue"| CA2
 
     %% Cloud agents create PRs
     CA1 -->|"creates + pushes"| PR1
