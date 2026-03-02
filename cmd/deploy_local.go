@@ -171,13 +171,13 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 
 	// ── Check Docker ──
 	fmt.Println("\n🐳 Checking Docker...")
-	dockerOut, err := exec.Command("docker", "version", "--format", "{{.Server.Version}}").Output()
-	if err != nil {
-		fmt.Println("   ⚠️  Docker not found or not running")
+	if err := dockerpkg.CheckAvailable(); err != nil {
+		fmt.Println("   ❌ Docker not found or not running")
 		fmt.Println("   Install Docker Desktop: https://docs.docker.com/get-docker")
-	} else {
-		fmt.Printf("   ✅ Docker %s found\n", strings.TrimSpace(string(dockerOut)))
+		fmt.Println("   Start Docker Desktop, then re-run: gh devlake deploy local")
+		return fmt.Errorf("Docker is not available — start Docker Desktop and retry")
 	}
+	fmt.Println("   ✅ Docker found")
 
 	// ── Start containers (unless --start=false) ──
 	if deployLocalStart {
