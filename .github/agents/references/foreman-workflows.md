@@ -55,8 +55,10 @@ graph TB
     CA2 -.->|"reads"| INST
 
     %% Code review is primarily triggered by PR ready-for-review ruleset
-    PR1 -->|"mark ready for review<br/>(ruleset assigns Code Review Agent)"| CRA
-    PR2 -->|"mark ready for review<br/>(ruleset assigns Code Review Agent)"| CRA
+    F -->|"mark ready for review"| PR1
+    F -->|"mark ready for review"| PR2
+    PR1 -->|"ruleset assigns Code Review Agent"| CRA
+    PR2 -->|"ruleset assigns Code Review Agent"| CRA
     F -->|"github/request_copilot_review<br/>(fallback trigger)"| CRA
     CRA -->|"review comments"| PR1
     CRA -->|"review comments"| PR2
