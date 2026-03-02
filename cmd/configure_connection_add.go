@@ -32,8 +32,27 @@ var addConnectionCmd = &cobra.Command{
 If --plugin is not specified, prompts interactively. Run multiple times to
 add connections for additional plugins.
 
+Shared flags (all plugins):
+  --plugin       Plugin to configure
+  --token        Personal access token
+  --name         Connection display name
+  --endpoint     API endpoint override
+  --proxy        HTTP proxy URL
+  --env-file     Path to env file containing PAT
+  --skip-cleanup Do not delete .devlake.env after setup
+
+GitHub Copilot-specific flags:
+  --enterprise   Enterprise slug
+  --org          Organization slug (required unless enterprise provided)
+
 Token resolution order:
-  --token flag → .devlake.env → environment variable → masked prompt`,
+  --token flag → .devlake.env → environment variable → masked prompt
+
+Example (GitHub):
+  gh devlake configure connection add --plugin github --token ghp_xxx --org my-org
+
+Example (Copilot):
+  gh devlake configure connection add --plugin gh-copilot --token ghp_xxx --org my-org --enterprise my-ent`,
 	RunE: runAddConnection,
 }
 

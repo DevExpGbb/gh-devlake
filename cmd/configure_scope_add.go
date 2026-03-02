@@ -21,9 +21,26 @@ This command only manages scopes on connections -- it does not create projects
 or trigger data syncs. To create a project after scoping, run:
   gh devlake configure project add
 
-Example:
-  gh devlake configure scope add --plugin github --org my-org --repos owner/repo1,owner/repo2
-  gh devlake configure scope add --plugin gh-copilot --org my-org --enterprise my-ent`,
+Shared flags (all plugins):
+  --plugin             Plugin to configure (required in flag mode)
+  --connection-id      Connection ID (required in flag mode)
+  --org                Organization slug
+
+GitHub-specific flags:
+  --repos              Comma-separated repos (owner/repo)
+  --repos-file         Path to file with repos (one per line)
+  --deployment-pattern Regex to match deployment workflows
+  --production-pattern Regex to match production environment
+  --incident-label     Issue label for incidents
+
+GitHub Copilot-specific flags:
+  --enterprise         Enterprise slug (enables enterprise-level metrics)
+
+Example (GitHub):
+  gh devlake configure scope add --plugin github --connection-id 1 --org my-org --repos org/repo1,org/repo2
+
+Example (Copilot):
+  gh devlake configure scope add --plugin gh-copilot --connection-id 2 --org my-org --enterprise my-ent`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runScopeAdd(cmd, args, &opts)
 		},
