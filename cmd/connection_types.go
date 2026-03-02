@@ -8,6 +8,13 @@ import (
 	"github.com/DevExpGBB/gh-devlake/internal/prompt"
 )
 
+// ScopeHandler is a function that configures scopes for a connection.
+// It receives the client, connection ID, org, enterprise, and an options struct.
+// opts may be nil when called interactively; the handler is responsible for
+// prompting for defaults in that case.
+// It returns the BlueprintConnection entry (for project creation) and an error.
+type ScopeHandler func(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error)
+
 // ConnectionDef describes a plugin connection type and how to create it.
 type ConnectionDef struct {
 	Plugin           string
@@ -18,15 +25,16 @@ type ConnectionDef struct {
 	NeedsEnterprise  bool
 	NeedsOrgOrEnt    bool
 	SupportsTest     bool
-	RateLimitPerHour int      // default rate limit; 0 = use 4500
-	EnableGraphql    bool     // send enableGraphql=true in create/test payloads
-	RequiredScopes   []string // PAT scopes needed for this plugin
-	ScopeHint        string   // short hint for error messages
-	TokenPrompt      string   // label for masked token prompt (e.g. "GitHub PAT")
-	OrgPrompt        string   // label for org prompt; empty = not prompted
-	EnterprisePrompt string   // label for enterprise prompt; empty = not prompted
-	EnvVarNames      []string // environment variable names for token resolution
-	EnvFileKeys      []string // .devlake.env keys for token resolution
+	RateLimitPerHour int          // default rate limit; 0 = use 4500
+	EnableGraphql    bool         // send enableGraphql=true in create/test payloads
+	RequiredScopes   []string     // PAT scopes needed for this plugin
+	ScopeHint        string       // short hint for error messages
+	TokenPrompt      string       // label for masked token prompt (e.g. "GitHub PAT")
+	OrgPrompt        string       // label for org prompt; empty = not prompted
+	EnterprisePrompt string       // label for enterprise prompt; empty = not prompted
+	EnvVarNames      []string     // environment variable names for token resolution
+	EnvFileKeys      []string     // .devlake.env keys for token resolution
+	ScopeFunc        ScopeHandler // nil = scope configuration not yet supported
 }
 
 // MenuLabel returns the label for interactive menus.
@@ -135,6 +143,7 @@ var connectionRegistry = []*ConnectionDef{
 		TokenPrompt:      "GitHub PAT",
 		EnvVarNames:      []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
 		EnvFileKeys:      []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
+		ScopeFunc:        scopeGitHubHandler,
 	},
 	{
 		Plugin:           "gh-copilot",
@@ -151,6 +160,7 @@ var connectionRegistry = []*ConnectionDef{
 		EnterprisePrompt: "Enterprise slug (optional if org provided)",
 		EnvVarNames:      []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
 		EnvFileKeys:      []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
+		ScopeFunc:        scopeCopilotHandler,
 	},
 	{
 		Plugin:      "gitlab",

@@ -338,3 +338,44 @@ func copilotScopeID(org, enterprise string) string {
 	}
 	return org
 }
+
+// scopeGitHubHandler is the ScopeHandler for the github plugin.
+// When opts is nil (interactive context), it prompts for DORA patterns before scoping.
+func scopeGitHubHandler(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error) {
+	if opts == nil {
+		opts = &ScopeOpts{
+			DeployPattern: "(?i)deploy",
+			ProdPattern:   "(?i)prod",
+			IncidentLabel: "incident",
+		}
+		fmt.Println("   Default DORA patterns:")
+		fmt.Printf("     Deployment: %s\n", opts.DeployPattern)
+		fmt.Printf("     Production: %s\n", opts.ProdPattern)
+		fmt.Printf("     Incidents:  label=%s\n", opts.IncidentLabel)
+		fmt.Println()
+		if !prompt.Confirm("   Use these defaults?") {
+			v := prompt.ReadLine("   Deployment workflow regex")
+			if v != "" {
+				opts.DeployPattern = v
+			}
+			v = prompt.ReadLine("   Production environment regex")
+			if v != "" {
+				opts.ProdPattern = v
+			}
+			v = prompt.ReadLine("   Incident issue label")
+			if v != "" {
+				opts.IncidentLabel = v
+			}
+		}
+	}
+	result, err := scopeGitHub(client, connID, org, opts)
+	if err != nil {
+		return nil, err
+	}
+	return &result.Connection, nil
+}
+
+// scopeCopilotHandler is the ScopeHandler for the gh-copilot plugin.
+func scopeCopilotHandler(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error) {
+	return scopeCopilot(client, connID, org, enterprise)
+}
