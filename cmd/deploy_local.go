@@ -175,7 +175,7 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 		fmt.Println("   ❌ Docker not found or not running")
 		fmt.Println("   Install Docker Desktop: https://docs.docker.com/get-docker")
 		fmt.Println("   Start Docker Desktop, then re-run: gh devlake deploy local")
-		return fmt.Errorf("docker unavailable: %w", err)
+		return fmt.Errorf("Docker is not available — start Docker Desktop and retry")
 	}
 	fmt.Println("   ✅ Docker found")
 
