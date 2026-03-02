@@ -148,7 +148,7 @@ DORA patterns (deployment workflow, production environment, incident label) use 
 ### Step 4: Create a Project and Sync
 
 ```bash
-gh devlake configure project
+gh devlake configure project add
 ```
 
 Discovers your connections and scopes, creates a DevLake project with DORA metrics enabled, sets up a daily sync blueprint, and triggers the first data collection.
@@ -208,7 +208,10 @@ See [Token Handling](docs/token-handling.md) for env key names and multi-plugin 
 | `gh devlake configure connection update` | Rotate token or update settings | [configure-connection.md](docs/configure-connection.md) |
 | `gh devlake configure connection delete` | Remove a connection | [configure-connection.md](docs/configure-connection.md) |
 | `gh devlake configure scope` | Add repo/org scopes to a connection | [configure-scope.md](docs/configure-scope.md) |
-| `gh devlake configure project` | Create project + blueprint + first sync | [configure-project.md](docs/configure-project.md) |
+| `gh devlake configure project` | Manage DevLake projects (subcommands below) | [configure-project.md](docs/configure-project.md) |
+| `gh devlake configure project add` | Create a project + blueprint + first sync | [configure-project.md](docs/configure-project.md) |
+| `gh devlake configure project list` | List all projects | [configure-project.md](docs/configure-project.md) |
+| `gh devlake configure project delete` | Delete a project | [configure-project.md](docs/configure-project.md) |
 | `gh devlake configure full` | Connections + scopes + project in one step | [configure-full.md](docs/configure-full.md) |
 | `gh devlake cleanup` | Tear down local or Azure resources | [cleanup.md](docs/cleanup.md) |
 

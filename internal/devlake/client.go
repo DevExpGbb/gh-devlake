@@ -353,6 +353,37 @@ func (c *Client) ListScopes(plugin string, connID int) (*ScopeListResponse, erro
 	return doGet[ScopeListResponse](c, fmt.Sprintf("/plugins/%s/connections/%d/scopes?pageSize=100&page=1", plugin, connID))
 }
 
+// ListProjects returns all DevLake projects.
+func (c *Client) ListProjects() ([]Project, error) {
+	result, err := doGet[ProjectListResponse](c, "/projects")
+	if err != nil {
+		return nil, err
+	}
+	return result.Projects, nil
+}
+
+// DeleteProject deletes a project by name.
+func (c *Client) DeleteProject(name string) error {
+	url := fmt.Sprintf("%s/projects/%s", c.BaseURL, name)
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("project not found: %s", name)
+	}
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("DELETE /projects/%s returned %d: %s", name, resp.StatusCode, body)
+	}
+	return nil
+}
+
 // CreateProject creates a new DevLake project.
 func (c *Client) CreateProject(project *Project) (*Project, error) {
 	return doPost[Project](c, "/projects", project)
