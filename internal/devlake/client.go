@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -351,6 +352,28 @@ func (c *Client) PutScopes(plugin string, connID int, req *ScopeBatchRequest) er
 // ListScopes returns the scopes configured on a plugin connection.
 func (c *Client) ListScopes(plugin string, connID int) (*ScopeListResponse, error) {
 	return doGet[ScopeListResponse](c, fmt.Sprintf("/plugins/%s/connections/%d/scopes?pageSize=100&page=1", plugin, connID))
+}
+
+// DeleteScope removes a scope from a plugin connection.
+func (c *Client) DeleteScope(plugin string, connID int, scopeID string) error {
+	url := fmt.Sprintf("%s/plugins/%s/connections/%d/scopes/%s", c.BaseURL, plugin, connID, url.PathEscape(scopeID))
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("scope not found: plugin=%s connID=%d scopeID=%s", plugin, connID, scopeID)
+	}
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("DELETE /plugins/%s/connections/%d/scopes/%s returned %d: %s", plugin, connID, scopeID, resp.StatusCode, body)
+	}
+	return nil
 }
 
 // CreateProject creates a new DevLake project.

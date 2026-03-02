@@ -37,7 +37,7 @@ func TestRunConfigureScopes_PluginFlag(t *testing.T) {
 	makeCmd := func() (*cobra.Command, *ScopeOpts) {
 		opts := &ScopeOpts{}
 		cmd := &cobra.Command{RunE: func(cmd *cobra.Command, args []string) error {
-			return runConfigureScopes(cmd, args, opts)
+			return runScopeAdd(cmd, args, opts)
 		}}
 		cmd.Flags().StringVar(&opts.Plugin, "plugin", "", "")
 		cmd.Flags().StringVar(&opts.Org, "org", "", "")
@@ -51,7 +51,7 @@ func TestRunConfigureScopes_PluginFlag(t *testing.T) {
 		cmd, opts := makeCmd()
 		opts.Plugin = "gitlab"
 		_ = cmd.Flags().Set("plugin", "gitlab")
-		err := runConfigureScopes(cmd, nil, opts)
+		err := runScopeAdd(cmd, nil, opts)
 		if err == nil {
 			t.Error("expected error for unavailable plugin")
 		}
@@ -60,7 +60,7 @@ func TestRunConfigureScopes_PluginFlag(t *testing.T) {
 	t.Run("flag mode without --plugin returns error", func(t *testing.T) {
 		cmd, opts := makeCmd()
 		_ = cmd.Flags().Set("org", "my-org")
-		err := runConfigureScopes(cmd, nil, opts)
+		err := runScopeAdd(cmd, nil, opts)
 		if err == nil {
 			t.Error("expected error when flags used without --plugin")
 		}
@@ -72,7 +72,7 @@ func TestRunConfigureScopes_PluginFlag(t *testing.T) {
 		_ = cmd.Flags().Set("plugin", "github")
 		_ = cmd.Flags().Set("org", "my-org")
 		// Will fail at connection discovery but plugin validation passes
-		err := runConfigureScopes(cmd, nil, opts)
+		err := runScopeAdd(cmd, nil, opts)
 		// Should get past plugin validation to connection discovery phase
 		if err != nil && err.Error() == `unknown plugin "github"` {
 			t.Error("github should be accepted as a valid plugin")
@@ -85,7 +85,7 @@ func TestRunConfigureScopes_PluginFlag(t *testing.T) {
 		_ = cmd.Flags().Set("plugin", "gh-copilot")
 		_ = cmd.Flags().Set("org", "my-org")
 		_ = cmd.Flags().Set("connection-id", "999")
-		err := runConfigureScopes(cmd, nil, opts)
+		err := runScopeAdd(cmd, nil, opts)
 		// Should get past plugin validation to connection discovery phase
 		if err != nil && err.Error() == `unknown plugin "gh-copilot"` {
 			t.Error("gh-copilot should be accepted as a valid plugin")
