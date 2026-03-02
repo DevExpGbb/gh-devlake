@@ -211,7 +211,7 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 			fmt.Println("  Config UI:   http://localhost:4000")
 			fmt.Println("  Grafana:     http://localhost:3002 (admin/admin)")
 			fmt.Println("\nTo stop/remove DevLake:")
-			fmt.Printf("  cd %s && gh devlake cleanup\n", absDir)
+			fmt.Printf("  cd \"%s\" && gh devlake cleanup\n", absDir)
 		}
 	} else {
 		// Print manual instructions
@@ -227,7 +227,7 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 			fmt.Println("  5. Open Config UI: http://localhost:4000")
 			fmt.Println("  6. Open Grafana:   http://localhost:3002 (admin/admin)")
 			fmt.Println("\nTo stop/remove DevLake later:")
-			fmt.Printf("  cd %s && gh devlake cleanup\n", absDir)
+			fmt.Printf("  cd \"%s\" && gh devlake cleanup\n", absDir)
 		}
 	}
 
