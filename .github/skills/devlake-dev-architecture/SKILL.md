@@ -36,7 +36,10 @@ gh devlake
 │   │   ├── add                   # Add repo/org scopes to a connection
 │   │   ├── list                  # List scopes on a connection
 │   │   └── delete                # Remove a scope from a connection
-│   └── project                   # Create project + blueprint + trigger sync
+│   └── project                   # Manage DevLake projects
+│       ├── add                   # Create project + blueprint + trigger sync
+│       ├── list                  # List all projects
+│       └── delete                # Delete a project
 ├── status                        # Health check + connection summary
 └── cleanup                       # Tear down (local or Azure)
 ```

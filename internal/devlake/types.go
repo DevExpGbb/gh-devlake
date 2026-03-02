@@ -74,6 +74,12 @@ type Project struct {
 	Blueprint   *Blueprint      `json:"blueprint,omitempty"`
 }
 
+// ProjectListResponse is the response from GET /projects.
+type ProjectListResponse struct {
+	Count    int       `json:"count"`
+	Projects []Project `json:"projects"`
+}
+
 // ProjectMetric enables a metric plugin for a project.
 type ProjectMetric struct {
 	PluginName string `json:"pluginName"`

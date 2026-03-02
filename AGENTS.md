@@ -29,6 +29,31 @@ internal/
 - **Discovery chain**: explicit `--url` → state file → well-known ports
 - **Generic API helpers**: `doPost[T]`, `doGet[T]`, `doPut[T]`, `doPatch[T]` in `internal/devlake/client.go`
 
+### Command Tree
+
+```
+gh devlake
+├── init                          # Interactive wizard (deploy + configure full)
+├── deploy
+│   ├── local                     # Docker Compose on this machine
+│   └── azure                     # Azure Container Apps
+├── configure
+│   ├── full                      # connection + scope + project in one session
+│   ├── connection                # Manage plugin connections (CRUD)
+│   │   ├── add                   # Create a new connection
+│   │   ├── list                  # List all connections
+│   │   ├── update                # Update token/settings
+│   │   ├── delete                # Remove a connection
+│   │   └── test                  # Test a saved connection
+│   ├── scope                     # Add scopes to existing connections
+│   └── project                   # Manage DevLake projects
+│       ├── add                   # Create project + blueprint + trigger sync
+│       ├── list                  # List all projects
+│       └── delete                # Delete a project
+├── status                        # Health check + connection summary
+└── cleanup                       # Tear down (local or Azure)
+```
+
 ### Plugin System
 Plugins are defined via `ConnectionDef` structs in `cmd/connection_types.go`. Each entry declares the plugin slug, endpoint, rate limits, prompt labels, and PAT resolution keys. To add a new DevOps tool, add a `ConnectionDef` to `connectionRegistry` — token resolution, org prompts, and connection creation all derive from these fields automatically. See the `devlake-dev-integration` skill for full details.
 
