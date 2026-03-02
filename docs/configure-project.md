@@ -1,20 +1,24 @@
 # configure project
 
-Create a DevLake project, configure its blueprint, and trigger the first data sync.
+Manage DevLake projects — create, list, and delete.
 
 A **project** groups existing connection scopes into a single analytics view with DORA metrics enabled. A **blueprint** is the sync schedule attached to the project. See [concepts.md](concepts.md).
 
 **Prerequisites:** Run [`configure scope`](configure-scope.md) first to add scopes to your connections.
 
-## Usage
+---
+
+## configure project add
+
+Create a DevLake project, configure its blueprint, and trigger the first data sync.
+
+### Usage
 
 ```bash
-gh devlake configure project [flags]
+gh devlake configure project add [flags]
 ```
 
-Aliases: `projects`
-
-## Flags
+### Flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
@@ -25,7 +29,7 @@ Aliases: `projects`
 | `--wait` | `true` | Wait for the first pipeline to complete |
 | `--timeout` | `5m` | Max time to wait for pipeline completion |
 
-## What It Does
+### What It Does
 
 1. Discovers your DevLake instance
 2. Lists all connections (from state file + API)
@@ -37,7 +41,7 @@ Aliases: `projects`
 8. Monitors pipeline progress until completion or `--timeout`
 9. Updates the state file with project + blueprint info
 
-## Pipeline Output
+### Pipeline Output
 
 ```
    [10s] Status: TASK_RUNNING | Tasks: 2/8
@@ -49,7 +53,7 @@ Aliases: `projects`
 
 The first sync may take 5–30 minutes depending on data volume and how far back `--time-after` reaches.
 
-## Cron Schedule Reference
+### Cron Schedule Reference
 
 | Schedule | Cron Expression |
 |----------|-----------------|
@@ -58,31 +62,98 @@ The first sync may take 5–30 minutes depending on data volume and how far back
 | Hourly | `0 * * * *` |
 | Weekly on Sunday | `0 0 * * 0` |
 
-## Examples
+### Examples
 
 ```bash
 # Create a project (interactive — discovers connections, prompts for project name)
-gh devlake configure project
+gh devlake configure project add
 
 # Custom project name
-gh devlake configure project --project-name my-team
+gh devlake configure project add --project-name my-team
 
 # Sync from 1 year ago
-gh devlake configure project --project-name my-team --time-after 2025-01-01
+gh devlake configure project add --project-name my-team --time-after 2025-01-01
 
 # Create project without triggering sync yet
-gh devlake configure project --skip-sync
+gh devlake configure project add --skip-sync
 
 # Longer timeout for large repos
-gh devlake configure project --timeout 30m
+gh devlake configure project add --timeout 30m
 ```
 
-## Notes
+### Notes
 
 - If a project with `--project-name` already exists, the command reuses its blueprint ID rather than creating a duplicate.
 - If `--time-after` is omitted, defaults to 6 months before today.
 - `--wait false` returns immediately after triggering the sync. Check pipeline status at `GET /pipelines/{id}` or via [`status`](status.md).
 - The project name defaults to the first org found in the state file, or `my-project` if none is found.
+
+---
+
+## configure project list
+
+List all DevLake projects.
+
+### Usage
+
+```bash
+gh devlake configure project list
+```
+
+### Output
+
+```
+Name            Description                               Blueprint ID
+──────────────  ────────────────────────────────────────  ────────────
+my-team         DevLake metrics for my-team (github)      1
+platform        DevLake metrics for platform              2
+```
+
+Supports `--json` for machine-readable output:
+
+```bash
+gh devlake configure project list --json
+```
+
+```json
+[{"name":"my-team","description":"DevLake metrics for my-team (github)","blueprintId":1}]
+```
+
+---
+
+## configure project delete
+
+Delete a DevLake project by name.
+
+### Usage
+
+```bash
+gh devlake configure project delete [--name <name>]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--name` | *(interactive)* | Name of the project to delete |
+
+**Flag mode:** `--name` is required.
+
+**Interactive mode:** Lists all projects, prompts to select one, then prompts for confirmation.
+
+### Examples
+
+```bash
+# Non-interactive
+gh devlake configure project delete --name my-project
+
+# Interactive
+gh devlake configure project delete
+```
+
+> **Warning:** Deleting a project removes its associated blueprint and sync schedule. Historical pipeline data for that project will also be removed.
+
+---
 
 ## Related
 

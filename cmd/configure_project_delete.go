@@ -9,9 +9,8 @@ import (
 	"github.com/DevExpGBB/gh-devlake/internal/prompt"
 )
 
-var projectDeleteName string
-
 func newProjectDeleteCmd() *cobra.Command {
+	var projectDeleteName string
 	cmd := &cobra.Command{
 		Use:   "delete",
 		Short: "Delete a DevLake project",
@@ -24,13 +23,15 @@ If --name is not specified, prompts interactively.
 Examples:
   gh devlake configure project delete
   gh devlake configure project delete --name my-project`,
-		RunE: runProjectDelete,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runProjectDelete(cmd, args, projectDeleteName)
+		},
 	}
 	cmd.Flags().StringVar(&projectDeleteName, "name", "", "Name of the project to delete")
 	return cmd
 }
 
-func runProjectDelete(cmd *cobra.Command, args []string) error {
+func runProjectDelete(cmd *cobra.Command, args []string, projectDeleteName string) error {
 	printBanner("DevLake — Delete Project")
 
 	// ── Discover DevLake ──
@@ -66,10 +67,6 @@ func runProjectDelete(cmd *cobra.Command, args []string) error {
 			return nil
 		}
 		name = chosen
-	}
-
-	if name == "" {
-		return fmt.Errorf("--name is required (or omit for interactive mode)")
 	}
 
 	// ── Confirm deletion ──
