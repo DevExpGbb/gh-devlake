@@ -126,7 +126,7 @@ This phase is iterative. It runs automatically and loops until Foreman judges th
 
 1. **Mark PRs ready for review** — Use `github/pull_request_write` to convert each draft PR to ready-for-review. The repo ruleset automatically triggers the Copilot Code Review Agent. If the ruleset fails to assign the agent within the polling window, use `github/request_copilot_review` as a fallback.
 
-2. **Wait for review completion** — Sleep **5 minutes** (`Start-Sleep -Seconds 300`), then poll in **2-minute** cycles (`Start-Sleep -Seconds 120`). Use `github/pull_request_read` with `method: "get_reviews"` on each PR until the Code Review Agent's review shows `status: completed` on all PRs.
+2. **Wait for review completion** — Sleep **5 minutes** (`Start-Sleep -Seconds 300`), then poll in **2-minute** cycles (`Start-Sleep -Seconds 120`). Use `github/pull_request_read` with `method: "get_reviews"` on each PR and, for each PR, wait until there is a latest review from the Code Review Agent (by its reviewer identity) whose `state` is a terminal value such as `APPROVED`, `CHANGES_REQUESTED`, or `COMMENTED`. Continue polling until every PR has such a completed/submitted review from the Code Review Agent.
 
 3. **Collect and judge comments** — Use `github/pull_request_read` with `method: "get_review_comments"` on each PR. Internally bucket all comments by severity — this summary is for Foreman's judgment only, not presented to the human yet:
    - **Blocking** — security issues, logic errors, incorrect behavior
