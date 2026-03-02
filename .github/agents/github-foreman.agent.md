@@ -28,7 +28,6 @@ agents:
   - docs-writer
   - go-developer
   - prettify
-  - Explore
 handoffs:
   - label: Implement Locally
     agent: go-developer
@@ -70,7 +69,7 @@ For the full interaction model and user flow diagrams, see [Foreman Workflows](r
 
 ### Phase 1: Plan
 
-1. **Read open issues** — Use `mcp_github_list_issues` to get issues for the target milestone. Read each issue with `mcp_github_issue_read` to understand scope and dependencies.
+1. **Read open issues** — Use `github/list_issues` to get issues for the target milestone. Read each issue with `github/issue_read` to understand scope and dependencies.
 2. **Build dependency graph** — Look for "Blocked by" and "Blocks" markers in issue bodies. Group issues into waves where all items within a wave can run in parallel (no inter-wave dependencies).
 3. **Select models** — Apply these heuristics as a starting point. **Model availability changes over time** — when unsure which models are current, default to `Auto` and let the platform choose. The human can override with a specific model if they prefer.
    - **Complex refactors**, multi-file architectural changes, large codebases → best available Claude or reasoning model
@@ -84,7 +83,7 @@ For the full interaction model and user flow diagrams, see [Foreman Workflows](r
 
 The human may also ask you to create new issues from bug reports, feature ideas, or observations. When drafting issues:
 
-1. **Use `mcp_github_issue_write`** to create the issue in the target repo
+1. **Use `github/issue_write`** to create the issue in the target repo
 2. **Follow the repo's issue structure** — look at existing issues for the pattern (Problem → Proposed Solution → Dependencies → Scope of Changes → Acceptance Criteria → References)
 3. **Set labels** — `bug`, `enhancement`, `refactor`, or `documentation` as appropriate
 4. **Set milestone** — use the `devlake-dev-planning` skill to determine the right milestone based on issue scope
@@ -97,7 +96,7 @@ For each issue in the approved wave:
 
 1. Determine `base_branch` — typically `main` for the first wave or independent issues. For dependent issues, use the branch from the blocking PR (if not yet merged) or `main` (if already merged).
 2. Compose `custom_instructions` — extract key acceptance criteria from the issue body, add project context from architecture/integration skills.
-3. Use `mcp_github_assign_copilot_to_issue` with:
+3. Use `github/assign_copilot_to_issue` with:
    - `owner`: repo owner
    - `repo`: repo name
    - `issueNumber`: the issue number
@@ -113,7 +112,7 @@ For each issue in the approved wave:
 This phase runs seamlessly after dispatch. Do not ask the human to trigger it.
 
 1. **Initial wait** — Use `runInTerminal` to sleep for **5 minutes** (`Start-Sleep -Seconds 300` on Windows / `sleep 300` on Linux/macOS). Coding agents typically take ~5 minutes for a task.
-2. **Poll for completion** — After the initial wait, use `mcp_github_get_copilot_job_status` to check each dispatched session, and `mcp_github_list_pull_requests` to detect new `copilot/` branch PRs.
+2. **Poll for completion** — After the initial wait, use `github/get_copilot_job_status` to check each dispatched session, and `github/list_pull_requests` to detect new `copilot/` branch PRs.
 3. **Assess status** — For each dispatched issue:
    - `⏳ Working` — session still active, no PR yet
    - `📄 PR created` — draft PR exists, this issue is done
