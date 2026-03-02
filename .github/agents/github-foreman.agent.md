@@ -2,26 +2,26 @@
 name: GitHub Foreman
 description: Orchestrates GitHub-platform coding agents — plans waves from issues, dispatches to Copilot Coding Agent, monitors PRs, coordinates reviews, merges, and gates releases.
 tools:
-  - runSubagent
-  - readFile
-  - editFiles
-  - codebase
-  - fetch
-  - githubRepo
-  - fileSearch
-  - textSearch
-  - todos
-  - runInTerminal
-  - mcp_github_assign_copilot_to_issue
-  - mcp_github_request_copilot_review
-  - mcp_github_issue_read
-  - mcp_github_issue_write
-  - mcp_github_list_issues
-  - mcp_github_list_pull_requests
-  - mcp_github_pull_request_read
-  - mcp_github_search_issues
-  - mcp_github_get_copilot_job_status
-  - mcp_github_add_issue_comment
+  - agent
+  - read/readFile
+  - edit/editFiles
+  - search/codebase
+  - web/fetch
+  - web/githubRepo
+  - search/fileSearch
+  - search/textSearch
+  - todo
+  - execute/runInTerminal
+  - github/assign_copilot_to_issue
+  - github/request_copilot_review
+  - github/issue_read
+  - github/issue_write
+  - github/list_issues
+  - github/list_pull_requests
+  - github/pull_request_read
+  - github/search_issues
+  - github/get_copilot_job_status
+  - github/add_issue_comment
 agents:
   - wave-reviewer
   - docs-writer

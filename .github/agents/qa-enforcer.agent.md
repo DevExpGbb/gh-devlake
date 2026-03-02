@@ -1,18 +1,18 @@
 ---
 name: qa-enforcer
 description: Quality gate enforcer — runs builds, tests, vet, analyzes coverage gaps, writes tests, and diagnoses failures.
-user-invokable: false
+user-invocable: false
 tools:
-  - readFile
-  - editFiles
-  - codebase
-  - textSearch
-  - fileSearch
-  - runInTerminal
-  - runTests
-  - testFailure
-  - usages
-  - problems
+  - read/readFile
+  - edit/editFiles
+  - search/codebase
+  - search/textSearch
+  - search/fileSearch
+  - execute/runInTerminal
+  - execute/runTests
+  - execute/testFailure
+  - search/usages
+  - read/problems
 ---
 
 # QA Enforcer

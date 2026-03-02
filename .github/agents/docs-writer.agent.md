@@ -1,15 +1,15 @@
 ---
 name: docs-writer
 description: Documentation specialist — maintains README, AGENTS.md, docs/, and help text. Keeps repo documentation in sync with code changes.
-user-invokable: false
+user-invocable: false
 tools:
-  - readFile
-  - editFiles
-  - codebase
-  - textSearch
-  - fileSearch
-  - listDirectory
-  - mcp_github_get_file_contents
+  - read/readFile
+  - edit/editFiles
+  - search/codebase
+  - search/textSearch
+  - search/fileSearch
+  - search/listDirectory
+  - github/get_file_contents
 ---
 
 # Docs Writer
