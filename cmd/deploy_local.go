@@ -453,7 +453,7 @@ func startLocalContainers(dir string, build bool, services ...string) (string, e
 						}
 					} else if workDir != "" {
 						// Fallback for older Docker versions: assume docker-compose.yml under working_dir.
-						composePath := fmt.Sprintf("%s\\docker-compose.yml", workDir)
+						composePath := filepath.Join(workDir, "docker-compose.yml")
 						if _, statErr := os.Stat(composePath); statErr == nil {
 							fmt.Println("\n   Stop it with:")
 							fmt.Printf("   docker compose -f \"%s\" down\n", composePath)
