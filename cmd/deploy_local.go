@@ -17,6 +17,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	poetryWorkaroundVersion = "2.2.1"
+)
+
 var (
 	deployLocalDir     string
 	deployLocalVersion string
@@ -352,9 +356,51 @@ func deployLocalFork_clone(absDir string) error {
 			}
 		}
 	}
+
+	if err := applyPoetryPinWorkaround(absDir); err != nil {
+		fmt.Printf("   ⚠️  Could not apply temporary Poetry pin workaround: %v\n", err)
+	} else {
+		fmt.Printf("   ⚠️  Applied temporary Poetry pin workaround (poetry==%s) for fork builds\n", poetryWorkaroundVersion)
+	}
 	fmt.Println("   ✅ Build contexts ready")
 
 	return nil
+}
+
+// applyPoetryPinWorkaround pins Poetry only for fork/source builds until
+// apache/incubator-devlake#8734 is fixed.
+// Tracking removal: DevExpGbb/gh-devlake#79.
+func applyPoetryPinWorkaround(absDir string) error {
+	dockerfilePath := filepath.Join(absDir, "backend", "Dockerfile")
+	data, err := os.ReadFile(dockerfilePath)
+	if err != nil {
+		return fmt.Errorf("reading backend Dockerfile: %w", err)
+	}
+
+	rewritten, changed := rewritePoetryInstallLine(string(data), poetryWorkaroundVersion)
+	if !changed {
+		return nil
+	}
+
+	if err := os.WriteFile(dockerfilePath, []byte(rewritten), 0644); err != nil {
+		return fmt.Errorf("writing backend Dockerfile: %w", err)
+	}
+	return nil
+}
+
+func rewritePoetryInstallLine(content, version string) (string, bool) {
+	original := "RUN curl -sSL https://install.python-poetry.org | python3 -"
+	pinned := fmt.Sprintf("RUN curl -sSL https://install.python-poetry.org | python3 - --version %s", version)
+
+	if strings.Contains(content, pinned) {
+		return content, false
+	}
+
+	if !strings.Contains(content, original) {
+		return content, false
+	}
+
+	return strings.Replace(content, original, pinned, 1), true
 }
 
 // copyDir recursively copies a directory tree.
