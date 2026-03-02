@@ -1,17 +1,17 @@
 ---
 name: wave-reviewer
 description: Cross-PR consistency checker — analyzes multiple PRs in a wave for conflicts, shared-type mismatches, and convention violations.
-user-invokable: false
+user-invocable: false
 tools:
-  - readFile
-  - codebase
-  - textSearch
-  - fileSearch
-  - githubRepo
-  - usages
-  - problems
-  - pull_request_read
-  - get_file_contents
+  - read/readFile
+  - search/codebase
+  - search/textSearch
+  - search/fileSearch
+  - web/githubRepo
+  - search/usages
+  - read/problems
+  - github/pull_request_read
+  - github/get_file_contents
 ---
 
 # Wave Reviewer
