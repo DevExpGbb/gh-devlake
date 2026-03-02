@@ -45,7 +45,10 @@ gh devlake
 │   │   ├── update                # Update token/settings
 │   │   ├── delete                # Remove a connection
 │   │   └── test                  # Test a saved connection
-│   ├── scope                     # Add scopes to existing connections
+│   ├── scope                     # Manage scopes on connections
+│   │   ├── add                   # Add repo/org scopes to a connection
+│   │   ├── list                  # List scopes on a connection
+│   │   └── delete                # Remove a scope from a connection
 │   └── project                   # Manage DevLake projects
 │       ├── add                   # Create project + blueprint + trigger sync
 │       ├── list                  # List all projects
