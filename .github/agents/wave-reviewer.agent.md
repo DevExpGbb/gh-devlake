@@ -10,8 +10,8 @@ tools:
   - githubRepo
   - usages
   - problems
-  - mcp_github_pull_request_read
-  - mcp_github_get_file_contents
+  - pull_request_read
+  - get_file_contents
 ---
 
 # Wave Reviewer

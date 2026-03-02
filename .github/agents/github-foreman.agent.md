@@ -12,16 +12,16 @@ tools:
   - textSearch
   - todos
   - runInTerminal
-  - mcp_github_assign_copilot_to_issue
-  - mcp_github_request_copilot_review
-  - mcp_github_issue_read
-  - mcp_github_issue_write
-  - mcp_github_list_issues
-  - mcp_github_list_pull_requests
-  - mcp_github_pull_request_read
-  - mcp_github_search_issues
-  - mcp_github_get_copilot_job_status
-  - mcp_github_add_issue_comment
+  - assign_copilot_to_issue
+  - request_copilot_review
+  - issue_read
+  - issue_write
+  - list_issues
+  - list_pull_requests
+  - pull_request_read
+  - search_issues
+  - get_copilot_job_status
+  - add_issue_comment
 agents:
   - wave-reviewer
   - docs-writer

@@ -9,7 +9,7 @@ tools:
   - textSearch
   - fileSearch
   - listDirectory
-  - mcp_github_get_file_contents
+  - get_file_contents
 ---
 
 # Docs Writer
