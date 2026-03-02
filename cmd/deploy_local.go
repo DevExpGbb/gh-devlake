@@ -210,8 +210,8 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 			fmt.Printf("\n  Backend API: %s\n", backendURL)
 			fmt.Println("  Config UI:   http://localhost:4000")
 			fmt.Println("  Grafana:     http://localhost:3002 (admin/admin)")
-			fmt.Println("\nTo stop DevLake:")
-			fmt.Printf("  cd %s && docker compose down\n", absDir)
+			fmt.Println("\nTo stop/remove DevLake:")
+			fmt.Println("  gh devlake cleanup")
 		}
 	} else {
 		// Print manual instructions
@@ -226,8 +226,8 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 			fmt.Println("  4. Backend API:    http://localhost:8080")
 			fmt.Println("  5. Open Config UI: http://localhost:4000")
 			fmt.Println("  6. Open Grafana:   http://localhost:3002 (admin/admin)")
-			fmt.Println("\nTo stop DevLake:")
-			fmt.Println("  docker compose down")
+			fmt.Println("\nTo stop/remove DevLake later:")
+			fmt.Println("  gh devlake cleanup")
 		}
 	}
 
