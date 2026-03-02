@@ -129,7 +129,7 @@ This phase is iterative. It runs automatically and loops until Foreman judges th
 2. **Wait for review completion** — Sleep **5 minutes** (`Start-Sleep -Seconds 300`), then poll in **2-minute** cycles (`Start-Sleep -Seconds 120`). Use `github/pull_request_read` with `method: "get_reviews"` on each PR until the Code Review Agent's review shows `status: completed` on all PRs.
 
 3. **Collect and judge comments** — Use `github/pull_request_read` with `method: "get_review_comments"` on each PR. Internally bucket all comments by severity — this summary is for Foreman's judgment only, not presented to the human yet:
-   - **Blocking** — security issues, logic errors, incorrect behaviour
+   - **Blocking** — security issues, logic errors, incorrect behavior
    - **Suggestions** — style, naming, refactoring opportunities
    - **Informational** — questions, observations, minor notes
 
