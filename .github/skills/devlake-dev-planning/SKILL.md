@@ -44,11 +44,17 @@ gh issue list --repo DevExpGBB/gh-devlake --milestone "v0.3.4" --json number,tit
 
 Semantic versioning: `MAJOR.MINOR.PATCH`
 
-- **0.3.x** — Current development line. Incremental features, restructuring, and lifecycle commands.
-  - PATCH bumps for features that don't change the CLI's plugin surface area (same set of supported DevOps tools).
-- **0.4.x** — Multi-tool expansion. New plugin types (GitLab, Azure DevOps) that expand the CLI's supported tool surface.
-- **MINOR bumps** only when genuinely new categories of capability arrive (new DevOps tool plugins, new token resolution chains).
-- **MAJOR bump (1.0)** — Reserved for production-ready stability declaration.
+- **PATCH** bumps for bug fixes, internal refactors, docs, and housekeeping.
+- **MINOR** bumps for any new user-facing feature: new commands, new flags, new plugins — any additive capability.
+- **MAJOR (1.0)** — Reserved for production-ready stability declaration.
+
+### Milestone Plan
+
+- **0.3.x** — Current development line. CRUD subcommands, restructuring, and lifecycle commands.
+- **0.4.0** — Multi-tool expansion + plugin UX. GitLab (#13), Azure DevOps (#14), dynamic flag validation (#59).
+- **0.5.0** — AI-powered operations. Query engine (#62), Copilot SDK insights (#63), AI diagnose (#64), installable agent skill (#61).
+
+> **Note:** Always query GitHub milestones for the latest status — this section is a snapshot.
 
 ## Current Release Plan
 
