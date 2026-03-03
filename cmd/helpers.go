@@ -212,47 +212,14 @@ func scopeAllConnections(client *devlake.Client, results []ConnSetupResult) {
 		fmt.Printf("\n📡 Configuring scopes for %s (connection %d)...\n",
 			pluginDisplayName(r.Plugin), r.ConnectionID)
 
-		switch r.Plugin {
-		case "github":
-			scopeOpts := &ScopeOpts{
-				DeployPattern: "(?i)deploy",
-				ProdPattern:   "(?i)prod",
-				IncidentLabel: "incident",
-			}
-
-			fmt.Println("   Default DORA patterns:")
-			fmt.Printf("     Deployment: %s\n", scopeOpts.DeployPattern)
-			fmt.Printf("     Production: %s\n", scopeOpts.ProdPattern)
-			fmt.Printf("     Incidents:  label=%s\n", scopeOpts.IncidentLabel)
-			fmt.Println()
-			if !prompt.Confirm("   Use these defaults?") {
-				v := prompt.ReadLine("   Deployment workflow regex")
-				if v != "" {
-					scopeOpts.DeployPattern = v
-				}
-				v = prompt.ReadLine("   Production environment regex")
-				if v != "" {
-					scopeOpts.ProdPattern = v
-				}
-				v = prompt.ReadLine("   Incident issue label")
-				if v != "" {
-					scopeOpts.IncidentLabel = v
-				}
-			}
-
-			_, err := scopeGitHub(client, r.ConnectionID, r.Organization, scopeOpts)
-			if err != nil {
-				fmt.Printf("   ⚠️  GitHub scope setup failed: %v\n", err)
-			}
-
-		case "gh-copilot":
-			_, err := scopeCopilot(client, r.ConnectionID, r.Organization, r.Enterprise)
-			if err != nil {
-				fmt.Printf("   ⚠️  Copilot scope setup failed: %v\n", err)
-			}
-
-		default:
+		def := FindConnectionDef(r.Plugin)
+		if def == nil || def.ScopeFunc == nil {
 			fmt.Printf("   ⚠️  Scope configuration for %q is not yet supported\n", r.Plugin)
+			continue
+		}
+		_, err := def.ScopeFunc(client, r.ConnectionID, r.Organization, r.Enterprise, nil)
+		if err != nil {
+			fmt.Printf("   ⚠️  %s scope setup failed: %v\n", def.DisplayName, err)
 		}
 	}
 }

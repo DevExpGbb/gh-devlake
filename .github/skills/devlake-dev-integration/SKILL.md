@@ -11,8 +11,8 @@ This skill covers how gh-devlake wires plugins into the CLI (via `ConnectionDef`
 
 1. Add a `ConnectionDef` entry to `connectionRegistry` in `cmd/connection_types.go`
 2. Set `Available: true` when ready (false = "coming soon")
-3. Add a scope function (e.g. `scopeGitLab`) in `cmd/configure_scopes.go`
-4. Add a `case` in the scope dispatch switch in `configure_scopes.go` (this is the only file with a scope dispatch switch)
+3. Write a scope handler function (e.g. `scopeGitLabHandler`) in `cmd/configure_scopes.go`
+4. Set `ScopeFunc: scopeGitLabHandler` on the `ConnectionDef` entry (`nil` = "not yet supported")
 
 No other registration needed — token resolution, connection creation, help text, and menu labels all derive from the `ConnectionDef` fields.
 

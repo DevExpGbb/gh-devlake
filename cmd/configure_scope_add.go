@@ -124,14 +124,11 @@ func runScopeAdd(cmd *cobra.Command, args []string, opts *ScopeOpts) error {
 	}
 
 	// Dispatch to plugin-specific scope handler
-	switch selectedPlugin {
-	case "github":
-		_, err = scopeGitHub(client, connID, org, opts)
-	case "gh-copilot":
-		_, err = scopeCopilot(client, connID, org, enterprise)
-	default:
+	def := FindConnectionDef(selectedPlugin)
+	if def == nil || def.ScopeFunc == nil {
 		return fmt.Errorf("scope configuration for %q is not yet supported", selectedPlugin)
 	}
+	_, err = def.ScopeFunc(client, connID, org, enterprise, opts)
 	if err != nil {
 		return err
 	}
