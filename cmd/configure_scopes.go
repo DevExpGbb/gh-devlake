@@ -349,9 +349,9 @@ func scopeGitHubHandler(client *devlake.Client, connID int, org, enterprise stri
 			IncidentLabel: "incident",
 		}
 		fmt.Println("   Default DORA patterns:")
-		fmt.Printf("     Deployment: %s\n", opts.DeployPattern)
-		fmt.Printf("     Production: %s\n", opts.ProdPattern)
-		fmt.Printf("     Incidents:  label=%s\n", opts.IncidentLabel)
+		fmt.Printf("   Deployment: %s\n", opts.DeployPattern)
+		fmt.Printf("   Production: %s\n", opts.ProdPattern)
+		fmt.Printf("   Incidents:  label=%s\n", opts.IncidentLabel)
 		fmt.Println()
 		if !prompt.Confirm("   Use these defaults?") {
 			v := prompt.ReadLine("   Deployment workflow regex")
