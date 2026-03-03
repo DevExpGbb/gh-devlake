@@ -58,12 +58,12 @@ gh devlake
 ```
 
 ### Plugin System
-Plugins are defined via `ConnectionDef` structs in `cmd/connection_types.go`. Each entry declares the plugin slug, endpoint, rate limits, prompt labels, and PAT resolution keys. To add a new DevOps tool, add a `ConnectionDef` to `connectionRegistry` — token resolution, org prompts, and connection creation all derive from these fields automatically. See the `devlake-dev-integration` skill for full details.
+Plugins are defined via `ConnectionDef` structs in `cmd/connection_types.go`. Each entry declares the plugin slug, endpoint, rate limits, prompt labels, PAT resolution keys, and scope handler. To add a new DevOps tool, add a `ConnectionDef` to `connectionRegistry` — token resolution, org prompts, and connection creation all derive from these fields automatically. See the `devlake-dev-integration` skill for full details.
 
 **One plugin per invocation.** Flag-based commands target a single `--plugin`. Interactive mode walks through plugins sequentially.
 
 ### Design Principles
-- **Tool-agnostic**: No hardcoded plugin names outside `connectionRegistry` and plugin-specific scope functions
+- **Tool-agnostic**: No hardcoded plugin names outside `connectionRegistry`
 - **Per-plugin resolution**: Orchestrators resolve token, org, and enterprise independently for each plugin
 - **Declarative over imperative**: Plugin behavior comes from `ConnectionDef` fields, not switch/case branches
 - **Interactive orchestrators**: `init` and `configure full` are interactive-only; flag-driven automation uses individual commands
