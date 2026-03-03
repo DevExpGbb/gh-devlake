@@ -133,10 +133,10 @@ func runScopeAdd(cmd *cobra.Command, args []string, opts *ScopeOpts) error {
 		return err
 	}
 
-	fmt.Println("\n" + strings.Repeat("\u2500", 50))
+	fmt.Println("\n" + strings.Repeat("\u2500", 40))
 	fmt.Printf("\u2705 %s scopes configured successfully!\n", pluginDisplayName(selectedPlugin))
 	fmt.Printf("   Connection %d: scopes added\n", connID)
-	fmt.Println(strings.Repeat("\u2500", 50))
+	fmt.Println(strings.Repeat("\u2500", 40))
 	fmt.Println("\nNext step:")
 	fmt.Println("  Run 'gh devlake configure project add' to create a project and start data collection.")
 

@@ -115,9 +115,9 @@ func runDeleteConnection(cmd *cobra.Command, args []string) error {
 		fmt.Printf("\n💾 State saved to %s\n", statePath)
 	}
 
-	fmt.Println("\n" + strings.Repeat("─", 50))
+	fmt.Println("\n" + strings.Repeat("─", 40))
 	fmt.Printf("✅ Connection deleted (plugin: %s, ID=%d)\n", plugin, connID)
-	fmt.Println(strings.Repeat("─", 50))
+	fmt.Println(strings.Repeat("─", 40))
 	fmt.Println()
 
 	return nil

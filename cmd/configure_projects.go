@@ -344,7 +344,7 @@ func finalizeProject(opts finalizeProjectOpts) error {
 		fmt.Printf("\n\U0001f4be State saved to %s\n", opts.StatePath)
 	}
 
-	fmt.Println("\n" + strings.Repeat("\u2500", 50))
+	fmt.Println("\n" + strings.Repeat("\u2500", 40))
 	fmt.Println("\u2705 Project configured successfully!")
 	fmt.Printf("   Project: %s\n", opts.ProjectName)
 	if len(opts.Repos) > 0 {
@@ -353,7 +353,7 @@ func finalizeProject(opts finalizeProjectOpts) error {
 	for _, pn := range opts.PluginNames {
 		fmt.Printf("   Plugin:  %s\n", pn)
 	}
-	fmt.Println(strings.Repeat("\u2500", 50))
+	fmt.Println(strings.Repeat("\u2500", 40))
 
 	return nil
 }

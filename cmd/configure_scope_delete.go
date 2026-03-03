@@ -145,9 +145,9 @@ func runScopeDelete(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Println("   \u2705 Scope deleted")
 
-	fmt.Println("\n" + strings.Repeat("\u2500", 50))
+	fmt.Println("\n" + strings.Repeat("\u2500", 40))
 	fmt.Printf("\u2705 Scope deleted (plugin: %s, connection ID=%d, scope ID=%s)\n", selectedPlugin, selectedConnID, selectedScopeID)
-	fmt.Println(strings.Repeat("\u2500", 50))
+	fmt.Println(strings.Repeat("\u2500", 40))
 	fmt.Println()
 
 	return nil
