@@ -183,6 +183,9 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
+		if azureRepoURL != "" {
+			defer os.RemoveAll(repoRoot)
+		}
 		fmt.Printf("\n🏗️  Building Docker images from %s...\n", repoRoot)
 
 		// Create ACR (idempotent — safe for re-runs)
