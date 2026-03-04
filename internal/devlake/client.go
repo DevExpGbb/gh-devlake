@@ -106,7 +106,10 @@ func (c *Client) ListConnections(plugin string) ([]Connection, error) {
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response: %w", err)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("list connections returned %d: %s", resp.StatusCode, body)
 	}
@@ -154,7 +157,10 @@ func (c *Client) DeleteConnection(plugin string, connID int) error {
 		return err
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("reading response: %w", err)
+	}
 	if resp.StatusCode == http.StatusNotFound {
 		return fmt.Errorf("connection not found: plugin=%s id=%d", plugin, connID)
 	}
@@ -175,7 +181,10 @@ func (c *Client) TestSavedConnection(plugin string, connID int) (*ConnectionTest
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response: %w", err)
+	}
 	var result ConnectionTestResult
 	if err := json.Unmarshal(body, &result); err != nil {
 		// Non-JSON response is ok — treat as success if status 200
@@ -209,7 +218,10 @@ func (c *Client) Health() (*HealthStatus, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response: %w", err)
+	}
 	var hs HealthStatus
 	_ = json.Unmarshal(body, &hs)
 	if resp.StatusCode == http.StatusOK {
@@ -235,7 +247,10 @@ func doPost[T any](c *Client, path string, payload any) (*T, error) {
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response: %w", err)
+	}
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return nil, fmt.Errorf("POST %s returned %d: %s", path, resp.StatusCode, body)
 	}
@@ -255,7 +270,10 @@ func doGet[T any](c *Client, path string) (*T, error) {
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response: %w", err)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GET %s returned %d: %s", path, resp.StatusCode, body)
 	}
@@ -286,7 +304,10 @@ func doPut[T any](c *Client, path string, payload any) (*T, error) {
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response: %w", err)
+	}
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return nil, fmt.Errorf("PUT %s returned %d: %s", path, resp.StatusCode, body)
 	}
@@ -317,7 +338,10 @@ func doPatch[T any](c *Client, path string, payload any) (*T, error) {
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response: %w", err)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("PATCH %s returned %d: %s", path, resp.StatusCode, body)
 	}
@@ -375,7 +399,10 @@ func (c *Client) DeleteProject(name string) error {
 		return err
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("reading response: %w", err)
+	}
 	if resp.StatusCode == http.StatusNotFound {
 		return fmt.Errorf("project not found: %s", name)
 	}
@@ -397,7 +424,10 @@ func (c *Client) DeleteScope(plugin string, connID int, scopeID string) error {
 		return err
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("reading response: %w", err)
+	}
 	if resp.StatusCode == http.StatusNotFound {
 		return fmt.Errorf("scope not found: plugin=%s connID=%d scopeID=%s", plugin, connID, scopeID)
 	}
