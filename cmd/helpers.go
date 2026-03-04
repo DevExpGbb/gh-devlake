@@ -205,7 +205,7 @@ func waitForReadyAny(baseURLs []string, maxAttempts int, interval time.Duration)
 			time.Sleep(interval)
 		}
 	}
-	return "", fmt.Errorf("DevLake not ready after %d attempts — check logs", maxAttempts)
+	return "", fmt.Errorf("timed out after %d attempts", maxAttempts)
 }
 
 // waitForMigration polls until DevLake finishes database migration.
