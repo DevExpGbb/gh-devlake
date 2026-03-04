@@ -185,6 +185,7 @@ func runConnectionsInternal(defs []*ConnectionDef, org, enterprise, tokenVal, en
 		fmt.Printf("   %-18s  ID=%d  %q\n", name, r.ConnectionID, r.Name)
 	}
 	fmt.Println(strings.Repeat("─", 40))
+	fmt.Println()
 
 	return results, client, statePath, state, nil
 }

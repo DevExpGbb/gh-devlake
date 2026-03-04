@@ -80,7 +80,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	printBanner("DevLake Status")
-	sep := "  " + strings.Repeat("─", 40)
+	sep := "  " + strings.Repeat("─", 38)
 
 	if state == nil {
 		disc, err := devlake.Discover(cfgURL)
