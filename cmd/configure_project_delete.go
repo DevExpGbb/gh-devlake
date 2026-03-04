@@ -86,9 +86,9 @@ func runProjectDelete(cmd *cobra.Command, args []string, projectDeleteName strin
 	}
 	fmt.Println("   ✅ Project deleted")
 
-	fmt.Println("\n" + strings.Repeat("─", 50))
+	fmt.Println("\n" + strings.Repeat("─", 40))
 	fmt.Printf("✅ Project %q deleted\n", name)
-	fmt.Println(strings.Repeat("─", 50))
+	fmt.Println(strings.Repeat("─", 40))
 	fmt.Println()
 
 	return nil

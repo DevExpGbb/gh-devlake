@@ -146,12 +146,12 @@ func runAzureCleanup() error {
 		}
 	}
 
-	fmt.Printf("\nDeployment found:\n")
+	fmt.Printf("\n📋 Deployment found:\n")
 	fmt.Printf("  Deployed:       %s\n", state.DeployedAt)
 	fmt.Printf("  Resource Group: %s\n", state.ResourceGroup)
 	fmt.Printf("  Region:         %s\n", state.Region)
 
-	fmt.Printf("\nResources to delete:\n")
+	fmt.Printf("\n🗑️  Resources to delete:\n")
 	if acrName, ok := state.Resources.ACR.(string); ok && acrName != "" {
 		fmt.Printf("  Container Registry: %s\n", acrName)
 	}
@@ -161,7 +161,7 @@ func runAzureCleanup() error {
 		fmt.Printf("  Container:   %s\n", c)
 	}
 
-	fmt.Printf("\nEndpoints that will be removed:\n")
+	fmt.Printf("\n🌐 Endpoints that will be removed:\n")
 	fmt.Printf("  Backend:  %s\n", state.Endpoints.Backend)
 	fmt.Printf("  Config UI: %s\n", state.Endpoints.ConfigUI)
 	fmt.Printf("  Grafana:  %s\n", state.Endpoints.Grafana)

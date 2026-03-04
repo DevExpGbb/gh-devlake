@@ -168,13 +168,14 @@ func runConnectionsInternal(defs []*ConnectionDef, org, enterprise, tokenVal, en
 	}
 
 	if len(results) == 0 {
-		fmt.Println("\n" + strings.Repeat("─", 50))
+		fmt.Println("\n" + strings.Repeat("─", 40))
 		fmt.Println("⚠️  No connections were created.")
-		fmt.Println(strings.Repeat("─", 50))
+		fmt.Println(strings.Repeat("─", 40))
+		fmt.Println()
 		return results, client, statePath, state, fmt.Errorf("no connections were created")
 	}
 
-	fmt.Println("\n" + strings.Repeat("─", 50))
+	fmt.Println("\n" + strings.Repeat("─", 40))
 	fmt.Println("✅ Connections configured successfully!")
 	for _, r := range results {
 		name := r.Plugin
@@ -183,7 +184,8 @@ func runConnectionsInternal(defs []*ConnectionDef, org, enterprise, tokenVal, en
 		}
 		fmt.Printf("   %-18s  ID=%d  %q\n", name, r.ConnectionID, r.Name)
 	}
-	fmt.Println(strings.Repeat("─", 50))
+	fmt.Println(strings.Repeat("─", 40))
+	fmt.Println()
 
 	return results, client, statePath, state, nil
 }
