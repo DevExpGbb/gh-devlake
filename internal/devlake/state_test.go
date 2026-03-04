@@ -501,6 +501,76 @@ func TestSaveStateNilProject(t *testing.T) {
 	}
 }
 
+// TestSaveStateNilProjectDoesNotClearExisting verifies that saving with Project:nil
+// over an existing state file that already has a project does not clear the
+// existing project. This documents the merge behavior: because Project is
+// tagged with omitempty, a nil Project does not remove an existing "project"
+// field from the state file.
+func TestSaveStateNilProjectDoesNotClearExisting(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, ".devlake-test.json")
+
+	// First, save a state with a non-nil Project so the file contains a "project" key.
+	initialState := &State{
+		DeployedAt: time.Now().Format(time.RFC3339),
+		Method:     "local",
+		Endpoints: StateEndpoints{
+			Backend: "http://localhost:8080",
+		},
+		Project: &StateProject{
+			Name:        "test-project",
+			BlueprintID: 1,
+		},
+	}
+
+	if err := SaveState(path, initialState); err != nil {
+		t.Fatalf("SaveState (initial) failed: %v", err)
+	}
+
+	loadedInitial, err := LoadState(path)
+	if err != nil {
+		t.Fatalf("LoadState (initial) failed: %v", err)
+	}
+	if loadedInitial == nil {
+		t.Fatal("expected non-nil initial state, got nil")
+	}
+	if loadedInitial.Project == nil {
+		t.Fatal("expected non-nil initial Project, got nil")
+	}
+	if loadedInitial.Project.Name != "test-project" {
+		t.Errorf("initial Project.Name = %s, want test-project", loadedInitial.Project.Name)
+	}
+
+	// Now save a new state with Project:nil. Because Project is omitempty,
+	// this should not clear the existing "project" field in the file when
+	// SaveState performs its merge behavior.
+	updateState := &State{
+		DeployedAt: loadedInitial.DeployedAt,
+		Method:     loadedInitial.Method,
+		Endpoints:  loadedInitial.Endpoints,
+		Project:    nil, // explicitly nil
+	}
+
+	if err := SaveState(path, updateState); err != nil {
+		t.Fatalf("SaveState (update) failed: %v", err)
+	}
+
+	loadedFinal, err := LoadState(path)
+	if err != nil {
+		t.Fatalf("LoadState (final) failed: %v", err)
+	}
+	if loadedFinal == nil {
+		t.Fatal("expected non-nil final state, got nil")
+	}
+	// The project should still be present because omitempty means nil fields
+	// are not marshaled, so the merge preserves the existing "project" key.
+	if loadedFinal.Project == nil {
+		t.Error("expected Project to be preserved from initial state, got nil")
+	} else if loadedFinal.Project.Name != "test-project" {
+		t.Errorf("final Project.Name = %s, want test-project (preserved)", loadedFinal.Project.Name)
+	}
+}
+
 // TestSaveStateEmptyConnections tests saving state with empty connections slice.
 func TestSaveStateEmptyConnections(t *testing.T) {
 	tmpDir := t.TempDir()

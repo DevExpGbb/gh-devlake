@@ -111,6 +111,9 @@ func TestDoPost(t *testing.T) {
 				if r.Method != http.MethodPost {
 					t.Errorf("method = %s, want POST", r.Method)
 				}
+				if r.URL.Path != "/test" {
+					t.Errorf("path = %s, want /test", r.URL.Path)
+				}
 				w.WriteHeader(tt.statusCode)
 				w.Write([]byte(tt.body))
 			}))
@@ -170,6 +173,9 @@ func TestDoPut(t *testing.T) {
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.Method != http.MethodPut {
 					t.Errorf("method = %s, want PUT", r.Method)
+				}
+				if r.URL.Path != "/test" {
+					t.Errorf("path = %s, want /test", r.URL.Path)
 				}
 				w.WriteHeader(tt.statusCode)
 				w.Write([]byte(tt.body))

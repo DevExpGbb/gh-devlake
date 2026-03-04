@@ -2,7 +2,6 @@ package devlake
 
 import (
 	"encoding/json"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,17 +11,9 @@ import (
 
 func closedLocalURL(t *testing.T) string {
 	t.Helper()
-
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("failed to reserve local port: %v", err)
-	}
-	addr := ln.Addr().String()
-	if err := ln.Close(); err != nil {
-		t.Fatalf("failed to close listener: %v", err)
-	}
-
-	return "http://" + addr
+	// Use port 0, which is reserved and cannot be connected to.
+	// This guarantees an unreachable URL without relying on ephemeral port timing.
+	return "http://127.0.0.1:0"
 }
 
 // TestInferLocalCompanionURLs tests the inferLocalCompanionURLs function.
