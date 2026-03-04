@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/DevExpGBB/gh-devlake/internal/devlake"
+	"github.com/DevExpGBB/gh-devlake/internal/envfile"
 	"github.com/DevExpGBB/gh-devlake/internal/prompt"
 )
 
@@ -37,6 +39,14 @@ type ConnectionDef struct {
 	ScopeFunc        ScopeHandler // nil = scope configuration not yet supported
 	ScopeIDField     string       // JSON field name for the scope ID (e.g. "githubId", "id")
 	HasRepoScopes    bool         // true = scopes carry a FullName that should be tracked as repos
+
+	// Auth fields
+	AuthMethod          string   // "AccessToken" (default when empty), "BasicAuth", etc.
+	NeedsUsername       bool     // true for BasicAuth plugins (Jenkins, Bitbucket, Jira)
+	UsernamePrompt      string   // label for username prompt (e.g. "Jenkins username")
+	UsernameEnvVars     []string // environment variable names for username resolution
+	UsernameEnvFileKeys []string // .devlake.env keys for username resolution
+	NeedsTokenExpiry    bool     // true = apply zero-date token expiry workaround on create
 }
 
 // MenuLabel returns the label for interactive menus.
@@ -67,6 +77,7 @@ func (d *ConnectionDef) defaultConnName(org string) string {
 // ConnectionParams holds user-supplied values for a single connection.
 type ConnectionParams struct {
 	Token      string
+	Username   string // for BasicAuth plugins (Jenkins, Bitbucket, Jira)
 	Org        string
 	Enterprise string
 	Name       string // override default connection name
@@ -82,6 +93,14 @@ func (d *ConnectionDef) rateLimitOrDefault() int {
 	return 4500
 }
 
+// authMethod returns the auth method for this plugin, defaulting to "AccessToken".
+func (d *ConnectionDef) authMethod() string {
+	if d.AuthMethod != "" {
+		return d.AuthMethod
+	}
+	return "AccessToken"
+}
+
 // BuildCreateRequest constructs the API payload for creating this connection.
 func (d *ConnectionDef) BuildCreateRequest(name string, params ConnectionParams) *devlake.ConnectionCreateRequest {
 	endpoint := d.Endpoint
@@ -92,10 +111,14 @@ func (d *ConnectionDef) BuildCreateRequest(name string, params ConnectionParams)
 		Name:             name,
 		Endpoint:         endpoint,
 		Proxy:            params.Proxy,
-		AuthMethod:       "AccessToken",
+		AuthMethod:       d.authMethod(),
 		Token:            params.Token,
 		RateLimitPerHour: d.rateLimitOrDefault(),
 		EnableGraphql:    d.EnableGraphql,
+	}
+	if d.NeedsUsername && params.Username != "" {
+		req.Username = params.Username
+		req.Password = params.Token
 	}
 	if (d.NeedsOrg || d.NeedsOrgOrEnt) && params.Org != "" {
 		req.Organization = params.Org
@@ -115,11 +138,15 @@ func (d *ConnectionDef) BuildTestRequest(name string, params ConnectionParams) *
 	req := &devlake.ConnectionTestRequest{
 		Name:             name,
 		Endpoint:         endpoint,
-		AuthMethod:       "AccessToken",
+		AuthMethod:       d.authMethod(),
 		Token:            params.Token,
 		RateLimitPerHour: d.rateLimitOrDefault(),
 		Proxy:            params.Proxy,
 		EnableGraphql:    d.EnableGraphql,
+	}
+	if d.NeedsUsername && params.Username != "" {
+		req.Username = params.Username
+		req.Password = params.Token
 	}
 	if (d.NeedsOrg || d.NeedsOrgOrEnt) && params.Org != "" {
 		req.Organization = params.Org
@@ -148,6 +175,7 @@ var connectionRegistry = []*ConnectionDef{
 		ScopeFunc:        scopeGitHubHandler,
 		ScopeIDField:     "githubId",
 		HasRepoScopes:    true,
+		NeedsTokenExpiry: true,
 	},
 	{
 		Plugin:           "gh-copilot",
@@ -166,6 +194,7 @@ var connectionRegistry = []*ConnectionDef{
 		EnvFileKeys:      []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
 		ScopeFunc:        scopeCopilotHandler,
 		ScopeIDField:     "id",
+		NeedsTokenExpiry: true,
 	},
 	{
 		Plugin:      "gitlab",
@@ -280,7 +309,7 @@ func buildAndCreateConnection(client *devlake.Client, def *ConnectionDef, params
 		// zero-date (0000-00-00) under strict MySQL settings.
 		//
 		// PATs are effectively non-expiring, so use a far-future sentinel.
-		if (def.Plugin == "github" || def.Plugin == "gh-copilot") && looksLikeZeroDateTokenExpiresAt(err) {
+		if def.NeedsTokenExpiry && looksLikeZeroDateTokenExpiresAt(err) {
 			fmt.Println("   ⚠️  DevLake rejected empty token expiry; retrying with a non-expiring sentinel...")
 			createReq.TokenExpiresAt = "2099-01-01T00:00:00Z"
 			createReq.RefreshTokenExpiresAt = "2099-01-01T00:00:00Z"
@@ -307,6 +336,37 @@ func looksLikeZeroDateTokenExpiresAt(err error) bool {
 	}
 	msg := err.Error()
 	return strings.Contains(msg, "token_expires_at") && strings.Contains(msg, "0000-00-00")
+}
+
+// resolveUsername resolves the username for a BasicAuth plugin.
+// Priority: flag value → .devlake.env file (UsernameEnvFileKeys) →
+// environment variables (UsernameEnvVars) → interactive prompt.
+// Returns an empty string only if no terminal is available for prompting.
+func resolveUsername(def *ConnectionDef, flagValue string, envFilePath string) string {
+	if flagValue != "" {
+		return flagValue
+	}
+	// Check env file
+	if envFilePath == "" {
+		envFilePath = ".devlake.env"
+	}
+	if vals, err := envfile.Load(envFilePath); err == nil {
+		for _, key := range def.UsernameEnvFileKeys {
+			if v, ok := vals[key]; ok && v != "" {
+				return v
+			}
+		}
+	}
+	for _, key := range def.UsernameEnvVars {
+		if v := os.Getenv(key); v != "" {
+			return v
+		}
+	}
+	label := def.UsernamePrompt
+	if label == "" {
+		label = fmt.Sprintf("%s username", def.DisplayName)
+	}
+	return prompt.ReadLine(label)
 }
 
 // aggregateScopeHints merges scope hints from multiple connection defs into one string.
