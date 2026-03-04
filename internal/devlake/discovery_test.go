@@ -246,16 +246,20 @@ func TestDiscoverPriorityOrder(t *testing.T) {
 
 	// Create two mock servers
 	srv1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/ping" {
-			w.WriteHeader(http.StatusOK)
+		if r.URL.Path != "/ping" {
+			http.NotFound(w, r)
+			return
 		}
+		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv1.Close()
 
 	srv2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/ping" {
-			w.WriteHeader(http.StatusOK)
+		if r.URL.Path != "/ping" {
+			http.NotFound(w, r)
+			return
 		}
+		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv2.Close()
 

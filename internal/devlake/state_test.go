@@ -53,7 +53,7 @@ func TestSaveStateAndLoadState(t *testing.T) {
 		t.Fatal("LoadState returned nil")
 	}
 
-	// Verify all fields
+	// Verify key fields
 	if loadedState.Method != originalState.Method {
 		t.Errorf("Method = %q, want %q", loadedState.Method, originalState.Method)
 	}
