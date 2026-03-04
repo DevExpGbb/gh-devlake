@@ -184,6 +184,30 @@ func waitForReady(baseURL string, maxAttempts int, interval time.Duration) error
 	return fmt.Errorf("DevLake not ready after %d attempts — check logs", maxAttempts)
 }
 
+// waitForReadyAny polls multiple candidate URLs each round and returns the first
+// one that responds with HTTP 200 on /ping. This mirrors the discovery logic in
+// internal/devlake/discovery.go which checks both 8080 and 8085.
+func waitForReadyAny(baseURLs []string, maxAttempts int, interval time.Duration) (string, error) {
+	httpClient := &http.Client{Timeout: 5 * time.Second}
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		for _, baseURL := range baseURLs {
+			resp, err := httpClient.Get(baseURL + "/ping")
+			if err == nil {
+				resp.Body.Close()
+				if resp.StatusCode == http.StatusOK {
+					fmt.Println("   ✅ DevLake is responding!")
+					return baseURL, nil
+				}
+			}
+		}
+		if attempt < maxAttempts {
+			fmt.Printf("   Attempt %d/%d — waiting...\n", attempt, maxAttempts)
+			time.Sleep(interval)
+		}
+	}
+	return "", fmt.Errorf("timed out after %d attempts", maxAttempts)
+}
+
 // waitForMigration polls until DevLake finishes database migration.
 // During migration the API returns 428 (Precondition Required).
 func waitForMigration(baseURL string, maxAttempts int, interval time.Duration) error {
