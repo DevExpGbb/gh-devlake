@@ -71,6 +71,39 @@ func TestRunDeleteConnection_PluginOnlyNoID(t *testing.T) {
 	}
 }
 
+func TestRunDeleteConnection_ForceSkipsConfirm(t *testing.T) {
+	origPlugin := connDeletePlugin
+	origID := connDeleteID
+	origForce := connDeleteForce
+	t.Cleanup(func() {
+		connDeletePlugin = origPlugin
+		connDeleteID = origID
+		connDeleteForce = origForce
+	})
+
+	connDeletePlugin = "github"
+	connDeleteID = 1
+	connDeleteForce = true
+
+	cmd := &cobra.Command{RunE: runDeleteConnection}
+	cmd.Flags().StringVar(&connDeletePlugin, "plugin", "", "")
+	cmd.Flags().IntVar(&connDeleteID, "id", 0, "")
+	cmd.Flags().BoolVar(&connDeleteForce, "force", false, "")
+	_ = cmd.Flags().Set("plugin", "github")
+	_ = cmd.Flags().Set("id", "1")
+	_ = cmd.Flags().Set("force", "true")
+
+	err := runDeleteConnection(cmd, nil)
+	// The function should proceed past validation and the confirmation step,
+	// failing at DevLake discovery (no instance running) — not hanging on a prompt.
+	if err == nil {
+		t.Fatal("expected error from DevLake discovery, got nil")
+	}
+	if strings.Contains(err.Error(), "both --plugin and --id") || strings.Contains(err.Error(), "unknown plugin") {
+		t.Errorf("unexpected validation error (force flag should have passed validation): %v", err)
+	}
+}
+
 func TestRunDeleteConnection_IDOnlyNoPlugin(t *testing.T) {
 	origPlugin := connDeletePlugin
 	origID := connDeleteID

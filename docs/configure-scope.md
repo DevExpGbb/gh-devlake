@@ -165,6 +165,7 @@ gh devlake configure scope delete [--plugin <plugin>] [--connection-id <id>] [--
 | `--plugin` | *(interactive)* | Plugin of the connection (`github`, `gh-copilot`) |
 | `--connection-id` | *(interactive)* | Connection ID |
 | `--scope-id` | *(interactive)* | Scope ID to delete |
+| `--force` | `false` | Skip confirmation prompt |
 
 **Flag mode:** all three flags are required.
 
@@ -175,6 +176,9 @@ gh devlake configure scope delete [--plugin <plugin>] [--connection-id <id>] [--
 ```bash
 # Non-interactive
 gh devlake configure scope delete --plugin github --connection-id 1 --scope-id 12345678
+
+# Skip confirmation (useful in CI/CD)
+gh devlake configure scope delete --plugin github --connection-id 1 --scope-id 12345678 --force
 
 # Interactive
 gh devlake configure scope delete
