@@ -306,6 +306,12 @@ func TestListConnections(t *testing.T) {
 // TestFindConnectionByName tests the FindConnectionByName method.
 func TestFindConnectionByName(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET request, got %s", r.Method)
+		}
+		if r.URL.Path != "/plugins/github/connections" {
+			t.Errorf("expected path /plugins/github/connections, got %s", r.URL.Path)
+		}
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`[{"id": 1, "name": "conn1"}, {"id": 2, "name": "conn2"}]`))
 	}))

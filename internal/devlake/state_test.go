@@ -171,7 +171,9 @@ func TestLoadStateInvalidJSON(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "invalid.json")
 
-	os.WriteFile(path, []byte("not json"), 0644)
+	if err := os.WriteFile(path, []byte("not json"), 0644); err != nil {
+		t.Fatalf("failed to write invalid JSON file: %v", err)
+	}
 
 	state, err := LoadState(path)
 	if err == nil {
