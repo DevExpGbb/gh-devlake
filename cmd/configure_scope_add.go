@@ -65,10 +65,13 @@ func runScopeAdd(cmd *cobra.Command, args []string, opts *ScopeOpts) error {
 	// Determine which plugin to scope
 	var selectedPlugin string
 	if opts.Plugin != "" {
-		if _, err := requirePlugin(opts.Plugin); err != nil {
+		def, err := requirePlugin(opts.Plugin)
+		if err != nil {
 			return err
 		}
 		selectedPlugin = opts.Plugin
+		// Warn about flags that don't apply to the selected plugin.
+		warnIrrelevantFlags(cmd, def, collectAllScopeFlagDefs())
 	} else {
 		flagMode := cmd.Flags().Changed("org") ||
 			cmd.Flags().Changed("repos") ||
@@ -91,6 +94,8 @@ func runScopeAdd(cmd *cobra.Command, args []string, opts *ScopeOpts) error {
 		for _, d := range available {
 			if d.DisplayName == chosen {
 				selectedPlugin = d.Plugin
+				// Print applicable flags after interactive plugin selection.
+				printContextualFlagHelp(d, d.ScopeFlags, "Scope")
 				break
 			}
 		}

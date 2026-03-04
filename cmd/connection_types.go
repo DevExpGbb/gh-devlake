@@ -17,6 +17,15 @@ import (
 // It returns the BlueprintConnection entry (for project creation) and an error.
 type ScopeHandler func(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error)
 
+// FlagDef describes a plugin-specific flag for documentation and runtime validation.
+// When collected from the registry via collectAllScopeFlagDefs or collectAllConnectionFlagDefs,
+// the Plugins field is populated automatically to indicate which plugins use the flag.
+type FlagDef struct {
+	Name        string   // flag name (e.g., "enterprise")
+	Description string   // short description shown in contextual help
+	Plugins     []string // populated by collection helpers; empty in registry entries
+}
+
 // ConnectionDef describes a plugin connection type and how to create it.
 type ConnectionDef struct {
 	Plugin           string
@@ -47,6 +56,11 @@ type ConnectionDef struct {
 	UsernameEnvVars     []string // environment variable names for username resolution
 	UsernameEnvFileKeys []string // .devlake.env keys for username resolution
 	NeedsTokenExpiry    bool     // true = apply zero-date token expiry workaround on create
+
+	// ConnectionFlags declares plugin-specific flags for the connection add command.
+	ConnectionFlags []FlagDef
+	// ScopeFlags declares plugin-specific flags for the scope add command.
+	ScopeFlags []FlagDef
 }
 
 // MenuLabel returns the label for interactive menus.
@@ -182,6 +196,13 @@ var connectionRegistry = []*ConnectionDef{
 		ScopeIDField:     "githubId",
 		HasRepoScopes:    true,
 		NeedsTokenExpiry: true,
+		ScopeFlags: []FlagDef{
+			{Name: "repos", Description: "Comma-separated repos (owner/repo)"},
+			{Name: "repos-file", Description: "Path to file with repos (one per line)"},
+			{Name: "deployment-pattern", Description: "Regex to match deployment workflows"},
+			{Name: "production-pattern", Description: "Regex to match production environment"},
+			{Name: "incident-label", Description: "Issue label for incidents"},
+		},
 	},
 	{
 		Plugin:           "gh-copilot",
@@ -201,6 +222,12 @@ var connectionRegistry = []*ConnectionDef{
 		ScopeFunc:        scopeCopilotHandler,
 		ScopeIDField:     "id",
 		NeedsTokenExpiry: true,
+		ConnectionFlags: []FlagDef{
+			{Name: "enterprise", Description: "Enterprise slug"},
+		},
+		ScopeFlags: []FlagDef{
+			{Name: "enterprise", Description: "Enterprise slug (enables enterprise-level metrics)"},
+		},
 	},
 	{
 		Plugin:      "gitlab",
