@@ -171,6 +171,7 @@ func runConnectionsInternal(defs []*ConnectionDef, org, enterprise, tokenVal, en
 		fmt.Println("\n" + strings.Repeat("─", 40))
 		fmt.Println("⚠️  No connections were created.")
 		fmt.Println(strings.Repeat("─", 40))
+		fmt.Println()
 		return results, client, statePath, state, fmt.Errorf("no connections were created")
 	}
 

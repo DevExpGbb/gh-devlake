@@ -354,6 +354,7 @@ func finalizeProject(opts finalizeProjectOpts) error {
 		fmt.Printf("   Plugin:  %s\n", pn)
 	}
 	fmt.Println(strings.Repeat("\u2500", 40))
+	fmt.Println()
 
 	return nil
 }
