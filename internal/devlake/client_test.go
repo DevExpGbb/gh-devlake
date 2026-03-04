@@ -677,7 +677,11 @@ func TestCreateProject(t *testing.T) {
 			t.Errorf("path = %s, want /projects", r.URL.Path)
 		}
 		var req Project
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Errorf("failed to decode request body: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		w.WriteHeader(http.StatusCreated)
 		w.Write([]byte(`{"name": "new-project", "blueprint": {"id": 1}}`))
 	}))

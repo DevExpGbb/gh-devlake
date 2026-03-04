@@ -189,7 +189,9 @@ func TestLoadStateEmptyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "empty.json")
 
-	os.WriteFile(path, []byte(""), 0644)
+	if err := os.WriteFile(path, []byte(""), 0644); err != nil {
+		t.Fatalf("failed to write empty JSON file: %v", err)
+	}
 
 	state, err := LoadState(path)
 	if err == nil {
@@ -220,8 +222,13 @@ func TestFindStateFileMatchingEndpoint(t *testing.T) {
 			Grafana: "https://grafana.example.com",
 		},
 	}
-	azureData, _ := json.MarshalIndent(azureState, "", "  ")
-	os.WriteFile(".devlake-azure.json", azureData, 0644)
+	azureData, err := json.MarshalIndent(azureState, "", "  ")
+	if err != nil {
+		t.Fatalf("failed to marshal Azure state: %v", err)
+	}
+	if err := os.WriteFile(".devlake-azure.json", azureData, 0644); err != nil {
+		t.Fatalf("failed to write Azure state file: %v", err)
+	}
 
 	// Create local state with different endpoint
 	localState := &State{
@@ -230,8 +237,13 @@ func TestFindStateFileMatchingEndpoint(t *testing.T) {
 			Backend: "http://localhost:8080",
 		},
 	}
-	localData, _ := json.MarshalIndent(localState, "", "  ")
-	os.WriteFile(".devlake-local.json", localData, 0644)
+	localData, err := json.MarshalIndent(localState, "", "  ")
+	if err != nil {
+		t.Fatalf("failed to marshal local state: %v", err)
+	}
+	if err := os.WriteFile(".devlake-local.json", localData, 0644); err != nil {
+		t.Fatalf("failed to write local state file: %v", err)
+	}
 
 	// FindStateFile should match the Azure one
 	path, state := FindStateFile("https://devlake.example.com", "https://grafana.example.com")
@@ -477,7 +489,13 @@ func TestSaveStateNilProject(t *testing.T) {
 		t.Fatalf("SaveState failed: %v", err)
 	}
 
-	loadedState, _ := LoadState(path)
+	loadedState, err := LoadState(path)
+	if err != nil {
+		t.Fatalf("LoadState failed: %v", err)
+	}
+	if loadedState == nil {
+		t.Fatal("expected non-nil state, got nil")
+	}
 	if loadedState.Project != nil {
 		t.Errorf("expected nil Project, got %v", loadedState.Project)
 	}
@@ -500,7 +518,13 @@ func TestSaveStateEmptyConnections(t *testing.T) {
 		t.Fatalf("SaveState failed: %v", err)
 	}
 
-	loadedState, _ := LoadState(path)
+	loadedState, err := LoadState(path)
+	if err != nil {
+		t.Fatalf("LoadState failed: %v", err)
+	}
+	if loadedState == nil {
+		t.Fatal("expected non-nil state, got nil")
+	}
 	// Empty slice should be preserved or nil (both are valid JSON representations)
 	if loadedState.Connections == nil {
 		// This is acceptable - omitempty means nil and empty slice are equivalent

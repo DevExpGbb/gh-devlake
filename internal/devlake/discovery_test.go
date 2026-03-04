@@ -93,7 +93,7 @@ func TestDiscoverExplicitURL(t *testing.T) {
 
 // TestDiscoverExplicitURLUnreachable tests discovery with unreachable explicit URL.
 func TestDiscoverExplicitURLUnreachable(t *testing.T) {
-	result, err := Discover("http://localhost:99999")
+	result, err := Discover("http://127.0.0.1:1")
 	if err == nil {
 		t.Fatal("expected error for unreachable URL, got nil")
 	}
@@ -221,8 +221,13 @@ func TestTryStateFileNoBackend(t *testing.T) {
 			Backend: "",
 		},
 	}
-	data, _ := json.MarshalIndent(state, "", "  ")
-	os.WriteFile(path, data, 0644)
+	data, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		t.Fatalf("failed to marshal state: %v", err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatalf("failed to write state file: %v", err)
+	}
 
 	result := tryStateFile(path)
 	if result != nil {
@@ -246,7 +251,9 @@ func TestTryStateFileInvalidJSON(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, ".devlake-local.json")
 
-	os.WriteFile(path, []byte("not json"), 0644)
+	if err := os.WriteFile(path, []byte("not json"), 0644); err != nil {
+		t.Fatalf("failed to write invalid JSON file: %v", err)
+	}
 
 	result := tryStateFile(path)
 	if result != nil {
