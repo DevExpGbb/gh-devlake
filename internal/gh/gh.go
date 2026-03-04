@@ -59,7 +59,11 @@ func GetRepoDetails(fullName string) (*RepoDetails, error) {
 	if err != nil {
 		return nil, fmt.Errorf("gh api repos/%s failed: %w", fullName, err)
 	}
-	return parseRepoDetails(out)
+	details, err := parseRepoDetails(out)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse repo details for %s: %w", fullName, err)
+	}
+	return details, nil
 }
 
 // parseRepoDetails unmarshals JSON output from gh api into a RepoDetails struct.
