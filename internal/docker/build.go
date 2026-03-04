@@ -7,9 +7,12 @@ import (
 	"strings"
 )
 
+// execCommand is a variable so tests can substitute a fake command runner.
+var execCommand = exec.Command
+
 // CheckAvailable checks if Docker CLI is installed and running.
 func CheckAvailable() error {
-	out, err := exec.Command("docker", "version", "--format", "{{.Server.Version}}").Output()
+	out, err := execCommand("docker", "version", "--format", "{{.Server.Version}}").Output()
 	if err != nil {
 		return fmt.Errorf("docker not available: %w", err)
 	}
@@ -22,7 +25,7 @@ func CheckAvailable() error {
 
 // Build builds a Docker image from a Dockerfile.
 func Build(tag, dockerfile, context string) error {
-	cmd := exec.Command("docker", "build", "-t", tag, "-f", dockerfile, context)
+	cmd := execCommand("docker", "build", "-t", tag, "-f", dockerfile, context)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("docker build failed: %s\n%s", err, string(out))
 	}
@@ -31,10 +34,10 @@ func Build(tag, dockerfile, context string) error {
 
 // TagAndPush tags a local image and pushes it to a registry.
 func TagAndPush(localTag, remoteTag string) error {
-	if out, err := exec.Command("docker", "tag", localTag, remoteTag).CombinedOutput(); err != nil {
+	if out, err := execCommand("docker", "tag", localTag, remoteTag).CombinedOutput(); err != nil {
 		return fmt.Errorf("docker tag failed: %s\n%s", err, string(out))
 	}
-	if out, err := exec.Command("docker", "push", remoteTag).CombinedOutput(); err != nil {
+	if out, err := execCommand("docker", "push", remoteTag).CombinedOutput(); err != nil {
 		return fmt.Errorf("docker push failed: %s\n%s", err, string(out))
 	}
 	return nil
@@ -48,7 +51,7 @@ func ComposeDown(dir string, removeVolumes ...bool) error {
 	if len(removeVolumes) > 0 && removeVolumes[0] {
 		args = append(args, "-v")
 	}
-	cmd := exec.Command("docker", args...)
+	cmd := execCommand("docker", args...)
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("docker compose down failed: %s\n%s", err, string(out))
@@ -65,7 +68,7 @@ func ComposeUp(dir string, build bool, services ...string) error {
 		args = append(args, "--build")
 	}
 	args = append(args, services...)
-	cmd := exec.Command("docker", args...)
+	cmd := execCommand("docker", args...)
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("docker compose up failed: %s\n%s", err, string(out))

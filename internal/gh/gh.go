@@ -36,15 +36,19 @@ func ListRepos(org string, limit int) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("gh repo list failed: %w", err)
 	}
+	return parseListOutput(out), nil
+}
 
+// parseListOutput parses newline-separated repo names from gh repo list output.
+func parseListOutput(data []byte) []string {
 	var repos []string
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
 		line = strings.TrimSpace(line)
 		if line != "" {
 			repos = append(repos, line)
 		}
 	}
-	return repos, nil
+	return repos
 }
 
 // GetRepoDetails fetches details for a single repo via gh api.
@@ -55,10 +59,14 @@ func GetRepoDetails(fullName string) (*RepoDetails, error) {
 	if err != nil {
 		return nil, fmt.Errorf("gh api repos/%s failed: %w", fullName, err)
 	}
+	return parseRepoDetails(out)
+}
 
+// parseRepoDetails unmarshals JSON output from gh api into a RepoDetails struct.
+func parseRepoDetails(data []byte) (*RepoDetails, error) {
 	var details RepoDetails
-	if err := json.Unmarshal(out, &details); err != nil {
-		return nil, fmt.Errorf("failed to parse repo details for %s: %w", fullName, err)
+	if err := json.Unmarshal(data, &details); err != nil {
+		return nil, fmt.Errorf("failed to parse repo details: %w", err)
 	}
 	return &details, nil
 }
