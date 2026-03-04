@@ -7,6 +7,8 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+
+	"github.com/DevExpGBB/gh-devlake/internal/devlake"
 )
 
 var (
@@ -34,9 +36,14 @@ Examples:
 	return cmd
 }
 
-func runScopeList(cmd *cobra.Command, args []string) error {
-	printBanner("DevLake \u2014 List Scopes")
+// scopeListItem is the JSON representation of a single scope entry.
+type scopeListItem struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	FullName string `json:"fullName,omitempty"`
+}
 
+func runScopeList(cmd *cobra.Command, args []string) error {
 	pluginFlagSet := cmd.Flags().Changed("plugin")
 	connIDFlagSet := cmd.Flags().Changed("connection-id")
 
@@ -53,9 +60,26 @@ func runScopeList(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	client, _, err := discoverClient(cfgURL)
-	if err != nil {
-		return err
+	// In JSON mode, flags are required (interactive prompts are not supported)
+	if outputJSON && !(pluginFlagSet && connIDFlagSet) {
+		return fmt.Errorf("--plugin and --connection-id are required with --json")
+	}
+
+	// Discover client (quietly in JSON mode to keep stdout clean)
+	var client *devlake.Client
+	if outputJSON {
+		disc, err := devlake.Discover(cfgURL)
+		if err != nil {
+			return err
+		}
+		client = devlake.NewClient(disc.URL)
+	} else {
+		printBanner("DevLake \u2014 List Scopes")
+		c, _, err := discoverClient(cfgURL)
+		if err != nil {
+			return err
+		}
+		client = c
 	}
 
 	selectedPlugin := scopeListPlugin
@@ -74,11 +98,30 @@ func runScopeList(cmd *cobra.Command, args []string) error {
 		selectedConnID = picked.ID
 	}
 
-	fmt.Printf("\n\U0001f4cb Listing scopes for %s connection ID=%d...\n", selectedPlugin, selectedConnID)
+	if !outputJSON {
+		fmt.Printf("\n\U0001f4cb Listing scopes for %s connection ID=%d...\n", selectedPlugin, selectedConnID)
+	}
 
 	resp, err := client.ListScopes(selectedPlugin, selectedConnID)
 	if err != nil {
 		return fmt.Errorf("failed to list scopes: %w", err)
+	}
+
+	// JSON output path
+	if outputJSON {
+		items := make([]scopeListItem, len(resp.Scopes))
+		for i, s := range resp.Scopes {
+			scopeID := s.Scope.ID
+			if scopeID == "" {
+				scopeID = strconv.Itoa(s.Scope.GithubID)
+			}
+			items[i] = scopeListItem{
+				ID:       scopeID,
+				Name:     s.Scope.Name,
+				FullName: s.Scope.FullName,
+			}
+		}
+		return printJSON(items)
 	}
 
 	if len(resp.Scopes) == 0 {

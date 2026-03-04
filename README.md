@@ -253,6 +253,8 @@ Commands that support `--json`:
 |---------|-----------|
 | `gh devlake status` | `{deployment, endpoints[], connections[], project}` |
 | `gh devlake configure connection list` | `[{id, plugin, name, endpoint, organization, enterprise}]` |
+| `gh devlake configure scope list` | `[{id, name, fullName}]` |
+| `gh devlake configure project list` | `[{name, description, blueprintId}]` |
 
 Additional references: [Token Handling](docs/token-handling.md) · [State Files](docs/state-files.md) · [DevLake Concepts](docs/concepts.md) · [Day-2 Operations](docs/day-2.md)
 
