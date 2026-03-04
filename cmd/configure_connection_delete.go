@@ -25,7 +25,8 @@ If --plugin and --id are not specified, prompts interactively.
 
 Examples:
   gh devlake configure connection delete
-  gh devlake configure connection delete --plugin github --id 3`,
+  gh devlake configure connection delete --plugin github --id 3
+  gh devlake configure connection delete --plugin github --id 3 --force`,
 	RunE: runDeleteConnection,
 }
 

@@ -212,6 +212,7 @@ gh devlake configure connection delete [--plugin <plugin>] [--id <id>]
 |------|---------|-------------|
 | `--plugin` | *(interactive)* | Plugin of the connection to delete |
 | `--id` | *(interactive)* | ID of the connection to delete |
+| `--force` | `false` | Skip confirmation prompt |
 
 **Flag mode:** both `--plugin` and `--id` are required.
 
@@ -222,6 +223,9 @@ gh devlake configure connection delete [--plugin <plugin>] [--id <id>]
 ```bash
 # Non-interactive
 gh devlake configure connection delete --plugin github --id 3
+
+# Skip confirmation (useful in CI/CD)
+gh devlake configure connection delete --plugin github --id 3 --force
 
 # Interactive
 gh devlake configure connection delete

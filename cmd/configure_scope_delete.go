@@ -27,7 +27,8 @@ If --plugin, --connection-id, and --scope-id are not specified, prompts interact
 
 Examples:
   gh devlake configure scope delete
-  gh devlake configure scope delete --plugin github --connection-id 1 --scope-id 12345678`,
+  gh devlake configure scope delete --plugin github --connection-id 1 --scope-id 12345678
+  gh devlake configure scope delete --plugin github --connection-id 1 --scope-id 12345678 --force`,
 		RunE: runScopeDelete,
 	}
 
