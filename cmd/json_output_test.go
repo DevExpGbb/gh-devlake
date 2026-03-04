@@ -182,3 +182,45 @@ func TestConnectionListItem_JSONFields(t *testing.T) {
 	}
 }
 
+func TestScopeListItem_JSONFields(t *testing.T) {
+	item := scopeListItem{
+		ID:       "42",
+		Name:     "my-repo",
+		FullName: "org/my-repo",
+	}
+	data, err := json.Marshal(item)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	out := string(data)
+	for _, want := range []string{`"id":"42"`, `"name":"my-repo"`, `"fullName":"org/my-repo"`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected %q in JSON output %q", want, out)
+		}
+	}
+	// fullName omitted when empty
+	itemNoFull := scopeListItem{ID: "1", Name: "repo"}
+	data2, err := json.Marshal(itemNoFull)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	if strings.Contains(string(data2), `"fullName"`) {
+		t.Errorf("fullName should be omitted when empty, got: %q", string(data2))
+	}
+}
+
+func TestRunScopeList_JSONRequiresFlags(t *testing.T) {
+	origJSON := outputJSON
+	outputJSON = true
+	t.Cleanup(func() { outputJSON = origJSON })
+
+	cmd := newScopeListCmd()
+	err := runScopeList(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error when --json used without --plugin/--connection-id")
+	}
+	if !strings.Contains(err.Error(), "--plugin") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
