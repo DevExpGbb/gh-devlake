@@ -2,12 +2,28 @@ package devlake
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 )
+
+func closedLocalURL(t *testing.T) string {
+	t.Helper()
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to reserve local port: %v", err)
+	}
+	addr := ln.Addr().String()
+	if err := ln.Close(); err != nil {
+		t.Fatalf("failed to close listener: %v", err)
+	}
+
+	return "http://" + addr
+}
 
 // TestInferLocalCompanionURLs tests the inferLocalCompanionURLs function.
 func TestInferLocalCompanionURLs(t *testing.T) {
@@ -93,7 +109,7 @@ func TestDiscoverExplicitURL(t *testing.T) {
 
 // TestDiscoverExplicitURLUnreachable tests discovery with unreachable explicit URL.
 func TestDiscoverExplicitURLUnreachable(t *testing.T) {
-	result, err := Discover("http://127.0.0.1:1")
+	result, err := Discover(closedLocalURL(t))
 	if err == nil {
 		t.Fatal("expected error for unreachable URL, got nil")
 	}
@@ -164,7 +180,7 @@ func TestTryStateFileUnreachable(t *testing.T) {
 	state := &State{
 		Method: "local",
 		Endpoints: StateEndpoints{
-			Backend: "http://127.0.0.1:1", // Valid but unreachable port
+			Backend: closedLocalURL(t),
 		},
 	}
 	data, err := json.MarshalIndent(state, "", "  ")
@@ -344,7 +360,7 @@ func TestDiscoverMultipleStateFiles(t *testing.T) {
 	azureState := &State{
 		Method: "azure",
 		Endpoints: StateEndpoints{
-			Backend: "http://127.0.0.1:1", // Valid but unreachable port
+			Backend: closedLocalURL(t),
 		},
 	}
 	azureData, err := json.MarshalIndent(azureState, "", "  ")
