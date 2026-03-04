@@ -127,6 +127,8 @@ gh devlake configure scope list [--plugin <plugin>] [--connection-id <id>]
 
 **Interactive mode:** Omit both flags — the CLI lists all connections across plugins and lets you pick one.
 
+**JSON mode:** Pass the global `--json` flag to output a JSON array instead of a table. `--plugin` and `--connection-id` are required in JSON mode (interactive prompts are not supported).
+
 ### Output
 
 ```
@@ -144,6 +146,10 @@ gh devlake configure scope list --plugin github --connection-id 1
 
 # Interactive
 gh devlake configure scope list
+
+# JSON output (for scripting)
+gh devlake configure scope list --plugin github --connection-id 1 --json
+# → [{"id":"12345678","name":"api","fullName":"my-org/api"},{"id":"87654321","name":"frontend","fullName":"my-org/frontend"}]
 ```
 
 ---
