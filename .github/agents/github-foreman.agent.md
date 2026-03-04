@@ -242,6 +242,7 @@ When planning a wave, apply this quick decision tree:
 6. **Keep `.github/copilot-instructions.md` and `AGENTS.md` in sync** — when your wave changes CLI structure, ensure the Docs Writer updates both.
 7. **Draft issues on request** — when the human reports bugs or feature ideas, use Phase 1b to create well-structured issues with proper labels, milestones, and dependency cross-references.
 8. **Clean up branches after merge** — `gh pr merge --delete-branch` handles this automatically. If a branch was left behind, use `runInTerminal` with `gh api -X DELETE repos/{owner}/{repo}/git/refs/heads/{branch}`.
+9. **Verify release assets** — After creating a release with `gh release create`, always wait ~90 seconds for the release workflow to complete, then verify all 12 platform binaries were uploaded: `gh release view <tag> --repo DevExpGBB/gh-devlake --json assets --jq '[.assets[].name] | length'`. Never declare a release complete until asset count equals 12. If the workflow failed, check with `gh run list --workflow release.yml --limit 1` and re-trigger.
 
 ## Terminal Usage
 
