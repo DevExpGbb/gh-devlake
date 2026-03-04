@@ -240,7 +240,8 @@ func listConnectionScopes(client *devlake.Client, c connChoice) (*addedConnectio
 		if def != nil && def.ScopeIDField != "" {
 			scopeID = devlake.ExtractScopeID(w.RawScope, def.ScopeIDField)
 		}
-		scopeName := w.ScopeFullName()
+		fullName := w.ScopeFullName()
+		scopeName := fullName
 		if scopeName == "" {
 			scopeName = w.ScopeName()
 		}
@@ -251,7 +252,6 @@ func listConnectionScopes(client *devlake.Client, c connChoice) (*addedConnectio
 			ScopeID:   scopeID,
 			ScopeName: scopeName,
 		})
-		fullName := w.ScopeFullName()
 		if def != nil && def.HasRepoScopes && fullName != "" {
 			repos = append(repos, fullName)
 		}

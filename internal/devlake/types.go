@@ -65,7 +65,7 @@ func (w *ScopeListWrapper) ScopeName() string {
 	for _, key := range []string{"fullName", "name"} {
 		if v, ok := m[key]; ok {
 			var s string
-			if err := json.Unmarshal(v, &s); err == nil {
+			if err := json.Unmarshal(v, &s); err == nil && s != "" {
 				return s
 			}
 		}

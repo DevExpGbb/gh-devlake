@@ -96,6 +96,12 @@ func TestScopeListWrapperHelpers(t *testing.T) {
 			wantFullName: "",
 		},
 		{
+			name:         "empty fullName falls through to name",
+			raw:          `{"name": "repo1", "fullName": ""}`,
+			wantName:     "repo1",
+			wantFullName: "",
+		},
+		{
 			name:         "both empty",
 			raw:          `{}`,
 			wantName:     "",
