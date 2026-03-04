@@ -536,7 +536,7 @@ func startLocalContainers(dir string, build bool, services ...string) (string, e
 
 	backendURL, err := waitForReadyAny(backendURLCandidates, 36, 10*time.Second)
 	if err != nil {
-		return backendURLCandidates[0], fmt.Errorf("DevLake not ready after 6 minutes — check: docker compose logs devlake")
+		return "", fmt.Errorf("DevLake not ready after 6 minutes — check: docker compose logs devlake: %w", err)
 	}
 	return backendURL, nil
 }

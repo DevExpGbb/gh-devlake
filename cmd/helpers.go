@@ -200,8 +200,10 @@ func waitForReadyAny(baseURLs []string, maxAttempts int, interval time.Duration)
 				}
 			}
 		}
-		fmt.Printf("   Attempt %d/%d — waiting...\n", attempt, maxAttempts)
-		time.Sleep(interval)
+		if attempt < maxAttempts {
+			fmt.Printf("   Attempt %d/%d — waiting...\n", attempt, maxAttempts)
+			time.Sleep(interval)
+		}
 	}
 	return "", fmt.Errorf("DevLake not ready after %d attempts — check logs", maxAttempts)
 }
