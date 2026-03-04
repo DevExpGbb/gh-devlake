@@ -108,29 +108,32 @@ sequenceDiagram
     Foreman->>Issues: Read open issues + dependencies
     Issues-->>Foreman: Issue details, labels, milestones
     Foreman->>Foreman: Build dependency graph
-    Foreman->>Foreman: Select models per issue
-    Foreman-->>Human: Wave plan proposal<br/>(issues, models, branches)
-    Human->>Foreman: "Approved — dispatch"
+    Foreman->>Foreman: Select agent + model per issue
+    Foreman-->>Human: Wave plan proposal<br/>(issues, agents, models, branches)
+    Human->>Foreman: "Approved \u2014 dispatch"
 
-    Note over Human,CodingAgent: ═══ PHASE 2: DISPATCH ═══
-    par Parallel dispatch
-        Foreman->>CodingAgent: Assign issue #A<br/>(best reasoning model, base: main)
-        Foreman->>CodingAgent: Assign issue #B<br/>(fast Codex model, base: main)
+    Note over Human,Codex: \u2550\u2550\u2550 PHASE 2: DISPATCH \u2550\u2550\u2550
+    par Parallel dispatch to multiple agents
+        Foreman->>Copilot: assign_copilot_to_issue #A<br/>(best reasoning model, base: main)
+        Foreman->>Claude: issue_write assignees:[Claude] #B<br/>(complex refactor)
+        Foreman->>Codex: issue_write assignees:[Codex] #C<br/>(targeted bug fix)
     end
-    Foreman-->>Human: "Dispatched 2 issues.<br/>Agents working in background."
+    Foreman-->>Human: "Dispatched 3 issues to<br/>Copilot, Claude, Codex."
 
     Note over Foreman,PRs: ═══ PHASE 2b: MONITOR (automatic) ═══
     Foreman->>Foreman: Sleep 5 minutes (initial wait)
     loop Poll every 2min until all PRs created
-        Foreman->>CodingAgent: get_copilot_job_status
-        CodingAgent-->>Foreman: ⏳ Working / 📄 PR created / ❌ Failed
+        Foreman->>Copilot: get_copilot_job_status
+        Foreman->>PRs: list_pull_requests (detect Claude/Codex PRs)
+        Note over Foreman: ⏳ Working / 📄 PR created / ❌ Failed
         alt Still working
             Foreman->>Foreman: Sleep 2 minutes
         end
     end
 
-    CodingAgent->>PRs: PR #A created (draft)
-    CodingAgent->>PRs: PR #B created (draft)
+    Copilot->>PRs: PR #A created (draft)
+    Claude->>PRs: PR #B created (draft)
+    Codex->>PRs: PR #C created (draft)
     Foreman-->>Human: "All PRs are in. Starting reviews."
 
     Note over Foreman,PRs: ═══ PHASE 3: CODE REVIEW LOOP (automatic) ═══
@@ -141,7 +144,7 @@ sequenceDiagram
         Foreman->>Foreman: Sleep 5 min, poll until reviews complete
         Foreman->>PRs: Collect + judge review comments
         alt Actionable comments found
-            Foreman->>PRs: Post @copilot <fix description>
+            Foreman->>PRs: Post @copilot/@Claude/@Codex <fix>
             Foreman->>Foreman: Sleep 3 min, poll for new commits
         else No actionable comments
             Note over Foreman: Exit review loop → Phase 4
@@ -155,7 +158,7 @@ sequenceDiagram
         alt All green
             Note over Foreman: Proceed to Phase 5
         else Any red
-            Foreman->>PRs: Post @copilot <failure summary + fix request>
+            Foreman->>PRs: Post @copilot/@Claude/@Codex <failure + fix>
             Foreman->>Foreman: Sleep 3 min, poll for new commits
             Note over Foreman: Loop back to Phase 3
         end
@@ -170,7 +173,7 @@ sequenceDiagram
     Docs-->>Foreman: Doc completeness report
 
     Note over Human,Foreman: ═══ PHASE 6: HUMAN GATE ═══
-    Foreman-->>Human: Wave summary:<br/>✅ Code review: clean<br/>✅ CI: passing<br/>✅ Cross-PR: consistent<br/>✅ Docs: updated
+    Foreman-->>Human: Wave summary:<br/>✅ Code review: clean<br/>✅ CI: passing<br/>✅ Cross-PR: consistent<br/>✅ Docs: updated<br/>(Copilot: PR #A, Claude: PR #B, Codex: PR #C)
 
     Human->>Foreman: "LGTM — merge them"
 
@@ -179,18 +182,23 @@ sequenceDiagram
     PRs-->>Foreman: ✅ Merged, branch deleted
     Foreman->>PRs: gh pr merge --squash --delete-branch (PR #B)
     PRs-->>Foreman: ✅ Merged, branch deleted
+    Foreman->>PRs: gh pr merge --squash --delete-branch (PR #C)
+    PRs-->>Foreman: ✅ Merged, branch deleted
     Foreman->>Foreman: Update state, find next wave
-    Foreman-->>Human: "Next wave: issues #C, #D..."
+    Foreman-->>Human: "Next wave: issues #D, #E..."
 ```
 
 ## Model Selection Quick Reference
 
-| Issue Type | Recommended Model | Rationale |
-|-----------|-------------------|-----------|
-| Complex refactor (multi-file, architectural) | Best Claude / reasoning model | Best reasoning for large codebases |
-| Docs, help text, straightforward additions | Fastest Codex model | Fast, good for well-scoped work |
-| Test generation, coverage improvements | Balanced Codex model | Balanced capability and speed |
-| Multiple parallel dispatches | Auto | Avoids rate limiting |
-| Unknown / general | **Auto** (default) | Always safe, adapts to available models |
+| Issue Type | Recommended Agent | Recommended Model | Rationale |
+|-----------|-------------------|-------------------|----------|
+| Complex refactor (multi-file, architectural) | **Claude** | (Claude's own) | Best reasoning for large codebases, careful multi-file analysis |
+| Targeted bug fix (clear scope, single-file) | **Codex** | (Codex's own) | Fast, efficient for well-scoped focused tasks |
+| Test generation, coverage improvements | **Codex** or **Copilot** | Balanced model | Good for structured, repetitive code generation |
+| Feature implementation (general-purpose) | **Copilot** | Auto | Tightest platform integration, `base_ref` + `custom_instructions` |
+| Docs, help text, straightforward additions | **Copilot** | Fastest model | Quick, well-scoped text changes |
+| Needs branch targeting (`base_ref`) | **Copilot** | Any | Only agent with dedicated `base_ref` MCP support |
+| Multiple parallel dispatches | Mix agents | Auto | Spread load across agents, avoid per-agent rate limits |
+| Unknown / general | **Copilot** | **Auto** (default) | Always safe, adapts to available models |
 
-> **Note:** Model availability changes over time. The table above describes *categories* of models, not specific versions. When in doubt, use `Auto` and let the platform choose. The human can always override with a specific model name.
+> **Note:** Model availability changes over time. Claude and Codex agents use their own provider models and are not affected by Copilot model selection. Third-party agents (Claude, Codex) are in **public preview** and must be enabled in Copilot policies. When in doubt, use Copilot with `Auto`.
