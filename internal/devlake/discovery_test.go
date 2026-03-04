@@ -170,11 +170,16 @@ func TestTryStateFileUnreachable(t *testing.T) {
 	state := &State{
 		Method: "local",
 		Endpoints: StateEndpoints{
-			Backend: "http://localhost:99999",
+			Backend: "http://127.0.0.1:1", // Valid but unreachable port
 		},
 	}
-	data, _ := json.MarshalIndent(state, "", "  ")
-	os.WriteFile(path, data, 0644)
+	data, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		t.Fatalf("failed to marshal state JSON: %v", err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatalf("failed to write state file: %v", err)
+	}
 
 	result := tryStateFile(path)
 	if result != nil {
@@ -319,11 +324,16 @@ func TestDiscoverMultipleStateFiles(t *testing.T) {
 	azureState := &State{
 		Method: "azure",
 		Endpoints: StateEndpoints{
-			Backend: "http://localhost:99999",
+			Backend: "http://127.0.0.1:1", // Valid but unreachable port
 		},
 	}
-	azureData, _ := json.MarshalIndent(azureState, "", "  ")
-	os.WriteFile(".devlake-azure.json", azureData, 0644)
+	azureData, err := json.MarshalIndent(azureState, "", "  ")
+	if err != nil {
+		t.Fatalf("failed to marshal azure state JSON: %v", err)
+	}
+	if err := os.WriteFile(".devlake-azure.json", azureData, 0644); err != nil {
+		t.Fatalf("failed to write azure state file: %v", err)
+	}
 
 	// Create local state (reachable)
 	localState := &State{
@@ -332,8 +342,13 @@ func TestDiscoverMultipleStateFiles(t *testing.T) {
 			Backend: srv.URL,
 		},
 	}
-	localData, _ := json.MarshalIndent(localState, "", "  ")
-	os.WriteFile(".devlake-local.json", localData, 0644)
+	localData, err := json.MarshalIndent(localState, "", "  ")
+	if err != nil {
+		t.Fatalf("failed to marshal local state JSON: %v", err)
+	}
+	if err := os.WriteFile(".devlake-local.json", localData, 0644); err != nil {
+		t.Fatalf("failed to write local state file: %v", err)
+	}
 
 	// Should skip unreachable Azure and use reachable local
 	result, err := Discover("")
@@ -348,11 +363,9 @@ func TestDiscoverMultipleStateFiles(t *testing.T) {
 	}
 }
 
-// TestPingURLTimeout tests that pingURL respects timeout.
-func TestPingURLTimeout(t *testing.T) {
-	// Create a server that delays response
+// TestPingURLSuccess tests that pingURL succeeds on a 200 OK response.
+func TestPingURLSuccess(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// The client has a 5-second timeout, so this won't cause a timeout in tests
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()

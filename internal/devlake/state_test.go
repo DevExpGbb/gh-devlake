@@ -94,8 +94,13 @@ func TestSaveStateMerge(t *testing.T) {
 			"storage":      "devlakestorage",
 		},
 	}
-	data, _ := json.MarshalIndent(existingJSON, "", "  ")
-	os.WriteFile(path, data, 0644)
+	data, err := json.MarshalIndent(existingJSON, "", "  ")
+	if err != nil {
+		t.Fatalf("failed to marshal existing JSON: %v", err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatalf("failed to write existing state file: %v", err)
+	}
 
 	// Create a new state with updated connections
 	newState := &State{
@@ -112,7 +117,7 @@ func TestSaveStateMerge(t *testing.T) {
 	}
 
 	// Save should merge without clobbering Azure fields
-	err := SaveState(path, newState)
+	err = SaveState(path, newState)
 	if err != nil {
 		t.Fatalf("SaveState failed: %v", err)
 	}
@@ -364,8 +369,8 @@ func TestLoadStateFromCwd(t *testing.T) {
 	}
 }
 
-// TestSaveStatePreservesOrder tests that SaveState maintains field order.
-func TestSaveStatePreservesOrder(t *testing.T) {
+// TestSaveStatePreservesAndUpdatesFields tests that SaveState preserves unknown fields and updates known ones.
+func TestSaveStatePreservesAndUpdatesFields(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, ".devlake-test.json")
 
@@ -375,8 +380,13 @@ func TestSaveStatePreservesOrder(t *testing.T) {
 		"deployedAt":    "2024-01-01T00:00:00Z",
 		"method":        "azure",
 	}
-	data, _ := json.MarshalIndent(existingJSON, "", "  ")
-	os.WriteFile(path, data, 0644)
+	data, err := json.MarshalIndent(existingJSON, "", "  ")
+	if err != nil {
+		t.Fatalf("failed to marshal existing JSON: %v", err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatalf("failed to write existing state file: %v", err)
+	}
 
 	// Update with new state
 	newState := &State{

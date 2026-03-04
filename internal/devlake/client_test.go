@@ -597,12 +597,12 @@ func TestDeleteScope(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var requestedPath string
+			var requestURI string
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.Method != http.MethodDelete {
 					t.Errorf("method = %s, want DELETE", r.Method)
 				}
-				requestedPath = r.URL.Path
+				requestURI = r.RequestURI
 				w.WriteHeader(tt.statusCode)
 			}))
 			defer srv.Close()
@@ -619,9 +619,15 @@ func TestDeleteScope(t *testing.T) {
 					t.Fatalf("unexpected error: %v", err)
 				}
 			}
-			// Verify the path contains the connection and plugin
-			if requestedPath != "" && !strings.Contains(requestedPath, "/plugins/github/connections/1/scopes/") {
-				t.Errorf("path %s doesn't contain expected prefix", requestedPath)
+			// Verify the RequestURI contains URL-escaped scope ID
+			if !tt.wantErr && requestURI != "" {
+				if !strings.Contains(requestURI, "/plugins/github/connections/1/scopes/") {
+					t.Errorf("RequestURI %s doesn't contain expected prefix", requestURI)
+				}
+				// For the slash test, verify URL escaping
+				if tt.scopeID == "org/repo" && !strings.Contains(requestURI, "org%2Frepo") {
+					t.Errorf("RequestURI %s doesn't contain URL-escaped scope ID (expected org%%2Frepo)", requestURI)
+				}
 			}
 		})
 	}
