@@ -14,6 +14,7 @@ var (
 	scopeDeletePlugin  string
 	scopeDeleteConnID  int
 	scopeDeleteScopeID string
+	scopeDeleteForce   bool
 )
 
 func newScopeDeleteCmd() *cobra.Command {
@@ -33,6 +34,7 @@ Examples:
 	cmd.Flags().StringVar(&scopeDeletePlugin, "plugin", "", fmt.Sprintf("Plugin of the connection (%s)", strings.Join(availablePluginSlugs(), ", ")))
 	cmd.Flags().IntVar(&scopeDeleteConnID, "connection-id", 0, "Connection ID")
 	cmd.Flags().StringVar(&scopeDeleteScopeID, "scope-id", "", "Scope ID to delete")
+	cmd.Flags().BoolVar(&scopeDeleteForce, "force", false, "Skip confirmation prompt")
 
 	return cmd
 }
@@ -133,7 +135,7 @@ func runScopeDelete(cmd *cobra.Command, args []string) error {
 	fmt.Println("   Blueprints referencing this scope may be affected.")
 
 	fmt.Println()
-	if !prompt.Confirm("Are you sure you want to delete this scope?") {
+	if !scopeDeleteForce && !prompt.Confirm("Are you sure you want to delete this scope?") {
 		fmt.Println("\n  Deletion cancelled.")
 		return nil
 	}
