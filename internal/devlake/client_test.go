@@ -725,6 +725,9 @@ func TestDeleteProject(t *testing.T) {
 				if r.Method != http.MethodDelete {
 					t.Errorf("method = %s, want DELETE", r.Method)
 				}
+				if r.URL.Path != "/projects/test-project" {
+					t.Errorf("path = %s, want /projects/test-project", r.URL.Path)
+				}
 				w.WriteHeader(tt.statusCode)
 			}))
 			defer srv.Close()

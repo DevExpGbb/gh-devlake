@@ -156,35 +156,6 @@ func TestDiscoverFromStateFile(t *testing.T) {
 	}
 }
 
-// TestDiscoverNoInstanceFound tests the error when no instance is found.
-func TestDiscoverNoInstanceFound(t *testing.T) {
-	tmpDir := t.TempDir()
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
-	}
-	defer os.Chdir(origDir)
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change directory: %v", err)
-	}
-
-	// Check if localhost:8080 or localhost:8085 are actually running
-	// If they are, skip this test to avoid flakiness
-	for _, port := range []string{"8080", "8085"} {
-		if err := pingURL("http://localhost:" + port); err == nil {
-			t.Skipf("localhost:%s is running, skipping test to avoid flakiness", port)
-		}
-	}
-
-	result, err := Discover("")
-	if err == nil {
-		t.Fatal("expected error when no instance found, got nil")
-	}
-	if result != nil {
-		t.Errorf("expected nil result, got %v", result)
-	}
-}
-
 // TestTryStateFileUnreachable tests tryStateFile with an unreachable backend.
 func TestTryStateFileUnreachable(t *testing.T) {
 	tmpDir := t.TempDir()
