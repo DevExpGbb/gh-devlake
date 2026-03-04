@@ -70,7 +70,7 @@ func GetRepoDetails(fullName string) (*RepoDetails, error) {
 func parseRepoDetails(data []byte) (*RepoDetails, error) {
 	var details RepoDetails
 	if err := json.Unmarshal(data, &details); err != nil {
-		return nil, fmt.Errorf("failed to parse repo details: %w", err)
+		return nil, err
 	}
 	return &details, nil
 }
