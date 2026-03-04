@@ -589,8 +589,8 @@ func TestListScopes(t *testing.T) {
 	if len(result.Scopes) != 1 {
 		t.Fatalf("len(Scopes) = %d, want 1", len(result.Scopes))
 	}
-	if result.Scopes[0].Scope.Name != "repo1" {
-		t.Errorf("Name = %q, want %q", result.Scopes[0].Scope.Name, "repo1")
+	if result.Scopes[0].ScopeName() != "repo1" {
+		t.Errorf("Name = %q, want %q", result.Scopes[0].ScopeName(), "repo1")
 	}
 }
 

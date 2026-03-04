@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -110,15 +109,16 @@ func runScopeList(cmd *cobra.Command, args []string) error {
 	// JSON output path
 	if outputJSON {
 		items := make([]scopeListItem, len(resp.Scopes))
+		def := FindConnectionDef(selectedPlugin)
 		for i, s := range resp.Scopes {
-			scopeID := s.Scope.ID
-			if scopeID == "" {
-				scopeID = strconv.Itoa(s.Scope.GithubID)
+			var scopeID string
+			if def != nil && def.ScopeIDField != "" {
+				scopeID = devlake.ExtractScopeID(s.RawScope, def.ScopeIDField)
 			}
 			items[i] = scopeListItem{
 				ID:       scopeID,
-				Name:     s.Scope.Name,
-				FullName: s.Scope.FullName,
+				Name:     s.ScopeName(),
+				FullName: s.ScopeFullName(),
 			}
 		}
 		return printJSON(items)
@@ -132,12 +132,13 @@ func runScopeList(cmd *cobra.Command, args []string) error {
 	w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "Scope ID\tName\tFull Name")
 	fmt.Fprintln(w, strings.Repeat("\u2500", 10)+"\t"+strings.Repeat("\u2500", 20)+"\t"+strings.Repeat("\u2500", 30))
+	def := FindConnectionDef(selectedPlugin)
 	for _, s := range resp.Scopes {
-		scopeID := s.Scope.ID
-		if scopeID == "" {
-			scopeID = strconv.Itoa(s.Scope.GithubID)
+		var scopeID string
+		if def != nil && def.ScopeIDField != "" {
+			scopeID = devlake.ExtractScopeID(s.RawScope, def.ScopeIDField)
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n", scopeID, s.Scope.Name, s.Scope.FullName)
+		fmt.Fprintf(w, "%s\t%s\t%s\n", scopeID, s.ScopeName(), s.ScopeFullName())
 	}
 	w.Flush()
 	fmt.Println()
