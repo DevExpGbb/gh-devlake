@@ -548,6 +548,13 @@ func TestPutScopes(t *testing.T) {
 // TestListScopes tests the ListScopes method.
 func TestListScopes(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("method = %s, want GET", r.Method)
+		}
+		expectedURI := "/plugins/github/connections/1/scopes?pageSize=100&page=1"
+		if r.URL.RequestURI() != expectedURI {
+			t.Errorf("request URI = %s, want %s", r.URL.RequestURI(), expectedURI)
+		}
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"scopes": [{"scope": {"githubId": 1, "name": "repo1"}}], "count": 1}`))
 	}))

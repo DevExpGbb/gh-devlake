@@ -201,9 +201,14 @@ func TestLoadStateEmptyFile(t *testing.T) {
 // TestFindStateFileMatchingEndpoint tests finding a state file by matching endpoint.
 func TestFindStateFileMatchingEndpoint(t *testing.T) {
 	tmpDir := t.TempDir()
-	origDir, _ := os.Getwd()
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
 	defer os.Chdir(origDir)
-	os.Chdir(tmpDir)
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
 
 	// Create Azure state with matching endpoint
 	azureState := &State{
@@ -243,9 +248,14 @@ func TestFindStateFileMatchingEndpoint(t *testing.T) {
 // TestFindStateFileFallbackToFirst tests falling back to first existing file.
 func TestFindStateFileFallbackToFirst(t *testing.T) {
 	tmpDir := t.TempDir()
-	origDir, _ := os.Getwd()
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
 	defer os.Chdir(origDir)
-	os.Chdir(tmpDir)
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
 
 	// Only create Azure state (local doesn't exist)
 	azureState := &State{
@@ -254,8 +264,13 @@ func TestFindStateFileFallbackToFirst(t *testing.T) {
 			Backend: "https://devlake.example.com",
 		},
 	}
-	azureData, _ := json.MarshalIndent(azureState, "", "  ")
-	os.WriteFile(".devlake-azure.json", azureData, 0644)
+	azureData, err := json.MarshalIndent(azureState, "", "  ")
+	if err != nil {
+		t.Fatalf("failed to marshal azure state JSON: %v", err)
+	}
+	if err := os.WriteFile(".devlake-azure.json", azureData, 0644); err != nil {
+		t.Fatalf("failed to write azure state file: %v", err)
+	}
 
 	// Search for a different endpoint — should fall back to first existing
 	path, state := FindStateFile("http://localhost:9999", "")
@@ -271,9 +286,14 @@ func TestFindStateFileFallbackToFirst(t *testing.T) {
 // TestFindStateFileCreateNew tests creating a new local state when none exist.
 func TestFindStateFileCreateNew(t *testing.T) {
 	tmpDir := t.TempDir()
-	origDir, _ := os.Getwd()
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
 	defer os.Chdir(origDir)
-	os.Chdir(tmpDir)
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
 
 	path, state := FindStateFile("http://localhost:8080", "http://localhost:3002")
 
@@ -305,7 +325,9 @@ func TestUpdateConnections(t *testing.T) {
 			Backend: "http://localhost:8080",
 		},
 	}
-	SaveState(path, initialState)
+	if err := SaveState(path, initialState); err != nil {
+		t.Fatalf("SaveState failed: %v", err)
+	}
 
 	newConns := []StateConnection{
 		{Plugin: "github", ConnectionID: 1, Name: "conn1"},
@@ -318,7 +340,13 @@ func TestUpdateConnections(t *testing.T) {
 	}
 
 	// Reload and verify
-	loadedState, _ := LoadState(path)
+	loadedState, err := LoadState(path)
+	if err != nil {
+		t.Fatalf("LoadState failed: %v", err)
+	}
+	if loadedState == nil {
+		t.Fatal("LoadState returned nil state")
+	}
 	if len(loadedState.Connections) != 2 {
 		t.Fatalf("len(Connections) = %d, want 2", len(loadedState.Connections))
 	}
@@ -333,9 +361,14 @@ func TestUpdateConnections(t *testing.T) {
 // TestLoadStateFromCwd tests loading state from current working directory.
 func TestLoadStateFromCwd(t *testing.T) {
 	tmpDir := t.TempDir()
-	origDir, _ := os.Getwd()
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
 	defer os.Chdir(origDir)
-	os.Chdir(tmpDir)
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
 
 	// No state files exist
 	state, err := LoadStateFromCwd()
@@ -353,8 +386,13 @@ func TestLoadStateFromCwd(t *testing.T) {
 			Backend: "http://localhost:8080",
 		},
 	}
-	data, _ := json.MarshalIndent(localState, "", "  ")
-	os.WriteFile(".devlake-local.json", data, 0644)
+	data, err := json.MarshalIndent(localState, "", "  ")
+	if err != nil {
+		t.Fatalf("failed to marshal local state JSON: %v", err)
+	}
+	if err := os.WriteFile(".devlake-local.json", data, 0644); err != nil {
+		t.Fatalf("failed to write local state file: %v", err)
+	}
 
 	// Should find it
 	state, err = LoadStateFromCwd()
@@ -396,12 +434,19 @@ func TestSaveStatePreservesAndUpdatesFields(t *testing.T) {
 			Backend: "https://example.com",
 		},
 	}
-	SaveState(path, newState)
+	if err := SaveState(path, newState); err != nil {
+		t.Fatalf("SaveState failed: %v", err)
+	}
 
 	// Read back and verify both old and new fields exist
-	data, _ = os.ReadFile(path)
+	data, err = os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read state file: %v", err)
+	}
 	var result map[string]any
-	json.Unmarshal(data, &result)
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatalf("failed to unmarshal state JSON: %v", err)
+	}
 
 	if result["resourceGroup"] != "my-rg" {
 		t.Error("resourceGroup was not preserved")

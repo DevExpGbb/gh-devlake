@@ -105,9 +105,14 @@ func TestDiscoverExplicitURLUnreachable(t *testing.T) {
 // TestDiscoverFromStateFile tests discovery from state files.
 func TestDiscoverFromStateFile(t *testing.T) {
 	tmpDir := t.TempDir()
-	origDir, _ := os.Getwd()
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
 	defer os.Chdir(origDir)
-	os.Chdir(tmpDir)
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
 
 	// Start mock server
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -128,8 +133,13 @@ func TestDiscoverFromStateFile(t *testing.T) {
 			ConfigUI: "http://localhost:4000",
 		},
 	}
-	data, _ := json.MarshalIndent(state, "", "  ")
-	os.WriteFile(".devlake-local.json", data, 0644)
+	data, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		t.Fatalf("failed to marshal state JSON: %v", err)
+	}
+	if err := os.WriteFile(".devlake-local.json", data, 0644); err != nil {
+		t.Fatalf("failed to write state file: %v", err)
+	}
 
 	result, err := Discover("")
 	if err != nil {
@@ -149,9 +159,22 @@ func TestDiscoverFromStateFile(t *testing.T) {
 // TestDiscoverNoInstanceFound tests the error when no instance is found.
 func TestDiscoverNoInstanceFound(t *testing.T) {
 	tmpDir := t.TempDir()
-	origDir, _ := os.Getwd()
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
 	defer os.Chdir(origDir)
-	os.Chdir(tmpDir)
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
+
+	// Check if localhost:8080 or localhost:8085 are actually running
+	// If they are, skip this test to avoid flakiness
+	for _, port := range []string{"8080", "8085"} {
+		if err := pingURL("http://localhost:" + port); err == nil {
+			t.Skipf("localhost:%s is running, skipping test to avoid flakiness", port)
+		}
+	}
 
 	result, err := Discover("")
 	if err == nil {
@@ -234,9 +257,14 @@ func TestTryStateFileInvalidJSON(t *testing.T) {
 // TestDiscoverPriorityOrder tests the discovery priority order.
 func TestDiscoverPriorityOrder(t *testing.T) {
 	tmpDir := t.TempDir()
-	origDir, _ := os.Getwd()
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
 	defer os.Chdir(origDir)
-	os.Chdir(tmpDir)
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
 
 	// Create two mock servers
 	srv1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -260,8 +288,13 @@ func TestDiscoverPriorityOrder(t *testing.T) {
 			Backend: srv2.URL,
 		},
 	}
-	data, _ := json.MarshalIndent(state, "", "  ")
-	os.WriteFile(".devlake-local.json", data, 0644)
+	data, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		t.Fatalf("failed to marshal state JSON: %v", err)
+	}
+	if err := os.WriteFile(".devlake-local.json", data, 0644); err != nil {
+		t.Fatalf("failed to write state file: %v", err)
+	}
 
 	// Explicit URL should take priority
 	result, err := Discover(srv1.URL)
@@ -309,9 +342,14 @@ func TestDiscoverTrailingSlash(t *testing.T) {
 // TestDiscoverMultipleStateFiles tests priority when both Azure and local state exist.
 func TestDiscoverMultipleStateFiles(t *testing.T) {
 	tmpDir := t.TempDir()
-	origDir, _ := os.Getwd()
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
 	defer os.Chdir(origDir)
-	os.Chdir(tmpDir)
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/ping" {
