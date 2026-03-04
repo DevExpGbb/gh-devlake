@@ -529,13 +529,14 @@ func startLocalContainers(dir string, build bool, services ...string) (string, e
 	}
 	fmt.Println("   ✅ Containers starting")
 
-	backendURL := "http://localhost:8080"
+	backendURLCandidates := []string{"http://localhost:8080", "http://localhost:8085"}
 	fmt.Println("\n⏳ Waiting for DevLake to be ready...")
 	fmt.Println("   Giving MySQL time to initialize (this takes ~30s on first run)...")
 	time.Sleep(30 * time.Second)
 
-	if err := waitForReady(backendURL, 36, 10*time.Second); err != nil {
-		return backendURL, fmt.Errorf("DevLake not ready after 6 minutes — check: docker compose logs devlake")
+	backendURL, err := waitForReadyAny(backendURLCandidates, 36, 10*time.Second)
+	if err != nil {
+		return backendURLCandidates[0], fmt.Errorf("DevLake not ready after 6 minutes — check: docker compose logs devlake")
 	}
 	return backendURL, nil
 }
