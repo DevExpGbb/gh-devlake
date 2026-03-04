@@ -382,6 +382,12 @@ func TestDiscoverMultipleStateFiles(t *testing.T) {
 // TestPingURLSuccess tests that pingURL succeeds on a 200 OK response.
 func TestPingURLSuccess(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("method = %s, want GET", r.Method)
+		}
+		if r.URL.Path != "/ping" {
+			t.Errorf("path = %s, want /ping", r.URL.Path)
+		}
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
@@ -395,6 +401,12 @@ func TestPingURLSuccess(t *testing.T) {
 // TestPingURLNon200Status tests pingURL with non-200 status.
 func TestPingURLNon200Status(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("method = %s, want GET", r.Method)
+		}
+		if r.URL.Path != "/ping" {
+			t.Errorf("path = %s, want /ping", r.URL.Path)
+		}
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
 	defer srv.Close()
