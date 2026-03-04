@@ -181,8 +181,8 @@ func runAddConnection(cmd *cobra.Command, args []string) error {
 		hintOrg = "<org>"
 	}
 	fmt.Println("\nNext steps:")
-	fmt.Printf("  Run 'gh devlake configure scope --org %s' to create a project\n", hintOrg)
-	fmt.Println("  and start collecting data.")
+	fmt.Printf("  Run 'gh devlake configure scope add --plugin %s --org %s' to add scopes\n", def.Plugin, hintOrg)
+	fmt.Println("  Then run 'gh devlake configure project add' to create a project and start collecting data.")
 
 	return nil
 }
