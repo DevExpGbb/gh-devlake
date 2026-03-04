@@ -139,7 +139,7 @@ func runAddConnection(cmd *cobra.Command, args []string) error {
 	if def.NeedsUsername {
 		username := resolveUsername(def, connUsername, connEnvFile)
 		if username == "" {
-			return fmt.Errorf("--username is required for %s", def.DisplayName)
+			return fmt.Errorf("username is required for %s (provide it via --username or at the prompt)", def.DisplayName)
 		}
 		params.Username = username
 	}

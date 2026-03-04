@@ -206,7 +206,7 @@ func TestBuildCreateRequest_BasicAuth(t *testing.T) {
 		NeedsUsername: true,
 	}
 
-	t.Run("username and password populated", func(t *testing.T) {
+	t.Run("username and password populated, token empty", func(t *testing.T) {
 		req := def.BuildCreateRequest("test", ConnectionParams{
 			Token:    "mypassword",
 			Username: "admin",
@@ -217,18 +217,24 @@ func TestBuildCreateRequest_BasicAuth(t *testing.T) {
 		if req.Password != "mypassword" {
 			t.Errorf("got Password %q, want %q", req.Password, "mypassword")
 		}
+		if req.Token != "" {
+			t.Errorf("expected empty Token for BasicAuth, got %q", req.Token)
+		}
 		if req.AuthMethod != "BasicAuth" {
 			t.Errorf("got AuthMethod %q, want %q", req.AuthMethod, "BasicAuth")
 		}
 	})
 
-	t.Run("no username = no username/password fields", func(t *testing.T) {
+	t.Run("no username = token field used instead", func(t *testing.T) {
 		req := def.BuildCreateRequest("test", ConnectionParams{Token: "tok"})
 		if req.Username != "" {
 			t.Errorf("expected empty Username, got %q", req.Username)
 		}
 		if req.Password != "" {
 			t.Errorf("expected empty Password, got %q", req.Password)
+		}
+		if req.Token != "tok" {
+			t.Errorf("expected Token %q, got %q", "tok", req.Token)
 		}
 	})
 }
@@ -242,7 +248,7 @@ func TestBuildTestRequest_BasicAuth(t *testing.T) {
 		NeedsUsername: true,
 	}
 
-	t.Run("username and password populated", func(t *testing.T) {
+	t.Run("username and password populated, token empty", func(t *testing.T) {
 		req := def.BuildTestRequest("test", ConnectionParams{
 			Token:    "mypassword",
 			Username: "admin",
@@ -253,18 +259,24 @@ func TestBuildTestRequest_BasicAuth(t *testing.T) {
 		if req.Password != "mypassword" {
 			t.Errorf("got Password %q, want %q", req.Password, "mypassword")
 		}
+		if req.Token != "" {
+			t.Errorf("expected empty Token for BasicAuth, got %q", req.Token)
+		}
 		if req.AuthMethod != "BasicAuth" {
 			t.Errorf("got AuthMethod %q, want %q", req.AuthMethod, "BasicAuth")
 		}
 	})
 
-	t.Run("no username = no username/password fields", func(t *testing.T) {
+	t.Run("no username = token field used instead", func(t *testing.T) {
 		req := def.BuildTestRequest("test", ConnectionParams{Token: "tok"})
 		if req.Username != "" {
 			t.Errorf("expected empty Username, got %q", req.Username)
 		}
 		if req.Password != "" {
 			t.Errorf("expected empty Password, got %q", req.Password)
+		}
+		if req.Token != "tok" {
+			t.Errorf("expected Token %q, got %q", "tok", req.Token)
 		}
 	})
 }

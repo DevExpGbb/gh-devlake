@@ -112,13 +112,16 @@ func (d *ConnectionDef) BuildCreateRequest(name string, params ConnectionParams)
 		Endpoint:         endpoint,
 		Proxy:            params.Proxy,
 		AuthMethod:       d.authMethod(),
-		Token:            params.Token,
 		RateLimitPerHour: d.rateLimitOrDefault(),
 		EnableGraphql:    d.EnableGraphql,
 	}
 	if d.NeedsUsername && params.Username != "" {
+		// BasicAuth-style plugins (e.g., Jenkins, Bitbucket, Jira) expect credentials
+		// in username/password fields, not in the token field.
 		req.Username = params.Username
 		req.Password = params.Token
+	} else {
+		req.Token = params.Token
 	}
 	if (d.NeedsOrg || d.NeedsOrgOrEnt) && params.Org != "" {
 		req.Organization = params.Org
@@ -139,14 +142,17 @@ func (d *ConnectionDef) BuildTestRequest(name string, params ConnectionParams) *
 		Name:             name,
 		Endpoint:         endpoint,
 		AuthMethod:       d.authMethod(),
-		Token:            params.Token,
 		RateLimitPerHour: d.rateLimitOrDefault(),
 		Proxy:            params.Proxy,
 		EnableGraphql:    d.EnableGraphql,
 	}
 	if d.NeedsUsername && params.Username != "" {
+		// BasicAuth-style plugins (e.g., Jenkins, Bitbucket, Jira) expect credentials
+		// in username/password fields, not in the token field.
 		req.Username = params.Username
 		req.Password = params.Token
+	} else {
+		req.Token = params.Token
 	}
 	if (d.NeedsOrg || d.NeedsOrgOrEnt) && params.Org != "" {
 		req.Organization = params.Org
