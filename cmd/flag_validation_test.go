@@ -13,13 +13,24 @@ import (
 // captureStdout runs fn and returns everything written to os.Stdout.
 func captureStdout(fn func()) string {
 	orig := os.Stdout
-	r, w, _ := os.Pipe()
+	r, w, err := os.Pipe()
+	if err != nil {
+		panic(err)
+	}
 	os.Stdout = w
+
+	// Ensure os.Stdout is always restored, even if fn panics.
+	defer func() {
+		os.Stdout = orig
+	}()
+	defer func() {
+		_ = r.Close()
+	}()
 
 	fn()
 
+	// Close the writer before copying so io.Copy sees EOF and does not block.
 	_ = w.Close()
-	os.Stdout = orig
 	var buf bytes.Buffer
 	_, _ = io.Copy(&buf, r)
 	return buf.String()
