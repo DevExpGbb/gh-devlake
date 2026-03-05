@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/DevExpGBB/gh-devlake/internal/devlake"
 	"github.com/DevExpGBB/gh-devlake/internal/prompt"
 )
 
@@ -14,6 +14,7 @@ var (
 	scopeDeletePlugin  string
 	scopeDeleteConnID  int
 	scopeDeleteScopeID string
+	scopeDeleteForce   bool
 )
 
 func newScopeDeleteCmd() *cobra.Command {
@@ -26,13 +27,15 @@ If --plugin, --connection-id, and --scope-id are not specified, prompts interact
 
 Examples:
   gh devlake configure scope delete
-  gh devlake configure scope delete --plugin github --connection-id 1 --scope-id 12345678`,
+  gh devlake configure scope delete --plugin github --connection-id 1 --scope-id 12345678
+  gh devlake configure scope delete --plugin github --connection-id 1 --scope-id 12345678 --force`,
 		RunE: runScopeDelete,
 	}
 
 	cmd.Flags().StringVar(&scopeDeletePlugin, "plugin", "", fmt.Sprintf("Plugin of the connection (%s)", strings.Join(availablePluginSlugs(), ", ")))
 	cmd.Flags().IntVar(&scopeDeleteConnID, "connection-id", 0, "Connection ID")
 	cmd.Flags().StringVar(&scopeDeleteScopeID, "scope-id", "", "Scope ID to delete")
+	cmd.Flags().BoolVar(&scopeDeleteForce, "force", false, "Skip confirmation prompt")
 
 	return cmd
 }
@@ -98,14 +101,18 @@ func runScopeDelete(cmd *cobra.Command, args []string) error {
 		}
 		var entries []scopeEntry
 		var labels []string
+		def := FindConnectionDef(selectedPlugin)
 		for _, s := range resp.Scopes {
-			id := s.Scope.ID
-			if id == "" {
-				id = strconv.Itoa(s.Scope.GithubID)
-			}
-			name := s.Scope.FullName
+			name := s.ScopeFullName()
 			if name == "" {
-				name = s.Scope.Name
+				name = s.ScopeName()
+			}
+			var id string
+			if def != nil && def.ScopeIDField != "" {
+				id = devlake.ExtractScopeID(s.RawScope, def.ScopeIDField)
+			}
+			if id == "" {
+				id = name
 			}
 			label := fmt.Sprintf("[%s] %s", id, name)
 			entries = append(entries, scopeEntry{id: id, label: label})
@@ -133,7 +140,7 @@ func runScopeDelete(cmd *cobra.Command, args []string) error {
 	fmt.Println("   Blueprints referencing this scope may be affected.")
 
 	fmt.Println()
-	if !prompt.Confirm("Are you sure you want to delete this scope?") {
+	if !scopeDeleteForce && !prompt.Confirm("Are you sure you want to delete this scope?") {
 		fmt.Println("\n  Deletion cancelled.")
 		return nil
 	}
@@ -145,9 +152,9 @@ func runScopeDelete(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Println("   \u2705 Scope deleted")
 
-	fmt.Println("\n" + strings.Repeat("\u2500", 50))
+	fmt.Println("\n" + strings.Repeat("\u2500", 40))
 	fmt.Printf("\u2705 Scope deleted (plugin: %s, connection ID=%d, scope ID=%s)\n", selectedPlugin, selectedConnID, selectedScopeID)
-	fmt.Println(strings.Repeat("\u2500", 50))
+	fmt.Println(strings.Repeat("\u2500", 40))
 	fmt.Println()
 
 	return nil

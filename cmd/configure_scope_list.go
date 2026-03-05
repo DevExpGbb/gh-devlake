@@ -2,11 +2,12 @@ package cmd
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+
+	"github.com/DevExpGBB/gh-devlake/internal/devlake"
 )
 
 var (
@@ -34,9 +35,14 @@ Examples:
 	return cmd
 }
 
-func runScopeList(cmd *cobra.Command, args []string) error {
-	printBanner("DevLake \u2014 List Scopes")
+// scopeListItem is the JSON representation of a single scope entry.
+type scopeListItem struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	FullName string `json:"fullName,omitempty"`
+}
 
+func runScopeList(cmd *cobra.Command, args []string) error {
 	pluginFlagSet := cmd.Flags().Changed("plugin")
 	connIDFlagSet := cmd.Flags().Changed("connection-id")
 
@@ -53,9 +59,26 @@ func runScopeList(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	client, _, err := discoverClient(cfgURL)
-	if err != nil {
-		return err
+	// In JSON mode, flags are required (interactive prompts are not supported)
+	if outputJSON && !(pluginFlagSet && connIDFlagSet) {
+		return fmt.Errorf("--plugin and --connection-id are required with --json")
+	}
+
+	// Discover client (quietly in JSON mode to keep stdout clean)
+	var client *devlake.Client
+	if outputJSON {
+		disc, err := devlake.Discover(cfgURL)
+		if err != nil {
+			return err
+		}
+		client = devlake.NewClient(disc.URL)
+	} else {
+		printBanner("DevLake \u2014 List Scopes")
+		c, _, err := discoverClient(cfgURL)
+		if err != nil {
+			return err
+		}
+		client = c
 	}
 
 	selectedPlugin := scopeListPlugin
@@ -74,11 +97,40 @@ func runScopeList(cmd *cobra.Command, args []string) error {
 		selectedConnID = picked.ID
 	}
 
-	fmt.Printf("\n\U0001f4cb Listing scopes for %s connection ID=%d...\n", selectedPlugin, selectedConnID)
+	if !outputJSON {
+		fmt.Printf("\n\U0001f4cb Listing scopes for %s connection ID=%d...\n", selectedPlugin, selectedConnID)
+	}
 
 	resp, err := client.ListScopes(selectedPlugin, selectedConnID)
 	if err != nil {
 		return fmt.Errorf("failed to list scopes: %w", err)
+	}
+
+	def := FindConnectionDef(selectedPlugin)
+
+	// scopeIDFor extracts the scope ID using the plugin's ScopeIDField (def.ScopeIDField).
+	// When ExtractScopeID returns "" (field absent or plugin has no ScopeIDField configured),
+	// it falls back to the display name so the output always shows a usable identifier.
+	scopeIDFor := func(s *devlake.ScopeListWrapper) string {
+		if def != nil && def.ScopeIDField != "" {
+			if id := devlake.ExtractScopeID(s.RawScope, def.ScopeIDField); id != "" {
+				return id
+			}
+		}
+		return s.ScopeName()
+	}
+
+	// JSON output path
+	if outputJSON {
+		items := make([]scopeListItem, len(resp.Scopes))
+		for i, s := range resp.Scopes {
+			items[i] = scopeListItem{
+				ID:       scopeIDFor(&s),
+				Name:     s.ScopeName(),
+				FullName: s.ScopeFullName(),
+			}
+		}
+		return printJSON(items)
 	}
 
 	if len(resp.Scopes) == 0 {
@@ -90,11 +142,7 @@ func runScopeList(cmd *cobra.Command, args []string) error {
 	fmt.Fprintln(w, "Scope ID\tName\tFull Name")
 	fmt.Fprintln(w, strings.Repeat("\u2500", 10)+"\t"+strings.Repeat("\u2500", 20)+"\t"+strings.Repeat("\u2500", 30))
 	for _, s := range resp.Scopes {
-		scopeID := s.Scope.ID
-		if scopeID == "" {
-			scopeID = strconv.Itoa(s.Scope.GithubID)
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n", scopeID, s.Scope.Name, s.Scope.FullName)
+		fmt.Fprintf(w, "%s\t%s\t%s\n", scopeIDFor(&s), s.ScopeName(), s.ScopeFullName())
 	}
 	w.Flush()
 	fmt.Println()

@@ -127,6 +127,8 @@ gh devlake configure scope list [--plugin <plugin>] [--connection-id <id>]
 
 **Interactive mode:** Omit both flags — the CLI lists all connections across plugins and lets you pick one.
 
+**JSON mode:** Pass the global `--json` flag to output a JSON array instead of a table. `--plugin` and `--connection-id` are required in JSON mode (interactive prompts are not supported).
+
 ### Output
 
 ```
@@ -144,6 +146,10 @@ gh devlake configure scope list --plugin github --connection-id 1
 
 # Interactive
 gh devlake configure scope list
+
+# JSON output (for scripting)
+gh devlake configure scope list --plugin github --connection-id 1 --json
+# → [{"id":"12345678","name":"api","fullName":"my-org/api"},{"id":"87654321","name":"frontend","fullName":"my-org/frontend"}]
 ```
 
 ---
@@ -165,6 +171,7 @@ gh devlake configure scope delete [--plugin <plugin>] [--connection-id <id>] [--
 | `--plugin` | *(interactive)* | Plugin of the connection (`github`, `gh-copilot`) |
 | `--connection-id` | *(interactive)* | Connection ID |
 | `--scope-id` | *(interactive)* | Scope ID to delete |
+| `--force` | `false` | Skip confirmation prompt |
 
 **Flag mode:** all three flags are required.
 
@@ -175,6 +182,9 @@ gh devlake configure scope delete [--plugin <plugin>] [--connection-id <id>] [--
 ```bash
 # Non-interactive
 gh devlake configure scope delete --plugin github --connection-id 1 --scope-id 12345678
+
+# Skip confirmation (useful in CI/CD)
+gh devlake configure scope delete --plugin github --connection-id 1 --scope-id 12345678 --force
 
 # Interactive
 gh devlake configure scope delete

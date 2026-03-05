@@ -130,7 +130,7 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 		printBanner("DevLake Azure Deployment")
 	}
 
-	fmt.Printf("\nConfiguration:\n")
+	fmt.Printf("\n📋 Configuration:\n")
 	fmt.Printf("  Resource Group: %s\n", azureRG)
 	fmt.Printf("  Location:       %s\n", azureLocation)
 	fmt.Printf("  Base Name:      %s\n", azureBaseName)
@@ -182,6 +182,9 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 		repoRoot, err := findRepoRoot()
 		if err != nil {
 			return err
+		}
+		if azureRepoURL != "" {
+			defer os.RemoveAll(repoRoot)
 		}
 		fmt.Printf("\n🏗️  Building Docker images from %s...\n", repoRoot)
 

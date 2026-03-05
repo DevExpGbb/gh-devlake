@@ -233,23 +233,27 @@ func listConnectionScopes(client *devlake.Client, c connChoice) (*addedConnectio
 
 	var bpScopes []devlake.BlueprintScope
 	var repos []string
+	def := FindConnectionDef(c.plugin)
 	for _, w := range resp.Scopes {
-		s := w.Scope
-		// Resolve scope ID: GitHub uses githubId (int), Copilot uses id (string)
-		scopeID := s.ID
-		if c.plugin == "github" && s.GithubID > 0 {
-			scopeID = fmt.Sprintf("%d", s.GithubID)
+		// Generic scope ID extraction using the plugin's configured ScopeIDField.
+		var scopeID string
+		if def != nil && def.ScopeIDField != "" {
+			scopeID = devlake.ExtractScopeID(w.RawScope, def.ScopeIDField)
 		}
-		scopeName := s.FullName
+		fullName := w.ScopeFullName()
+		scopeName := fullName
 		if scopeName == "" {
-			scopeName = s.Name
+			scopeName = w.ScopeName()
+		}
+		if scopeID == "" {
+			scopeID = scopeName
 		}
 		bpScopes = append(bpScopes, devlake.BlueprintScope{
 			ScopeID:   scopeID,
 			ScopeName: scopeName,
 		})
-		if c.plugin == "github" && s.FullName != "" {
-			repos = append(repos, s.FullName)
+		if def != nil && def.HasRepoScopes && fullName != "" {
+			repos = append(repos, fullName)
 		}
 		fmt.Printf("   %s (ID: %s)\n", scopeName, scopeID)
 	}
@@ -344,7 +348,7 @@ func finalizeProject(opts finalizeProjectOpts) error {
 		fmt.Printf("\n\U0001f4be State saved to %s\n", opts.StatePath)
 	}
 
-	fmt.Println("\n" + strings.Repeat("\u2500", 50))
+	fmt.Println("\n" + strings.Repeat("\u2500", 40))
 	fmt.Println("\u2705 Project configured successfully!")
 	fmt.Printf("   Project: %s\n", opts.ProjectName)
 	if len(opts.Repos) > 0 {
@@ -353,7 +357,8 @@ func finalizeProject(opts finalizeProjectOpts) error {
 	for _, pn := range opts.PluginNames {
 		fmt.Printf("   Plugin:  %s\n", pn)
 	}
-	fmt.Println(strings.Repeat("\u2500", 50))
+	fmt.Println(strings.Repeat("\u2500", 40))
+	fmt.Println()
 
 	return nil
 }

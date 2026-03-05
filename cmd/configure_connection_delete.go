@@ -13,6 +13,7 @@ import (
 var (
 	connDeletePlugin string
 	connDeleteID     int
+	connDeleteForce  bool
 )
 
 var deleteConnectionCmd = &cobra.Command{
@@ -24,13 +25,15 @@ If --plugin and --id are not specified, prompts interactively.
 
 Examples:
   gh devlake configure connection delete
-  gh devlake configure connection delete --plugin github --id 3`,
+  gh devlake configure connection delete --plugin github --id 3
+  gh devlake configure connection delete --plugin github --id 3 --force`,
 	RunE: runDeleteConnection,
 }
 
 func init() {
 	deleteConnectionCmd.Flags().StringVar(&connDeletePlugin, "plugin", "", "Plugin of the connection to delete")
 	deleteConnectionCmd.Flags().IntVar(&connDeleteID, "id", 0, "ID of the connection to delete")
+	deleteConnectionCmd.Flags().BoolVar(&connDeleteForce, "force", false, "Skip confirmation prompt")
 	configureConnectionsCmd.AddCommand(deleteConnectionCmd)
 }
 
@@ -87,7 +90,7 @@ func runDeleteConnection(cmd *cobra.Command, args []string) error {
 	fmt.Printf("\n⚠️  This will delete connection ID=%d (plugin: %s).\n", connID, plugin)
 	fmt.Println("   Any scopes and blueprint references for this connection will also be lost.")
 	fmt.Println()
-	if !prompt.Confirm("Are you sure you want to delete this connection?") {
+	if !connDeleteForce && !prompt.Confirm("Are you sure you want to delete this connection?") {
 		fmt.Println("\n  Deletion cancelled.")
 		fmt.Println()
 		return nil
@@ -115,9 +118,9 @@ func runDeleteConnection(cmd *cobra.Command, args []string) error {
 		fmt.Printf("\n💾 State saved to %s\n", statePath)
 	}
 
-	fmt.Println("\n" + strings.Repeat("─", 50))
+	fmt.Println("\n" + strings.Repeat("─", 40))
 	fmt.Printf("✅ Connection deleted (plugin: %s, ID=%d)\n", plugin, connID)
-	fmt.Println(strings.Repeat("─", 50))
+	fmt.Println(strings.Repeat("─", 40))
 	fmt.Println()
 
 	return nil

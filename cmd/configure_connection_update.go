@@ -160,9 +160,9 @@ func runUpdateConnection(cmd *cobra.Command, args []string) error {
 	}
 
 	// ── Summary ──
-	fmt.Println("\n" + strings.Repeat("─", 50))
+	fmt.Println("\n" + strings.Repeat("─", 40))
 	fmt.Printf("✅ Connection updated (ID=%d) %q\n", updated.ID, updated.Name)
-	fmt.Println(strings.Repeat("─", 50))
+	fmt.Println(strings.Repeat("─", 40))
 	fmt.Println()
 
 	return nil

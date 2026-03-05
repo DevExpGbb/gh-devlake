@@ -170,10 +170,10 @@ func runAddConnection(cmd *cobra.Command, args []string) error {
 	}
 
 	// ── Summary ──
-	fmt.Println("\n" + strings.Repeat("─", 50))
+	fmt.Println("\n" + strings.Repeat("─", 40))
 	fmt.Printf("✅ %s connection configured!\n", def.DisplayName)
 	fmt.Printf("   ID=%d  %q\n", result.ConnectionID, result.Name)
-	fmt.Println(strings.Repeat("─", 50))
+	fmt.Println(strings.Repeat("─", 40))
 
 	// ── Next step hint ──
 	hintOrg := org
@@ -181,8 +181,8 @@ func runAddConnection(cmd *cobra.Command, args []string) error {
 		hintOrg = "<org>"
 	}
 	fmt.Println("\nNext steps:")
-	fmt.Printf("  Run 'gh devlake configure scope --org %s' to create a project\n", hintOrg)
-	fmt.Println("  and start collecting data.")
+	fmt.Printf("  Run 'gh devlake configure scope add --plugin %s --org %s' to add scopes\n", def.Plugin, hintOrg)
+	fmt.Println("  Then run 'gh devlake configure project add' to create a project and start collecting data.")
 
 	return nil
 }

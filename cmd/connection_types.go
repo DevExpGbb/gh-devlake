@@ -35,6 +35,8 @@ type ConnectionDef struct {
 	EnvVarNames      []string     // environment variable names for token resolution
 	EnvFileKeys      []string     // .devlake.env keys for token resolution
 	ScopeFunc        ScopeHandler // nil = scope configuration not yet supported
+	ScopeIDField     string       // JSON field name for the scope ID (e.g. "githubId", "id")
+	HasRepoScopes    bool         // true = scopes carry a FullName that should be tracked as repos
 }
 
 // MenuLabel returns the label for interactive menus.
@@ -144,6 +146,8 @@ var connectionRegistry = []*ConnectionDef{
 		EnvVarNames:      []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
 		EnvFileKeys:      []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
 		ScopeFunc:        scopeGitHubHandler,
+		ScopeIDField:     "githubId",
+		HasRepoScopes:    true,
 	},
 	{
 		Plugin:           "gh-copilot",
@@ -161,6 +165,7 @@ var connectionRegistry = []*ConnectionDef{
 		EnvVarNames:      []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
 		EnvFileKeys:      []string{"GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"},
 		ScopeFunc:        scopeCopilotHandler,
+		ScopeIDField:     "id",
 	},
 	{
 		Plugin:      "gitlab",

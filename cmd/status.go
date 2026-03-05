@@ -80,7 +80,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	printBanner("DevLake Status")
-	sep := "  " + strings.Repeat("─", 42)
+	sep := "  " + strings.Repeat("─", 38)
 
 	if state == nil {
 		disc, err := devlake.Discover(cfgURL)
@@ -306,8 +306,9 @@ func runStatusJSON(state *devlake.State, stateFile string) error {
 	return printJSON(out)
 }
 
-// pingEndpoint returns ✅, ❌, or a warning icon for the given URL.
-func pingEndpoint(url string, kind string) string {
+// endpointStatusCode performs a health request for the given URL and kind,
+// returning the HTTP status code, or 0 if the request fails entirely.
+func endpointStatusCode(url, kind string) int {
 	checkURL := strings.TrimRight(url, "/")
 	if kind == "backend" {
 		checkURL += "/ping"
@@ -318,31 +319,28 @@ func pingEndpoint(url string, kind string) string {
 	client := &http.Client{Timeout: 8 * time.Second}
 	resp, err := client.Get(checkURL)
 	if err != nil {
-		return "❌"
+		return 0
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
-		return "✅"
-	}
-	return fmt.Sprintf("⚠️  (%d)", resp.StatusCode)
+	return resp.StatusCode
 }
 
 // checkEndpointHealth returns true if the endpoint responds successfully.
 func checkEndpointHealth(url string, kind string) bool {
-	checkURL := strings.TrimRight(url, "/")
-	if kind == "backend" {
-		checkURL += "/ping"
+	code := endpointStatusCode(url, kind)
+	return code >= 200 && code < 400
+}
+
+// pingEndpoint returns ✅, ❌, or a warning icon for the given URL.
+func pingEndpoint(url string, kind string) string {
+	code := endpointStatusCode(url, kind)
+	if code == 0 {
+		return "❌"
 	}
-	if kind == "grafana" {
-		checkURL += "/api/health"
+	if code >= 200 && code < 400 {
+		return "✅"
 	}
-	client := &http.Client{Timeout: 8 * time.Second}
-	resp, err := client.Get(checkURL)
-	if err != nil {
-		return false
-	}
-	defer resp.Body.Close()
-	return resp.StatusCode >= 200 && resp.StatusCode < 400
+	return fmt.Sprintf("⚠️  (%d)", code)
 }
 
 // friendlyTime parses RFC3339 and returns a more readable format.
