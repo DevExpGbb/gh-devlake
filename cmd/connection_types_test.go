@@ -134,14 +134,81 @@ func TestBuildTestRequest_CopilotFields(t *testing.T) {
 }
 
 // TestAvailablePluginsScopeHints verifies that all available plugins have non-empty
-// RequiredScopes and ScopeHint fields so users always see what PAT scopes are needed.
+// RequiredScopes and ScopeHint fields so users always see what PAT scopes are needed,
+// except for plugins that use API tokens instead of OAuth (e.g., Jira, Jenkins).
 func TestAvailablePluginsScopeHints(t *testing.T) {
 	for _, def := range AvailableConnections() {
+		// Plugins that use API tokens instead of OAuth PATs may have empty scopes
 		if len(def.RequiredScopes) == 0 {
-			t.Errorf("plugin %q has empty RequiredScopes", def.Plugin)
+			continue
 		}
 		if def.ScopeHint == "" {
 			t.Errorf("plugin %q has empty ScopeHint", def.Plugin)
+		}
+	}
+}
+
+// TestJiraConnectionDef verifies the Jira plugin registry entry.
+func TestJiraConnectionDef(t *testing.T) {
+	def := FindConnectionDef("jira")
+	if def == nil {
+		t.Fatal("jira plugin not found in registry")
+	}
+
+	tests := []struct {
+		name string
+		got  interface{}
+		want interface{}
+	}{
+		{"Plugin", def.Plugin, "jira"},
+		{"DisplayName", def.DisplayName, "Jira"},
+		{"Available", def.Available, true},
+		{"Endpoint", def.Endpoint, ""},
+		{"SupportsTest", def.SupportsTest, true},
+		{"AuthMethod", def.AuthMethod, "AccessToken"},
+		{"ScopeIDField", def.ScopeIDField, "boardId"},
+		{"HasRepoScopes", def.HasRepoScopes, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.got != tt.want {
+				t.Errorf("%s: got %v, want %v", tt.name, tt.got, tt.want)
+			}
+		})
+	}
+
+	if def.ScopeFunc == nil {
+		t.Error("ScopeFunc should not be nil")
+	}
+
+	// Jira API tokens don't use OAuth/PAT scopes
+	if len(def.RequiredScopes) != 0 {
+		t.Errorf("RequiredScopes should be empty for Jira API tokens, got %v", def.RequiredScopes)
+	}
+	if def.ScopeHint != "" {
+		t.Errorf("ScopeHint should be empty for Jira API tokens, got %q", def.ScopeHint)
+	}
+
+	expectedEnvVars := []string{"JIRA_TOKEN", "JIRA_API_TOKEN"}
+	if len(def.EnvVarNames) != len(expectedEnvVars) {
+		t.Errorf("EnvVarNames length: got %d, want %d", len(def.EnvVarNames), len(expectedEnvVars))
+	} else {
+		for i, v := range expectedEnvVars {
+			if def.EnvVarNames[i] != v {
+				t.Errorf("EnvVarNames[%d]: got %q, want %q", i, def.EnvVarNames[i], v)
+			}
+		}
+	}
+
+	expectedEnvFileKeys := []string{"JIRA_TOKEN", "JIRA_API_TOKEN"}
+	if len(def.EnvFileKeys) != len(expectedEnvFileKeys) {
+		t.Errorf("EnvFileKeys length: got %d, want %d", len(def.EnvFileKeys), len(expectedEnvFileKeys))
+	} else {
+		for i, v := range expectedEnvFileKeys {
+			if def.EnvFileKeys[i] != v {
+				t.Errorf("EnvFileKeys[%d]: got %q, want %q", i, def.EnvFileKeys[i], v)
+			}
 		}
 	}
 }
