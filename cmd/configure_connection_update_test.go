@@ -29,13 +29,13 @@ func TestRunUpdateConnection_UnknownPlugin(t *testing.T) {
 		updateConnID = origID
 	})
 
-	updateConnPlugin = "gitlab"
+	updateConnPlugin = "nonexistent-plugin"
 	updateConnID = 1
 
 	cmd := &cobra.Command{RunE: runUpdateConnection}
 	cmd.Flags().StringVar(&updateConnPlugin, "plugin", "", "")
 	cmd.Flags().IntVar(&updateConnID, "id", 0, "")
-	_ = cmd.Flags().Set("plugin", "gitlab")
+	_ = cmd.Flags().Set("plugin", "nonexistent-plugin")
 	_ = cmd.Flags().Set("id", "1")
 
 	err := runUpdateConnection(cmd, nil)

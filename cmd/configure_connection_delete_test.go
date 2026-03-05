@@ -28,13 +28,13 @@ func TestRunDeleteConnection_UnknownPlugin(t *testing.T) {
 		connDeleteID = origID
 	})
 
-	connDeletePlugin = "gitlab"
+	connDeletePlugin = "nonexistent-plugin"
 	connDeleteID = 1
 
 	cmd := &cobra.Command{RunE: runDeleteConnection}
 	cmd.Flags().StringVar(&connDeletePlugin, "plugin", "", "")
 	cmd.Flags().IntVar(&connDeleteID, "id", 0, "")
-	_ = cmd.Flags().Set("plugin", "gitlab")
+	_ = cmd.Flags().Set("plugin", "nonexistent-plugin")
 	_ = cmd.Flags().Set("id", "1")
 
 	err := runDeleteConnection(cmd, nil)

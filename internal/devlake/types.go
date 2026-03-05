@@ -44,6 +44,17 @@ type CopilotScope struct {
 	FullName     string `json:"fullName"`
 }
 
+// GitLabProjectScope represents a GitLab project scope entry for PUT /scopes.
+type GitLabProjectScope struct {
+	GitlabID          int    `json:"gitlabId"`
+	ConnectionID      int    `json:"connectionId"`
+	Name              string `json:"name"`
+	PathWithNamespace string `json:"pathWithNamespace"`
+	HttpUrlToRepo     string `json:"httpUrlToRepo,omitempty"`
+	SshUrlToRepo      string `json:"sshUrlToRepo,omitempty"`
+	ScopeConfigID     int    `json:"scopeConfigId,omitempty"`
+}
+
 // ScopeBatchRequest is the payload for PUT /scopes (batch upsert).
 type ScopeBatchRequest struct {
 	Data []any `json:"data"`

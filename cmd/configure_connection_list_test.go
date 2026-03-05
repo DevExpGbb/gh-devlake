@@ -11,10 +11,10 @@ func TestRunListConnections_UnknownPlugin(t *testing.T) {
 	origPlugin := connListPlugin
 	t.Cleanup(func() { connListPlugin = origPlugin })
 
-	connListPlugin = "gitlab"
+	connListPlugin = "nonexistent-plugin"
 	cmd := &cobra.Command{RunE: runListConnections}
 	cmd.Flags().StringVar(&connListPlugin, "plugin", "", "")
-	_ = cmd.Flags().Set("plugin", "gitlab")
+	_ = cmd.Flags().Set("plugin", "nonexistent-plugin")
 
 	err := runListConnections(cmd, nil)
 	if err == nil {

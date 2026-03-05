@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -378,4 +379,201 @@ func scopeGitHubHandler(client *devlake.Client, connID int, org, enterprise stri
 // scopeCopilotHandler is the ScopeHandler for the gh-copilot plugin.
 func scopeCopilotHandler(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error) {
 	return scopeCopilot(client, connID, org, enterprise)
+}
+
+// scopeGitLabHandler is the ScopeHandler for the gitlab plugin.
+// It resolves projects via the DevLake remote-scope API and PUTs the selected
+// projects as scopes on the connection.
+func scopeGitLabHandler(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error) {
+	projects, err := resolveGitLabProjects(client, connID, org, opts)
+	if err != nil {
+		return nil, err
+	}
+	if len(projects) == 0 {
+		return nil, fmt.Errorf("at least one GitLab project is required")
+	}
+
+	fmt.Println("\n📝 Adding GitLab project scopes...")
+	if err := putGitLabScopes(client, connID, projects); err != nil {
+		return nil, fmt.Errorf("failed to add GitLab project scopes: %w", err)
+	}
+	fmt.Printf("   ✅ Added %d GitLab project scope(s)\n", len(projects))
+
+	var bpScopes []devlake.BlueprintScope
+	for _, p := range projects {
+		bpScopes = append(bpScopes, devlake.BlueprintScope{
+			ScopeID:   strconv.Itoa(p.GitlabID),
+			ScopeName: p.PathWithNamespace,
+		})
+	}
+	return &devlake.BlueprintConnection{
+		PluginName:   "gitlab",
+		ConnectionID: connID,
+		Scopes:       bpScopes,
+	}, nil
+}
+
+// resolveGitLabProjects determines which GitLab projects to scope via flags or
+// interactive browsing of the DevLake remote-scope hierarchy.
+func resolveGitLabProjects(client *devlake.Client, connID int, group string, opts *ScopeOpts) ([]*devlake.GitLabProjectScope, error) {
+	if opts != nil && opts.Repos != "" {
+		var paths []string
+		for _, p := range strings.Split(opts.Repos, ",") {
+			if p = strings.TrimSpace(p); p != "" {
+				paths = append(paths, p)
+			}
+		}
+		return searchGitLabProjectsByPath(client, connID, paths)
+	}
+	if opts != nil && opts.ReposFile != "" {
+		paths, err := repofile.Parse(opts.ReposFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read repos file: %w", err)
+		}
+		fmt.Printf("   Loaded %d project path(s) from file\n", len(paths))
+		return searchGitLabProjectsByPath(client, connID, paths)
+	}
+	return browseGitLabProjectsInteractively(client, connID, group)
+}
+
+// searchGitLabProjectsByPath looks up GitLab projects by path using the
+// search-remote-scopes API, then returns them as GitLabProjectScope entries.
+func searchGitLabProjectsByPath(client *devlake.Client, connID int, paths []string) ([]*devlake.GitLabProjectScope, error) {
+	var projects []*devlake.GitLabProjectScope
+	for _, path := range paths {
+		fmt.Printf("\n🔍 Searching for GitLab project %q...\n", path)
+		resp, err := client.SearchRemoteScopes("gitlab", connID, path, 1, 20)
+		if err != nil {
+			return nil, fmt.Errorf("searching for GitLab project %q: %w", path, err)
+		}
+		var found *devlake.GitLabProjectScope
+		for i := range resp.Children {
+			child := &resp.Children[i]
+			if child.Type != "scope" {
+				continue
+			}
+			p := parseGitLabProject(child)
+			if p == nil {
+				continue
+			}
+			if p.PathWithNamespace == path || p.Name == path {
+				found = p
+				break
+			}
+			if found == nil {
+				found = p // use first match if no exact match
+			}
+		}
+		if found == nil {
+			return nil, fmt.Errorf("GitLab project %q not found", path)
+		}
+		found.ConnectionID = connID
+		projects = append(projects, found)
+		fmt.Printf("   Found: %s (ID=%d)\n", found.PathWithNamespace, found.GitlabID)
+	}
+	return projects, nil
+}
+
+// browseGitLabProjectsInteractively walks the group→project hierarchy via the
+// DevLake remote-scope API, prompting the user to select a group then projects.
+func browseGitLabProjectsInteractively(client *devlake.Client, connID int, group string) ([]*devlake.GitLabProjectScope, error) {
+	groupID := group
+
+	if groupID == "" {
+		fmt.Println("\n🔍 Listing GitLab groups...")
+		resp, err := client.ListRemoteScopes("gitlab", connID, "", "")
+		if err != nil {
+			return nil, fmt.Errorf("listing GitLab groups: %w", err)
+		}
+
+		var groupLabels []string
+		groupIDByLabel := make(map[string]string)
+		for _, child := range resp.Children {
+			if child.Type == "group" {
+				label := child.FullName
+				if label == "" {
+					label = child.Name
+				}
+				groupLabels = append(groupLabels, label)
+				groupIDByLabel[label] = child.ID
+			}
+		}
+		if len(groupLabels) == 0 {
+			return nil, fmt.Errorf("no GitLab groups found — verify your token has read_api scope")
+		}
+
+		fmt.Println()
+		selected := prompt.Select("Select a GitLab group", groupLabels)
+		if selected == "" {
+			return nil, fmt.Errorf("no group selected")
+		}
+		groupID = groupIDByLabel[selected]
+		if groupID == "" {
+			groupID = selected
+		}
+	}
+
+	fmt.Printf("\n🔍 Listing projects in group %q...\n", groupID)
+	resp, err := client.ListRemoteScopes("gitlab", connID, groupID, "")
+	if err != nil {
+		return nil, fmt.Errorf("listing projects in group %q: %w", groupID, err)
+	}
+
+	var projectLabels []string
+	projectByLabel := make(map[string]*devlake.RemoteScopeChild)
+	for i := range resp.Children {
+		child := &resp.Children[i]
+		if child.Type != "scope" {
+			continue
+		}
+		label := child.FullName
+		if label == "" {
+			label = child.Name
+		}
+		projectLabels = append(projectLabels, label)
+		projectByLabel[label] = child
+	}
+	if len(projectLabels) == 0 {
+		return nil, fmt.Errorf("no projects found in group %q", groupID)
+	}
+
+	fmt.Println()
+	selectedLabels := prompt.SelectMulti("Select GitLab projects to configure", projectLabels)
+	var projects []*devlake.GitLabProjectScope
+	for _, label := range selectedLabels {
+		child, ok := projectByLabel[label]
+		if !ok {
+			continue
+		}
+		p := parseGitLabProject(child)
+		if p != nil {
+			p.ConnectionID = connID
+			projects = append(projects, p)
+		}
+	}
+	return projects, nil
+}
+
+// parseGitLabProject extracts project fields from a RemoteScopeChild's Data payload.
+func parseGitLabProject(child *devlake.RemoteScopeChild) *devlake.GitLabProjectScope {
+	var p devlake.GitLabProjectScope
+	if err := json.Unmarshal(child.Data, &p); err != nil {
+		return nil
+	}
+	if p.PathWithNamespace == "" {
+		p.PathWithNamespace = child.FullName
+	}
+	if p.Name == "" {
+		p.Name = child.Name
+	}
+	return &p
+}
+
+// putGitLabScopes batch-upserts GitLab project scopes on a connection.
+func putGitLabScopes(client *devlake.Client, connID int, projects []*devlake.GitLabProjectScope) error {
+	var data []any
+	for _, p := range projects {
+		data = append(data, p)
+	}
+	return client.PutScopes("gitlab", connID, &devlake.ScopeBatchRequest{Data: data})
 }
