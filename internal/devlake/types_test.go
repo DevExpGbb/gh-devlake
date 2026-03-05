@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 )
 
@@ -255,8 +256,33 @@ func TestSearchRemoteScopes(t *testing.T) {
 				if r.URL.Path != expectedPath {
 					t.Errorf("path = %s, want %s", r.URL.Path, expectedPath)
 				}
-				if tt.search != "" && r.URL.Query().Get("search") != tt.search {
-					t.Errorf("search = %q, want %q", r.URL.Query().Get("search"), tt.search)
+				q := r.URL.Query()
+				if tt.search != "" {
+					if got := q.Get("search"); got != tt.search {
+						t.Errorf("search = %q, want %q", got, tt.search)
+					}
+				} else {
+					if q.Has("search") {
+						t.Errorf("unexpected search param %q", q.Get("search"))
+					}
+				}
+				if tt.page != 0 {
+					if got := q.Get("page"); got != strconv.Itoa(tt.page) {
+						t.Errorf("page = %q, want %d", got, tt.page)
+					}
+				} else {
+					if q.Has("page") {
+						t.Errorf("unexpected page param %q", q.Get("page"))
+					}
+				}
+				if tt.pageSize != 0 {
+					if got := q.Get("pageSize"); got != strconv.Itoa(tt.pageSize) {
+						t.Errorf("pageSize = %q, want %d", got, tt.pageSize)
+					}
+				} else {
+					if q.Has("pageSize") {
+						t.Errorf("unexpected pageSize param %q", q.Get("pageSize"))
+					}
 				}
 				w.WriteHeader(tt.statusCode)
 				_, _ = w.Write([]byte(tt.body))

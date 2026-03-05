@@ -53,15 +53,30 @@ type ScopeBatchRequest struct {
 // The API nests each scope inside a "scope" key: { "scope": { ... } }.
 // RawScope preserves the full plugin-specific payload for generic ID extraction.
 type ScopeListWrapper struct {
-	RawScope json.RawMessage `json:"scope"`
+	RawScope json.RawMessage            `json:"scope"`
+	parsed   map[string]json.RawMessage // lazily populated by parseScope
+}
+
+// parseScope unmarshals RawScope into a map exactly once per wrapper instance,
+// caching the result so callers that invoke both ScopeName and ScopeFullName on
+// the same item do not unmarshal the same JSON twice.
+func (w *ScopeListWrapper) parseScope() map[string]json.RawMessage {
+	if w.parsed == nil {
+		var m map[string]json.RawMessage
+		if err := json.Unmarshal(w.RawScope, &m); err != nil || m == nil {
+			m = make(map[string]json.RawMessage)
+		}
+		w.parsed = m
+	}
+	return w.parsed
 }
 
 // ScopeName returns the display name from the raw scope JSON (checks "fullName" then "name").
+// Empty string values are skipped so the next candidate key is tried.
+// Parsing is cached via parseScope() so calling ScopeName and ScopeFullName on the
+// same instance only unmarshals the JSON once.
 func (w *ScopeListWrapper) ScopeName() string {
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(w.RawScope, &m); err != nil {
-		return ""
-	}
+	m := w.parseScope()
 	for _, key := range []string{"fullName", "name"} {
 		if v, ok := m[key]; ok {
 			var s string
@@ -74,14 +89,12 @@ func (w *ScopeListWrapper) ScopeName() string {
 }
 
 // ScopeFullName returns the "fullName" field from the raw scope JSON, or "".
+// An empty string value is treated as absent (returns "").
 func (w *ScopeListWrapper) ScopeFullName() string {
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(w.RawScope, &m); err != nil {
-		return ""
-	}
+	m := w.parseScope()
 	if v, ok := m["fullName"]; ok {
 		var s string
-		if err := json.Unmarshal(v, &s); err == nil {
+		if err := json.Unmarshal(v, &s); err == nil && s != "" {
 			return s
 		}
 	}

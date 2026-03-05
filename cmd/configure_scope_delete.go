@@ -103,13 +103,16 @@ func runScopeDelete(cmd *cobra.Command, args []string) error {
 		var labels []string
 		def := FindConnectionDef(selectedPlugin)
 		for _, s := range resp.Scopes {
+			name := s.ScopeFullName()
+			if name == "" {
+				name = s.ScopeName()
+			}
 			var id string
 			if def != nil && def.ScopeIDField != "" {
 				id = devlake.ExtractScopeID(s.RawScope, def.ScopeIDField)
 			}
-			name := s.ScopeFullName()
-			if name == "" {
-				name = s.ScopeName()
+			if id == "" {
+				id = name
 			}
 			label := fmt.Sprintf("[%s] %s", id, name)
 			entries = append(entries, scopeEntry{id: id, label: label})
