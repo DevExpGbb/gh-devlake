@@ -260,6 +260,20 @@ Additional references: [Token Handling](docs/token-handling.md) · [State Files]
 
 ---
 
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [README.md](README.md) | Main overview and getting started guide |
+| [AGENTS.md](AGENTS.md) | AI agent instructions and quick reference |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Technical architecture and design decisions |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Development workflow and contribution guidelines |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common issues and solutions |
+| [CHANGELOG.md](CHANGELOG.md) | Version history and release notes |
+| [docs/](docs/) | Detailed command and concept documentation |
+
+---
+
 ## Development
 
 ```bash
