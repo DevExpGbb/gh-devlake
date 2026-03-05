@@ -587,11 +587,23 @@ func scopeJiraHandler(client *devlake.Client, connID int, org, enterprise string
 		return nil, fmt.Errorf("failed to list Jira boards: %w", err)
 	}
 
+	// Aggregate all pages of remote scopes
+	allChildren := remoteScopes.Children
+	nextToken := remoteScopes.NextPageToken
+	for nextToken != "" {
+		page, err := client.ListRemoteScopes("jira", connID, "", nextToken)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list Jira boards (page token %s): %w", nextToken, err)
+		}
+		allChildren = append(allChildren, page.Children...)
+		nextToken = page.NextPageToken
+	}
+
 	// Extract boards from remote-scope response
 	var boardOptions []string
 	boardMap := make(map[string]*devlake.RemoteScopeChild)
-	for i := range remoteScopes.Children {
-		child := &remoteScopes.Children[i]
+	for i := range allChildren {
+		child := &allChildren[i]
 		if child.Type == "scope" {
 			label := child.Name
 			if child.ID != "" {
@@ -619,8 +631,12 @@ func scopeJiraHandler(client *devlake.Client, connID int, org, enterprise string
 	for _, label := range selectedLabels {
 		child := boardMap[label]
 		// Parse boardId from child.ID (should be a string representation of uint64)
-		var boardID uint64
-		if _, err := fmt.Sscanf(child.ID, "%d", &boardID); err != nil {
+		if child.ID == "" {
+			fmt.Printf("   ⚠️  Skipping board %q: empty ID\n", child.Name)
+			continue
+		}
+		boardID, err := strconv.ParseUint(child.ID, 10, 64)
+		if err != nil {
 			fmt.Printf("   ⚠️  Skipping board %q: invalid ID %q\n", child.Name, child.ID)
 			continue
 		}

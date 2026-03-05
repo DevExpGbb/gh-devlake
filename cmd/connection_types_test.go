@@ -134,9 +134,19 @@ func TestBuildTestRequest_CopilotFields(t *testing.T) {
 }
 
 // TestAvailablePluginsScopeHints verifies that all available plugins have non-empty
-// RequiredScopes and ScopeHint fields so users always see what PAT scopes are needed.
+// RequiredScopes and ScopeHint fields so users always see what PAT scopes are needed,
+// except for plugins that use API tokens instead of OAuth (e.g., Jira).
 func TestAvailablePluginsScopeHints(t *testing.T) {
+	// Plugins that use API tokens instead of OAuth PATs may have empty scopes
+	apiTokenPlugins := map[string]bool{
+		"jira": true,
+	}
+
 	for _, def := range AvailableConnections() {
+		if apiTokenPlugins[def.Plugin] {
+			// API token plugins don't use OAuth scopes
+			continue
+		}
 		if len(def.RequiredScopes) == 0 {
 			t.Errorf("plugin %q has empty RequiredScopes", def.Plugin)
 		}
@@ -178,6 +188,14 @@ func TestJiraConnectionDef(t *testing.T) {
 
 	if def.ScopeFunc == nil {
 		t.Error("ScopeFunc should not be nil")
+	}
+
+	// Jira API tokens don't use OAuth/PAT scopes
+	if len(def.RequiredScopes) != 0 {
+		t.Errorf("RequiredScopes should be empty for Jira API tokens, got %v", def.RequiredScopes)
+	}
+	if def.ScopeHint != "" {
+		t.Errorf("ScopeHint should be empty for Jira API tokens, got %q", def.ScopeHint)
 	}
 
 	expectedEnvVars := []string{"JIRA_TOKEN", "JIRA_API_TOKEN"}
