@@ -186,6 +186,7 @@ For the full guide, see [Day-2 Operations](docs/day-2.md).
 |--------|--------|------------------|---------------------|
 | GitHub | ✅ Available | Repos, PRs, issues, workflows, deployments (DORA) | `repo`, `read:org`, `read:user` |
 | GitHub Copilot | ✅ Available | Usage metrics, seats, acceptance rates | `manage_billing:copilot`, `read:org` (+ `read:enterprise` for enterprise metrics) |
+| Jira | ✅ Available | Boards, issues, sprints (change lead time, cycle time) | API token (permissions from user account) |
 | Azure DevOps | 🔜 Coming soon | Repos, pipelines, deployments (DORA) | (TBD) |
 | GitLab | ✅ Available | Repos, MRs, pipelines, deployments (DORA) | `read_api`, `read_repository` |
 
