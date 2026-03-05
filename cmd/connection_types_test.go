@@ -138,6 +138,10 @@ func TestBuildTestRequest_CopilotFields(t *testing.T) {
 // except for plugins that use API tokens instead of OAuth (e.g., Jira, Jenkins).
 func TestAvailablePluginsScopeHints(t *testing.T) {
 	for _, def := range AvailableConnections() {
+		// Plugins using BasicAuth (e.g., Jenkins) don't have OAuth PAT scopes
+		if def.AuthMethod == "BasicAuth" {
+			continue
+		}
 		// Plugins that use API tokens instead of OAuth PATs may have empty scopes
 		if len(def.RequiredScopes) == 0 {
 			continue
@@ -553,26 +557,33 @@ func TestResolveUsername(t *testing.T) {
 }
 
 func TestConnectionRegistry_Jenkins(t *testing.T) {
-def := FindConnectionDef("jenkins")
-if def == nil {
-t.Fatal("jenkins connection def not found")
-}
-if !def.Available {
-t.Errorf("jenkins should be available")
-}
-if def.AuthMethod != "BasicAuth" {
-t.Errorf("jenkins AuthMethod = %q, want BasicAuth", def.AuthMethod)
-}
-if !def.NeedsUsername {
-t.Errorf("jenkins NeedsUsername should be true")
-}
-if def.ScopeIDField != "fullName" {
-t.Errorf("jenkins ScopeIDField = %q, want %q", def.ScopeIDField, "fullName")
-}
-if def.ScopeFunc == nil {
-t.Errorf("jenkins ScopeFunc should be set")
-}
-if len(def.ScopeFlags) == 0 || def.ScopeFlags[0].Name != "jobs" {
-t.Errorf("jenkins ScopeFlags should include jobs flag")
-}
+	def := FindConnectionDef("jenkins")
+	if def == nil {
+		t.Fatal("jenkins connection def not found")
+	}
+	if !def.Available {
+		t.Errorf("jenkins should be available")
+	}
+	if def.AuthMethod != "BasicAuth" {
+		t.Errorf("jenkins AuthMethod = %q, want BasicAuth", def.AuthMethod)
+	}
+	if !def.NeedsUsername {
+		t.Errorf("jenkins NeedsUsername should be true")
+	}
+	if def.ScopeIDField != "fullName" {
+		t.Errorf("jenkins ScopeIDField = %q, want %q", def.ScopeIDField, "fullName")
+	}
+	if def.ScopeFunc == nil {
+		t.Errorf("jenkins ScopeFunc should be set")
+	}
+	foundJobs := false
+	for _, f := range def.ScopeFlags {
+		if f.Name == "jobs" {
+			foundJobs = true
+			break
+		}
+	}
+	if !foundJobs {
+		t.Errorf("jenkins ScopeFlags should include jobs flag")
+	}
 }

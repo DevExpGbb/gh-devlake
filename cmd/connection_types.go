@@ -243,8 +243,8 @@ var connectionRegistry = []*ConnectionDef{
 		TokenPrompt:         "Jenkins API token or password",
 		EnvVarNames:         []string{"JENKINS_TOKEN", "JENKINS_PASSWORD"},
 		EnvFileKeys:         []string{"JENKINS_TOKEN", "JENKINS_PASSWORD"},
-		RequiredScopes:      []string{"Jenkins API token or password"},
-		ScopeHint:           "Jenkins API token or password",
+		RequiredScopes:      []string{},
+		ScopeHint:           "",
 		ScopeFunc:           scopeJenkinsHandler,
 		ScopeIDField:        "fullName",
 		ScopeFlags: []FlagDef{
