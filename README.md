@@ -256,7 +256,7 @@ Commands that support `--json`:
 | `gh devlake configure scope list` | `[{id, name, fullName}]` |
 | `gh devlake configure project list` | `[{name, description, blueprintId}]` |
 
-Additional references: [Token Handling](docs/token-handling.md) · [State Files](docs/state-files.md) · [DevLake Concepts](docs/concepts.md) · [Day-2 Operations](docs/day-2.md)
+Additional references: [Architecture Overview](docs/architecture.md) · [Token Handling](docs/token-handling.md) · [State Files](docs/state-files.md) · [DevLake Concepts](docs/concepts.md) · [Day-2 Operations](docs/day-2.md)
 
 ---
 
