@@ -799,3 +799,205 @@ func scopeJiraHandler(client *devlake.Client, connID int, org, enterprise string
 		Scopes:       blueprintScopes,
 	}, nil
 }
+
+// scopeBitbucketHandler is the ScopeHandler for the bitbucket plugin.
+// It resolves repositories via the DevLake remote-scope API and PUTs the selected
+// repositories as scopes on the connection.
+func scopeBitbucketHandler(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error) {
+	repos, err := resolveBitbucketRepos(client, connID, org, opts)
+	if err != nil {
+		return nil, err
+	}
+	if len(repos) == 0 {
+		return nil, fmt.Errorf("at least one Bitbucket repository is required")
+	}
+
+	fmt.Println("\n📝 Adding Bitbucket repository scopes...")
+	if err := putBitbucketScopes(client, connID, repos); err != nil {
+		return nil, fmt.Errorf("failed to add Bitbucket repository scopes: %w", err)
+	}
+	fmt.Printf("   ✅ Added %d Bitbucket repository scope(s)\n", len(repos))
+
+	var bpScopes []devlake.BlueprintScope
+	for _, r := range repos {
+		bpScopes = append(bpScopes, devlake.BlueprintScope{
+			ScopeID:   r.BitbucketID,
+			ScopeName: r.FullName,
+		})
+	}
+	return &devlake.BlueprintConnection{
+		PluginName:   "bitbucket",
+		ConnectionID: connID,
+		Scopes:       bpScopes,
+	}, nil
+}
+
+// resolveBitbucketRepos determines which Bitbucket repositories to scope via flags or
+// interactive browsing of the DevLake remote-scope hierarchy.
+func resolveBitbucketRepos(client *devlake.Client, connID int, workspace string, opts *ScopeOpts) ([]*devlake.BitbucketRepoScope, error) {
+	fmt.Println("\n📦 Resolving Bitbucket repositories...")
+	if opts != nil && opts.Repos != "" {
+		var slugs []string
+		for _, s := range strings.Split(opts.Repos, ",") {
+			if s = strings.TrimSpace(s); s != "" {
+				slugs = append(slugs, s)
+			}
+		}
+		return searchBitbucketReposBySlugs(client, connID, slugs)
+	}
+	if opts != nil && opts.ReposFile != "" {
+		slugs, err := repofile.Parse(opts.ReposFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read repos file: %w", err)
+		}
+		fmt.Printf("   Loaded %d repository slug(s) from file\n", len(slugs))
+		return searchBitbucketReposBySlugs(client, connID, slugs)
+	}
+	return browseBitbucketReposInteractively(client, connID, workspace)
+}
+
+// searchBitbucketReposBySlugs looks up Bitbucket repositories by their full name
+// (workspace/repo-slug) using the DevLake search-remote-scopes API.
+func searchBitbucketReposBySlugs(client *devlake.Client, connID int, slugs []string) ([]*devlake.BitbucketRepoScope, error) {
+	var repos []*devlake.BitbucketRepoScope
+	for _, slug := range slugs {
+		fmt.Printf("\n🔍 Searching for Bitbucket repository %q...\n", slug)
+		resp, err := client.SearchRemoteScopes("bitbucket", connID, slug, 1, 20)
+		if err != nil {
+			return nil, fmt.Errorf("searching for Bitbucket repository %q: %w", slug, err)
+		}
+		var found *devlake.BitbucketRepoScope
+		for i := range resp.Children {
+			child := &resp.Children[i]
+			if child.Type != "scope" {
+				continue
+			}
+			r := parseBitbucketRepo(child)
+			if r == nil {
+				continue
+			}
+			if r.FullName == slug || r.Name == slug {
+				found = r
+				break
+			}
+			if found == nil {
+				found = r // use first match if no exact match
+			}
+		}
+		if found == nil {
+			return nil, fmt.Errorf("Bitbucket repository %q not found", slug)
+		}
+		found.ConnectionID = connID
+		repos = append(repos, found)
+		fmt.Printf("   Found: %s\n", found.FullName)
+	}
+	return repos, nil
+}
+
+// browseBitbucketReposInteractively walks the workspace→repository hierarchy via the
+// DevLake remote-scope API, prompting the user to select a workspace then repositories.
+func browseBitbucketReposInteractively(client *devlake.Client, connID int, workspace string) ([]*devlake.BitbucketRepoScope, error) {
+	workspaceID := workspace
+
+	if workspaceID == "" {
+		fmt.Println("\n🔍 Listing Bitbucket workspaces...")
+		resp, err := client.ListRemoteScopes("bitbucket", connID, "", "")
+		if err != nil {
+			return nil, fmt.Errorf("listing Bitbucket workspaces: %w", err)
+		}
+
+		var workspaceLabels []string
+		workspaceIDByLabel := make(map[string]string)
+		for _, child := range resp.Children {
+			if child.Type == "group" {
+				label := child.FullName
+				if label == "" {
+					label = child.Name
+				}
+				workspaceLabels = append(workspaceLabels, label)
+				workspaceIDByLabel[label] = child.ID
+			}
+		}
+		if len(workspaceLabels) == 0 {
+			return nil, fmt.Errorf("no Bitbucket workspaces found — verify your app password has repository read access")
+		}
+
+		fmt.Println()
+		selected := prompt.Select("Select a Bitbucket workspace", workspaceLabels)
+		if selected == "" {
+			return nil, fmt.Errorf("no workspace selected")
+		}
+		workspaceID = workspaceIDByLabel[selected]
+		if workspaceID == "" {
+			workspaceID = selected
+		}
+	}
+
+	fmt.Printf("\n🔍 Listing repositories in workspace %q...\n", workspaceID)
+	resp, err := client.ListRemoteScopes("bitbucket", connID, workspaceID, "")
+	if err != nil {
+		return nil, fmt.Errorf("listing repositories in workspace %q: %w", workspaceID, err)
+	}
+
+	var repoLabels []string
+	repoByLabel := make(map[string]*devlake.RemoteScopeChild)
+	for i := range resp.Children {
+		child := &resp.Children[i]
+		if child.Type != "scope" {
+			continue
+		}
+		label := child.FullName
+		if label == "" {
+			label = child.Name
+		}
+		repoLabels = append(repoLabels, label)
+		repoByLabel[label] = child
+	}
+	if len(repoLabels) == 0 {
+		return nil, fmt.Errorf("no repositories found in workspace %q", workspaceID)
+	}
+
+	fmt.Println()
+	selectedLabels := prompt.SelectMulti("Select Bitbucket repositories to configure", repoLabels)
+	var repos []*devlake.BitbucketRepoScope
+	for _, label := range selectedLabels {
+		child, ok := repoByLabel[label]
+		if !ok {
+			continue
+		}
+		r := parseBitbucketRepo(child)
+		if r != nil {
+			r.ConnectionID = connID
+			repos = append(repos, r)
+		}
+	}
+	return repos, nil
+}
+
+// parseBitbucketRepo extracts repository fields from a RemoteScopeChild's Data payload.
+func parseBitbucketRepo(child *devlake.RemoteScopeChild) *devlake.BitbucketRepoScope {
+	var r devlake.BitbucketRepoScope
+	if err := json.Unmarshal(child.Data, &r); err != nil {
+		return nil
+	}
+	if r.FullName == "" {
+		r.FullName = child.FullName
+	}
+	if r.Name == "" {
+		r.Name = child.Name
+	}
+	// BitbucketID is the full name (workspace/repo-slug)
+	if r.BitbucketID == "" {
+		r.BitbucketID = r.FullName
+	}
+	return &r
+}
+
+// putBitbucketScopes batch-upserts Bitbucket repository scopes on a connection.
+func putBitbucketScopes(client *devlake.Client, connID int, repos []*devlake.BitbucketRepoScope) error {
+	var data []any
+	for _, r := range repos {
+		data = append(data, r)
+	}
+	return client.PutScopes("bitbucket", connID, &devlake.ScopeBatchRequest{Data: data})
+}
