@@ -665,6 +665,7 @@ func TestConnectionRegistry_Jenkins(t *testing.T) {
 		t.Errorf("jenkins ScopeFlags should include jobs flag")
 	}
 }
+
 // TestConnectionRegistry_SonarQube verifies the SonarQube plugin registry entry.
 func TestConnectionRegistry_SonarQube(t *testing.T) {
 	def := FindConnectionDef("sonarqube")
