@@ -26,7 +26,7 @@ Aliases: `connections`
 | `--org` | *(required for Copilot)* | GitHub organization slug |
 | `--enterprise` | | GitHub enterprise slug (for enterprise-level Copilot metrics) |
 | `--name` | `Plugin - org` | Connection display name |
-| `--endpoint` | `https://api.github.com/` | API endpoint (use for GitHub Enterprise Server; required for Jenkins) |
+| `--endpoint` | `https://api.github.com/` (GitHub/Copilot) | API endpoint (override for GitHub Enterprise Server; Jenkins has no default and must supply a URL) |
 | `--proxy` | | HTTP proxy URL |
 | `--token` | | GitHub PAT (highest priority source). For BasicAuth plugins (Jenkins, Bitbucket, Jira), this is the password. |
 | `--username` | | Username for BasicAuth plugins (Jenkins, Bitbucket, Jira). Not used by GitHub or Copilot. |
@@ -83,6 +83,9 @@ gh devlake configure connection --plugin github --org my-org
 
 # Copilot connection
 gh devlake configure connection --plugin gh-copilot --org my-org
+
+# Jenkins connection (endpoint required)
+gh devlake configure connection --plugin jenkins --endpoint https://jenkins.example.com --username admin
 
 # Enterprise Copilot metrics
 gh devlake configure connection --plugin gh-copilot --org my-org --enterprise my-enterprise

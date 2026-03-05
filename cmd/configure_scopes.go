@@ -59,7 +59,7 @@ type scopeGitHubResult struct {
 // scopeGitHub resolves repos, creates scope config, and PUTs repo scopes
 // for a GitHub connection. Returns the BlueprintConnection entry and repo list.
 func scopeGitHub(client *devlake.Client, connID int, org string, opts *ScopeOpts) (*scopeGitHubResult, error) {
-	fmt.Println("\n\U0001f4e6 Resolving repositories...")
+	fmt.Println("\n📦 Resolving repositories...")
 	repos, err := resolveRepos(org, opts)
 	if err != nil {
 		return nil, err
@@ -69,7 +69,7 @@ func scopeGitHub(client *devlake.Client, connID int, org string, opts *ScopeOpts
 	}
 	fmt.Printf("   Repos to configure: %s\n", strings.Join(repos, ", "))
 
-	fmt.Println("\n\U0001f50e Looking up repo details...")
+	fmt.Println("\n🔎 Looking up repo details...")
 	var repoDetails []*gh.RepoDetails
 	for _, repo := range repos {
 		detail, err := gh.GetRepoDetails(repo)
@@ -92,7 +92,7 @@ func scopeGitHub(client *devlake.Client, connID int, org string, opts *ScopeOpts
 		fmt.Printf("   Scope config ID: %d\n", scopeConfigID)
 	}
 
-	fmt.Println("\n\U0001f4dd Adding repository scopes...")
+	fmt.Println("\n📝 Adding repository scopes...")
 	err = putGitHubScopes(client, connID, scopeConfigID, repoDetails)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add repo scopes: %w", err)
@@ -120,7 +120,7 @@ func scopeGitHub(client *devlake.Client, connID int, org string, opts *ScopeOpts
 
 // scopeCopilot PUTs the org/enterprise scope for a Copilot connection.
 func scopeCopilot(client *devlake.Client, connID int, org, enterprise string) (*devlake.BlueprintConnection, error) {
-	fmt.Println("\n\U0001f4dd Adding Copilot scope...")
+	fmt.Println("\n📝 Adding Copilot scope...")
 	scopeID := copilotScopeID(org, enterprise)
 	err := putCopilotScope(client, connID, org, enterprise)
 	if err != nil {
@@ -280,7 +280,7 @@ func resolveJenkinsJobs(client *devlake.Client, connID int, opts *ScopeOpts) ([]
 		return jobs, nil
 	}
 
-	fmt.Println("\n\U0001f50e Discovering Jenkins jobs...")
+	fmt.Println("\n🔎 Discovering Jenkins jobs...")
 	scopes, err := listJenkinsRemoteJobs(client, connID)
 	if err != nil {
 		return nil, fmt.Errorf("could not list Jenkins jobs: %w", err)
@@ -797,6 +797,5 @@ func scopeJiraHandler(client *devlake.Client, connID int, org, enterprise string
 		PluginName:   "jira",
 		ConnectionID: connID,
 		Scopes:       blueprintScopes,
-	}, nil
 	}, nil
 }

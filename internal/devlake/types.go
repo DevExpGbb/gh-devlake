@@ -160,7 +160,7 @@ type ScopeListResponse struct {
 
 // RemoteScopeChild represents one item (group or scope) from the remote-scope API.
 type RemoteScopeChild struct {
-	Type     string          `json:"type"`     // "group" or "scope"
+	Type     string          `json:"type"` // "group" or "scope"
 	ID       string          `json:"id"`
 	ParentID string          `json:"parentId"`
 	Name     string          `json:"name"`

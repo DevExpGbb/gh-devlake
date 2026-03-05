@@ -114,7 +114,7 @@ func runScopeAdd(cmd *cobra.Command, args []string, opts *ScopeOpts) error {
 	}
 	_, state := devlake.FindStateFile(disc.URL, disc.GrafanaURL)
 
-	fmt.Println("\n\U0001f517 Resolving connection...")
+	fmt.Println("\n🔗 Resolving connection...")
 	connID, err := resolveConnectionID(client, state, selectedPlugin, opts.ConnectionID)
 	if err != nil {
 		return fmt.Errorf("no %s connection found \u2014 run 'configure connection' first: %w", pluginDisplayName(selectedPlugin), err)
