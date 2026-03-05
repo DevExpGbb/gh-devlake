@@ -260,6 +260,23 @@ var connectionRegistry = []*ConnectionDef{
 		EnvVarNames: []string{"AZURE_DEVOPS_PAT"},
 		EnvFileKeys: []string{"AZURE_DEVOPS_PAT"},
 	},
+	{
+		Plugin:           "jira",
+		DisplayName:      "Jira",
+		Available:        true,
+		Endpoint:         "", // user must provide (e.g., https://your-domain.atlassian.net/)
+		SupportsTest:     true,
+		AuthMethod:       "AccessToken", // Jira Cloud uses API tokens
+		RateLimitPerHour: 0,             // uses default 4500
+		RequiredScopes:   []string{"read:jira-work", "read:jira-user"},
+		ScopeHint:        "read:jira-work, read:jira-user",
+		TokenPrompt:      "Jira API token",
+		EnvVarNames:      []string{"JIRA_TOKEN", "JIRA_API_TOKEN"},
+		EnvFileKeys:      []string{"JIRA_TOKEN", "JIRA_API_TOKEN"},
+		ScopeFunc:        scopeJiraHandler,
+		ScopeIDField:     "boardId",
+		HasRepoScopes:    false,
+	},
 }
 
 // AvailableConnections returns only available (non-coming-soon) connection defs.

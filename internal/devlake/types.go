@@ -55,6 +55,13 @@ type GitLabProjectScope struct {
 	ScopeConfigID     int    `json:"scopeConfigId,omitempty"`
 }
 
+// JiraBoardScope represents a Jira board scope entry for PUT /scopes.
+type JiraBoardScope struct {
+	BoardID      uint64 `json:"boardId"`
+	ConnectionID int    `json:"connectionId"`
+	Name         string `json:"name"`
+}
+
 // ScopeBatchRequest is the payload for PUT /scopes (batch upsert).
 type ScopeBatchRequest struct {
 	Data []any `json:"data"`

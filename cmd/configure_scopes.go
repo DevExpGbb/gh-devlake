@@ -578,3 +578,76 @@ func putGitLabScopes(client *devlake.Client, connID int, projects []*devlake.Git
 	}
 	return client.PutScopes("gitlab", connID, &devlake.ScopeBatchRequest{Data: data})
 }
+
+// scopeJiraHandler is the ScopeHandler for the jira plugin.
+func scopeJiraHandler(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error) {
+	fmt.Println("\n📋 Fetching Jira boards...")
+	remoteScopes, err := client.ListRemoteScopes("jira", connID, "", "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list Jira boards: %w", err)
+	}
+
+	// Extract boards from remote-scope response
+	var boardOptions []string
+	boardMap := make(map[string]*devlake.RemoteScopeChild)
+	for i := range remoteScopes.Children {
+		child := &remoteScopes.Children[i]
+		if child.Type == "scope" {
+			label := child.Name
+			if child.ID != "" {
+				label = fmt.Sprintf("%s (ID: %s)", child.Name, child.ID)
+			}
+			boardOptions = append(boardOptions, label)
+			boardMap[label] = child
+		}
+	}
+
+	if len(boardOptions) == 0 {
+		return nil, fmt.Errorf("no Jira boards found for connection %d", connID)
+	}
+
+	fmt.Println()
+	selectedLabels := prompt.SelectMulti("Select Jira boards to track", boardOptions)
+	if len(selectedLabels) == 0 {
+		return nil, fmt.Errorf("at least one board must be selected")
+	}
+
+	// Build scope data for PUT
+	fmt.Println("\n📝 Adding Jira board scopes...")
+	var scopeData []any
+	var blueprintScopes []devlake.BlueprintScope
+	for _, label := range selectedLabels {
+		child := boardMap[label]
+		// Parse boardId from child.ID (should be a string representation of uint64)
+		var boardID uint64
+		if _, err := fmt.Sscanf(child.ID, "%d", &boardID); err != nil {
+			fmt.Printf("   ⚠️  Skipping board %q: invalid ID %q\n", child.Name, child.ID)
+			continue
+		}
+		scopeData = append(scopeData, devlake.JiraBoardScope{
+			BoardID:      boardID,
+			ConnectionID: connID,
+			Name:         child.Name,
+		})
+		blueprintScopes = append(blueprintScopes, devlake.BlueprintScope{
+			ScopeID:   child.ID,
+			ScopeName: child.Name,
+		})
+	}
+
+	if len(scopeData) == 0 {
+		return nil, fmt.Errorf("no valid boards to add")
+	}
+
+	err = client.PutScopes("jira", connID, &devlake.ScopeBatchRequest{Data: scopeData})
+	if err != nil {
+		return nil, fmt.Errorf("failed to add Jira board scopes: %w", err)
+	}
+	fmt.Printf("   ✅ Added %d board scope(s)\n", len(scopeData))
+
+	return &devlake.BlueprintConnection{
+		PluginName:   "jira",
+		ConnectionID: connID,
+		Scopes:       blueprintScopes,
+	}, nil
+}
