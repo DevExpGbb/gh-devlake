@@ -28,7 +28,8 @@ Aliases: `connections`
 | `--name` | `Plugin - org` | Connection display name |
 | `--endpoint` | `https://api.github.com/` | API endpoint (use for GitHub Enterprise Server) |
 | `--proxy` | | HTTP proxy URL |
-| `--token` | | GitHub PAT (highest priority source) |
+| `--token` | | GitHub PAT (highest priority source). For BasicAuth plugins (Jenkins, Bitbucket, Jira), this is the password. |
+| `--username` | | Username for BasicAuth plugins (Jenkins, Bitbucket, Jira). Not used by GitHub or Copilot. |
 | `--env-file` | `.devlake.env` | Path to env file containing PAT |
 | `--skip-cleanup` | `false` | Don't delete `.devlake.env` after setup |
 
@@ -49,6 +50,17 @@ For each plugin, the CLI resolves the PAT in this order (see [token-handling.md]
    - GitHub / Copilot: `GITHUB_PAT`, `GITHUB_TOKEN`, or `GH_TOKEN`
 3. Plugin-specific environment variable (same key names, from shell environment)
 4. Interactive masked prompt (terminal fallback)
+
+### Username Resolution (BasicAuth plugins)
+
+For plugins that use BasicAuth (e.g. Jenkins, Bitbucket, Jira), the `--username` flag is resolved in this order:
+
+1. `--username` flag
+2. `.devlake.env` file — checked for plugin-specific keys (e.g. `JENKINS_USERNAME`)
+3. Plugin-specific environment variable (from shell environment)
+4. Interactive prompt (terminal fallback)
+
+When `--username` is provided for a plugin that uses AccessToken auth (like GitHub or Copilot), the CLI prints a warning that the flag is not applicable.
 
 ### What It Does
 
@@ -80,6 +92,9 @@ gh devlake configure connection --plugin github --org my-org \
 
 # With proxy
 gh devlake configure connection --plugin github --org my-org --proxy http://proxy:8080
+
+# BasicAuth plugin (e.g. Jenkins)
+gh devlake configure connection --plugin jenkins --username admin --token mypassword
 
 # Interactive (no --plugin — prompts for everything)
 gh devlake configure connection

@@ -80,6 +80,7 @@ When performing a code review on this repository:
 - Confirm imports follow stdlib → external → internal ordering
 - Flag any hardcoded plugin names outside `connectionRegistry`
 - Verify `doGet[T]`/`doPost[T]` generics are used instead of raw HTTP calls
+- Check that new plugin-specific flags are registered in `ConnectionFlags`/`ScopeFlags` on the `ConnectionDef` for dynamic validation
 - Check terminal output follows spacing rules from `terminal-output.instructions.md`
 - Verify new commands have test files alongside them
 - Ensure README command reference table is updated for new/renamed commands

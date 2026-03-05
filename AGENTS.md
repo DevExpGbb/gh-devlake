@@ -60,6 +60,14 @@ gh devlake
 ### Plugin System
 Plugins are defined via `ConnectionDef` structs in `cmd/connection_types.go`. Each entry declares the plugin slug, endpoint, rate limits, prompt labels, PAT resolution keys, and scope handler. To add a new DevOps tool, add a `ConnectionDef` to `connectionRegistry` — token resolution, org prompts, and connection creation all derive from these fields automatically. See the `devlake-dev-integration` skill for full details.
 
+Key `ConnectionDef` field groups:
+- **Identity & endpoints**: `Plugin`, `DisplayName`, `Endpoint`, `Available`
+- **Org/enterprise**: `NeedsOrg`, `NeedsEnterprise`, `NeedsOrgOrEnt`, `OrgPrompt`, `EnterprisePrompt`
+- **Auth**: `AuthMethod` (default `"AccessToken"`; set `"BasicAuth"` for Jenkins/Bitbucket/Jira), `NeedsUsername`, `UsernamePrompt`, `UsernameEnvVars`, `UsernameEnvFileKeys`
+- **Token/PAT**: `TokenPrompt`, `EnvVarNames`, `EnvFileKeys`, `RequiredScopes`, `ScopeHint`
+- **Scope metadata**: `ScopeIDField` (JSON field name for scope IDs, e.g. `"githubId"`, `"id"`), `HasRepoScopes` (true when scopes carry a FullName tracked as repos), `ScopeFunc`
+- **Dynamic flag validation**: `ConnectionFlags`, `ScopeFlags` — slices of `FlagDef` that declare which plugin-specific flags apply. At runtime, `warnIrrelevantFlags()` warns when a user passes a flag that doesn't apply to the selected plugin, and `printContextualFlagHelp()` shows applicable flags in interactive mode.
+
 **One plugin per invocation.** Flag-based commands target a single `--plugin`. Interactive mode walks through plugins sequentially.
 
 ### Design Principles
