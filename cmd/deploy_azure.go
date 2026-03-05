@@ -185,11 +185,11 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 		}
 		if azureRepoURL != "" {
 			defer os.RemoveAll(repoRoot)
-		}
-		if err := applyPoetryPinWorkaround(repoRoot); err != nil {
-			fmt.Printf("\n   ⚠️  Could not apply temporary Poetry pin workaround: %v\n", err)
-		} else {
-			fmt.Printf("\n   ⚠️  Applied temporary Poetry pin workaround (poetry==%s) for fork builds\n", poetryWorkaroundVersion)
+			if err := applyPoetryPinWorkaround(repoRoot); err != nil {
+				fmt.Printf("   ⚠️  Could not apply temporary Poetry pin workaround: %v\n", err)
+			} else {
+				fmt.Printf("   ⚠️  Applied temporary Poetry pin workaround (poetry==%s) for fork builds\n", poetryWorkaroundVersion)
+			}
 		}
 		fmt.Printf("\n🏗️  Building Docker images from %s...\n", repoRoot)
 
