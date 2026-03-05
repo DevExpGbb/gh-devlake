@@ -347,7 +347,8 @@ func looksLikeZeroDateTokenExpiresAt(err error) bool {
 // resolveUsername resolves the username for a BasicAuth plugin.
 // Priority: flag value → .devlake.env file (UsernameEnvFileKeys) →
 // environment variables (UsernameEnvVars) → interactive prompt.
-// Returns an empty string only if no terminal is available for prompting.
+// Returns an empty string only if all resolution steps fail, including an empty
+// interactive response or stdin EOF (for example, in non-terminal environments).
 func resolveUsername(def *ConnectionDef, flagValue string, envFilePath string) string {
 	if flagValue != "" {
 		return flagValue

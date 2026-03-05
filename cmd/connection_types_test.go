@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"testing"
 )
 
@@ -327,4 +328,66 @@ func TestLooksLikeZeroDateTokenExpiresAt(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestResolveUsername covers the flag → env file → env var resolution paths for resolveUsername.
+func TestResolveUsername(t *testing.T) {
+	def := &ConnectionDef{
+		Plugin:              "jenkins",
+		DisplayName:         "Jenkins",
+		NeedsUsername:       true,
+		UsernameEnvVars:     []string{"JENKINS_USER", "JENKINS_USERNAME"},
+		UsernameEnvFileKeys: []string{"JENKINS_USER"},
+	}
+
+	t.Run("flag value takes priority over everything", func(t *testing.T) {
+		t.Setenv("JENKINS_USER", "env-user")
+		got := resolveUsername(def, "flag-user", "/nonexistent/.devlake.env")
+		if got != "flag-user" {
+			t.Errorf("got %q, want %q", got, "flag-user")
+		}
+	})
+
+	t.Run("env file key resolved when no flag", func(t *testing.T) {
+		envFile := t.TempDir() + "/.devlake.env"
+		if err := os.WriteFile(envFile, []byte("JENKINS_USER=envfile-user\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("JENKINS_USER", "")
+		t.Setenv("JENKINS_USERNAME", "")
+		got := resolveUsername(def, "", envFile)
+		if got != "envfile-user" {
+			t.Errorf("got %q, want %q", got, "envfile-user")
+		}
+	})
+
+	t.Run("first env var used when no flag or env file", func(t *testing.T) {
+		t.Setenv("JENKINS_USER", "primary-env-user")
+		t.Setenv("JENKINS_USERNAME", "secondary-env-user")
+		got := resolveUsername(def, "", "/nonexistent/.devlake.env")
+		if got != "primary-env-user" {
+			t.Errorf("got %q, want %q", got, "primary-env-user")
+		}
+	})
+
+	t.Run("second env var used when first is empty", func(t *testing.T) {
+		t.Setenv("JENKINS_USER", "")
+		t.Setenv("JENKINS_USERNAME", "secondary-env-user")
+		got := resolveUsername(def, "", "/nonexistent/.devlake.env")
+		if got != "secondary-env-user" {
+			t.Errorf("got %q, want %q", got, "secondary-env-user")
+		}
+	})
+
+	t.Run("env file takes priority over env vars", func(t *testing.T) {
+		envFile := t.TempDir() + "/.devlake.env"
+		if err := os.WriteFile(envFile, []byte("JENKINS_USER=envfile-wins\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("JENKINS_USER", "env-loses")
+		got := resolveUsername(def, "", envFile)
+		if got != "envfile-wins" {
+			t.Errorf("got %q, want %q", got, "envfile-wins")
+		}
+	})
 }

@@ -70,7 +70,7 @@ type ConnectionCreateRequest struct {
 	Endpoint              string `json:"endpoint"`
 	Proxy                 string `json:"proxy,omitempty"`
 	AuthMethod            string `json:"authMethod"`
-	Token                 string `json:"token"`
+	Token                 string `json:"token,omitempty"`
 	Username              string `json:"username,omitempty"`
 	Password              string `json:"password,omitempty"`
 	EnableGraphql         bool   `json:"enableGraphql,omitempty"`
@@ -86,7 +86,7 @@ type ConnectionTestRequest struct {
 	Name             string `json:"name"`
 	Endpoint         string `json:"endpoint"`
 	AuthMethod       string `json:"authMethod"`
-	Token            string `json:"token"`
+	Token            string `json:"token,omitempty"`
 	Username         string `json:"username,omitempty"`
 	Password         string `json:"password,omitempty"`
 	EnableGraphql    bool   `json:"enableGraphql,omitempty"`
