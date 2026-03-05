@@ -2,7 +2,7 @@
 
 How the CLI resolves, uses, and secures Personal Access Tokens (PATs) for each plugin connection.
 
-Supported today: **GitHub**, **GitHub Copilot**. Coming soon: **Azure DevOps**, **GitLab**.
+Supported today: **GitHub**, **GitHub Copilot**, **GitLab**, **Azure DevOps**.
 
 ## Token Resolution Order
 
@@ -33,8 +33,8 @@ The CLI checks **plugin-specific** keys (first match wins):
 |--------|-------------------------------|---------------------------------|
 | GitHub | `GITHUB_PAT`, `GITHUB_TOKEN`, `GH_TOKEN` | `GITHUB_PAT`, `GITHUB_TOKEN`, `GH_TOKEN` |
 | GitHub Copilot | `GITHUB_PAT`, `GITHUB_TOKEN`, `GH_TOKEN` | `GITHUB_PAT`, `GITHUB_TOKEN`, `GH_TOKEN` |
-| GitLab (coming soon) | `GITLAB_TOKEN` | `GITLAB_TOKEN` |
-| Azure DevOps (coming soon) | `AZURE_DEVOPS_PAT` | `AZURE_DEVOPS_PAT` |
+| GitLab | `GITLAB_TOKEN`, `GITLAB_PAT` | `GITLAB_TOKEN`, `GITLAB_PAT` |
+| Azure DevOps | `AZURE_DEVOPS_PAT`, `AZDO_PAT` | `AZURE_DEVOPS_PAT`, `AZDO_PAT` |
 
 By default, the CLI looks for `.devlake.env` in the current directory. Override the path with `--env-file`:
 
@@ -57,8 +57,8 @@ As a final fallback, the CLI prompts you to paste the token at the terminal. Inp
 | GitHub | `repo`, `read:org`, `read:user` |
 | GitHub Copilot | `manage_billing:copilot`, `read:org` |
 | GitHub Copilot (enterprise) | + `read:enterprise` |
-
-GitLab and Azure DevOps scopes will be documented when those plugins ship.
+| GitLab | `read_api`, `read_repository` |
+| Azure DevOps | PAT with repo + pipeline access (no OAuth scopes) |
 
 The CLI displays required scopes as a reminder before prompting for the token.
 

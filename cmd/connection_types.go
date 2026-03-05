@@ -298,13 +298,24 @@ var connectionRegistry = []*ConnectionDef{
 		},
 	},
 	{
-		Plugin:      "azure-devops",
-		DisplayName: "Azure DevOps",
-		Available:   false,
-		TokenPrompt: "Azure DevOps PAT",
-		OrgPrompt:   "Azure DevOps organization",
-		EnvVarNames: []string{"AZURE_DEVOPS_PAT"},
-		EnvFileKeys: []string{"AZURE_DEVOPS_PAT"},
+		Plugin:          "azuredevops_go",
+		DisplayName:     "Azure DevOps",
+		Available:       true,
+		Endpoint:        "",
+		NeedsOrg:        true,
+		SupportsTest:    true,
+		AuthMethod:      "AccessToken",
+		RequiredScopes:  []string{},
+		ScopeHint:       "",
+		TokenPrompt:     "Azure DevOps PAT",
+		OrgPrompt:       "Azure DevOps organization",
+		EnvVarNames:     []string{"AZURE_DEVOPS_PAT", "AZDO_PAT"},
+		EnvFileKeys:     []string{"AZURE_DEVOPS_PAT", "AZDO_PAT"},
+		ScopeFunc:       scopeAzureDevOpsHandler,
+		ScopeIDField:    "id",
+		HasRepoScopes:   true,
+		ConnectionFlags: nil,
+		ScopeFlags:      nil,
 	},
 	{
 		Plugin:           "jira",
@@ -357,6 +368,10 @@ func AvailableConnections() []*ConnectionDef {
 
 // FindConnectionDef returns the def for the given plugin slug, or nil.
 func FindConnectionDef(plugin string) *ConnectionDef {
+	switch plugin {
+	case "azure-devops":
+		plugin = "azuredevops_go"
+	}
 	for _, d := range connectionRegistry {
 		if d.Plugin == plugin {
 			return d

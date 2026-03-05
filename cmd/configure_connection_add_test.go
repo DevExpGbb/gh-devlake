@@ -58,11 +58,14 @@ func TestSelectPlugin_UnknownSlug(t *testing.T) {
 }
 
 func TestSelectPlugin_UnavailablePlugin(t *testing.T) {
-	_, err := selectPlugin("azure-devops")
-	if err == nil {
-		t.Fatal("expected error for unavailable plugin, got nil")
+	def, err := selectPlugin("azure-devops")
+	if err != nil {
+		t.Fatalf("expected alias resolution for azure-devops, got error: %v", err)
 	}
-	if !strings.Contains(err.Error(), "coming soon") {
-		t.Errorf("unexpected error message: %v", err)
+	if def == nil {
+		t.Fatal("expected ConnectionDef, got nil")
+	}
+	if def.Plugin != "azuredevops_go" {
+		t.Errorf("expected plugin %q, got %q", "azuredevops_go", def.Plugin)
 	}
 }
