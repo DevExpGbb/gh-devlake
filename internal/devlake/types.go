@@ -50,8 +50,8 @@ type GitLabProjectScope struct {
 	ConnectionID      int    `json:"connectionId"`
 	Name              string `json:"name"`
 	PathWithNamespace string `json:"pathWithNamespace"`
-	HttpUrlToRepo     string `json:"httpUrlToRepo,omitempty"`
-	SshUrlToRepo      string `json:"sshUrlToRepo,omitempty"`
+	HTTPURLToRepo     string `json:"httpUrlToRepo,omitempty"`
+	SSHURLToRepo      string `json:"sshUrlToRepo,omitempty"`
 	ScopeConfigID     int    `json:"scopeConfigId,omitempty"`
 }
 

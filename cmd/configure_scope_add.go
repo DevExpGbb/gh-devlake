@@ -120,10 +120,16 @@ func runScopeAdd(cmd *cobra.Command, args []string, opts *ScopeOpts) error {
 	fmt.Printf("   %s connection ID: %d\n", pluginDisplayName(selectedPlugin), connID)
 
 	org := resolveOrg(state, opts.Org)
-	if org == "" {
+	def := FindConnectionDef(selectedPlugin)
+	if def == nil || def.ScopeFunc == nil {
+		return fmt.Errorf("scope configuration for %q is not yet supported", selectedPlugin)
+	}
+	if org == "" && def.NeedsOrg {
 		return fmt.Errorf("organization is required (use --org)")
 	}
-	fmt.Printf("   Organization: %s\n", org)
+	if org != "" {
+		fmt.Printf("   Organization: %s\n", org)
+	}
 
 	enterprise := resolveEnterprise(state, opts.Enterprise)
 	if enterprise != "" {
@@ -131,10 +137,6 @@ func runScopeAdd(cmd *cobra.Command, args []string, opts *ScopeOpts) error {
 	}
 
 	// Dispatch to plugin-specific scope handler
-	def := FindConnectionDef(selectedPlugin)
-	if def == nil || def.ScopeFunc == nil {
-		return fmt.Errorf("scope configuration for %q is not yet supported", selectedPlugin)
-	}
 	_, err = def.ScopeFunc(client, connID, org, enterprise, opts)
 	if err != nil {
 		return err

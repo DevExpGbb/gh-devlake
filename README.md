@@ -187,7 +187,7 @@ For the full guide, see [Day-2 Operations](docs/day-2.md).
 | GitHub | ✅ Available | Repos, PRs, issues, workflows, deployments (DORA) | `repo`, `read:org`, `read:user` |
 | GitHub Copilot | ✅ Available | Usage metrics, seats, acceptance rates | `manage_billing:copilot`, `read:org` (+ `read:enterprise` for enterprise metrics) |
 | Azure DevOps | 🔜 Coming soon | Repos, pipelines, deployments (DORA) | (TBD) |
-| GitLab | 🔜 Coming soon | Repos, MRs, pipelines, deployments (DORA) | (TBD) |
+| GitLab | ✅ Available | Repos, MRs, pipelines, deployments (DORA) | `read_api`, `read_repository` |
 
 See [Token Handling](docs/token-handling.md) for env key names and multi-plugin `.devlake.env` examples.
 

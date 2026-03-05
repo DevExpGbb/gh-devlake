@@ -416,6 +416,7 @@ func scopeGitLabHandler(client *devlake.Client, connID int, org, enterprise stri
 // resolveGitLabProjects determines which GitLab projects to scope via flags or
 // interactive browsing of the DevLake remote-scope hierarchy.
 func resolveGitLabProjects(client *devlake.Client, connID int, group string, opts *ScopeOpts) ([]*devlake.GitLabProjectScope, error) {
+	fmt.Println("\n📦 Resolving GitLab projects...")
 	if opts != nil && opts.Repos != "" {
 		var paths []string
 		for _, p := range strings.Split(opts.Repos, ",") {
