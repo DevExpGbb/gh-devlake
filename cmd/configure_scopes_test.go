@@ -189,3 +189,56 @@ func TestResolveRepos_SentinelFiltered(t *testing.T) {
 		}
 	}
 }
+
+func TestResolveJenkinsJobs_WithJobsFlag(t *testing.T) {
+	tests := []struct {
+		name      string
+		flagValue string
+		want      []string
+		wantErr   bool
+	}{
+		{
+			name:      "trims whitespace and ignores empty entries",
+			flagValue: " job1 , job2,, job3 ",
+			want:      []string{"job1", "job2", "job3"},
+		},
+		{
+			name:      "single job",
+			flagValue: "folder/job1",
+			want:      []string{"folder/job1"},
+		},
+		{
+			name:      "only separators yields error",
+			flagValue: " , , ",
+			wantErr:   true,
+		},
+		{
+			name:      "spaces only yields error",
+			flagValue: "   ",
+			wantErr:   true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := &ScopeOpts{Jobs: tt.flagValue}
+			got, err := resolveJenkinsJobs(nil, 1, opts)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+			for i := range tt.want {
+				if got[i] != tt.want[i] {
+					t.Errorf("got[%d]=%q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}

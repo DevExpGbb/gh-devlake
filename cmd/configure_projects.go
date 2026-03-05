@@ -102,7 +102,7 @@ func runConfigureProjects(cmd *cobra.Command, args []string, opts *ProjectOpts) 
 	}
 
 	// Discover connections
-	fmt.Println("\n\U0001f50d Discovering connections...")
+	fmt.Println("\n🔍 Discovering connections...")
 	choices := discoverConnections(client, state)
 	if len(choices) == 0 {
 		return fmt.Errorf("no connections found — run 'gh devlake configure connection add' first")
@@ -222,7 +222,7 @@ func runConfigureProjects(cmd *cobra.Command, args []string, opts *ProjectOpts) 
 // listConnectionScopes lists existing scopes on a connection and builds an
 // addedConnection from them. Returns an error if no scopes are found.
 func listConnectionScopes(client *devlake.Client, c connChoice) (*addedConnection, error) {
-	fmt.Printf("\n\U0001f4e6 Listing scopes on %s...\n", c.label)
+	fmt.Printf("\n📦 Listing scopes on %s...\n", c.label)
 	resp, err := client.ListScopes(c.plugin, c.id)
 	if err != nil {
 		return nil, fmt.Errorf("could not list scopes: %w", err)
@@ -303,14 +303,14 @@ func finalizeProject(opts finalizeProjectOpts) error {
 		cron = "0 0 * * *"
 	}
 
-	fmt.Println("\n\U0001f3d7\ufe0f Creating DevLake project...")
+	fmt.Println("\n🏗️ Creating DevLake project...")
 	blueprintID, err := ensureProjectWithFlags(opts.Client, opts.ProjectName, opts.PluginNames)
 	if err != nil {
 		return fmt.Errorf("failed to create project: %w", err)
 	}
 	fmt.Printf("   Project: %s, Blueprint ID: %d\n", opts.ProjectName, blueprintID)
 
-	fmt.Println("\n\U0001f4cb Configuring blueprint...")
+	fmt.Println("\n📋 Configuring blueprint...")
 	enable := true
 	patch := &devlake.BlueprintPatch{
 		Enable:      &enable,
@@ -327,7 +327,7 @@ func finalizeProject(opts finalizeProjectOpts) error {
 	fmt.Printf("   Schedule: %s | Data since: %s\n", cron, timeAfter)
 
 	if !opts.SkipSync {
-		fmt.Println("\n\U0001f680 Triggering first data sync...")
+		fmt.Println("\n🚀 Triggering first data sync...")
 		fmt.Println("   Depending on data volume and history, this may take 5\u201330 minutes.")
 		if err := triggerAndPoll(opts.Client, blueprintID, opts.Wait, opts.Timeout); err != nil {
 			fmt.Printf("   \u26a0\ufe0f  %v\n", err)
@@ -345,7 +345,7 @@ func finalizeProject(opts finalizeProjectOpts) error {
 	if err := devlake.SaveState(opts.StatePath, opts.State); err != nil {
 		fmt.Fprintf(os.Stderr, "\u26a0\ufe0f  Could not update state file: %v\n", err)
 	} else {
-		fmt.Printf("\n\U0001f4be State saved to %s\n", opts.StatePath)
+		fmt.Printf("\n💾 State saved to %s\n", opts.StatePath)
 	}
 
 	fmt.Println("\n" + strings.Repeat("\u2500", 40))

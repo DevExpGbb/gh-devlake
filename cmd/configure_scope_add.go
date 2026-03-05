@@ -51,6 +51,7 @@ Example (Copilot):
 	cmd.Flags().StringVar(&opts.Plugin, "plugin", "", fmt.Sprintf("Plugin to configure (%s)", strings.Join(availablePluginSlugs(), ", ")))
 	cmd.Flags().StringVar(&opts.Repos, "repos", "", "Comma-separated repos (owner/repo)")
 	cmd.Flags().StringVar(&opts.ReposFile, "repos-file", "", "Path to file with repos (one per line)")
+	cmd.Flags().StringVar(&opts.Jobs, "jobs", "", "Comma-separated Jenkins job full names")
 	cmd.Flags().IntVar(&opts.ConnectionID, "connection-id", 0, "Connection ID (auto-detected if omitted)")
 	cmd.Flags().StringVar(&opts.DeployPattern, "deployment-pattern", "(?i)deploy", "Regex to match deployment workflows")
 	cmd.Flags().StringVar(&opts.ProdPattern, "production-pattern", "(?i)prod", "Regex to match production environment")
@@ -76,6 +77,7 @@ func runScopeAdd(cmd *cobra.Command, args []string, opts *ScopeOpts) error {
 		flagMode := cmd.Flags().Changed("org") ||
 			cmd.Flags().Changed("repos") ||
 			cmd.Flags().Changed("repos-file") ||
+			cmd.Flags().Changed("jobs") ||
 			cmd.Flags().Changed("connection-id")
 		if flagMode {
 			slugs := availablePluginSlugs()
@@ -112,7 +114,7 @@ func runScopeAdd(cmd *cobra.Command, args []string, opts *ScopeOpts) error {
 	}
 	_, state := devlake.FindStateFile(disc.URL, disc.GrafanaURL)
 
-	fmt.Println("\n\U0001f517 Resolving connection...")
+	fmt.Println("\n🔗 Resolving connection...")
 	connID, err := resolveConnectionID(client, state, selectedPlugin, opts.ConnectionID)
 	if err != nil {
 		return fmt.Errorf("no %s connection found \u2014 run 'configure connection' first: %w", pluginDisplayName(selectedPlugin), err)

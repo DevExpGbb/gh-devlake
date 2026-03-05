@@ -98,7 +98,7 @@ func runScopeList(cmd *cobra.Command, args []string) error {
 	}
 
 	if !outputJSON {
-		fmt.Printf("\n\U0001f4cb Listing scopes for %s connection ID=%d...\n", selectedPlugin, selectedConnID)
+		fmt.Printf("\n📋 Listing scopes for %s connection ID=%d...\n", selectedPlugin, selectedConnID)
 	}
 
 	resp, err := client.ListScopes(selectedPlugin, selectedConnID)

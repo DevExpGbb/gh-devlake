@@ -22,11 +22,11 @@ Aliases: `connections`
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin to configure (`github`, `gh-copilot`) |
+| `--plugin` | *(interactive)* | Plugin to configure (`github`, `gh-copilot`, `jenkins`) |
 | `--org` | *(required for Copilot)* | GitHub organization slug |
 | `--enterprise` | | GitHub enterprise slug (for enterprise-level Copilot metrics) |
 | `--name` | `Plugin - org` | Connection display name |
-| `--endpoint` | `https://api.github.com/` | API endpoint (use for GitHub Enterprise Server) |
+| `--endpoint` | `https://api.github.com/` (GitHub/Copilot) | API endpoint (override for GitHub Enterprise Server; Jenkins has no default and must supply a URL) |
 | `--proxy` | | HTTP proxy URL |
 | `--token` | | GitHub PAT (highest priority source). For BasicAuth plugins (Jenkins, Bitbucket, Jira), this is the password. |
 | `--username` | | Username for BasicAuth plugins (Jenkins, Bitbucket, Jira). Not used by GitHub or Copilot. |
@@ -40,6 +40,7 @@ Aliases: `connections`
 | `github` | `repo`, `read:org`, `read:user` |
 | `gh-copilot` | `manage_billing:copilot`, `read:org` |
 | `gh-copilot` (enterprise metrics) | + `read:enterprise` |
+| `jenkins` | Username + API token/password (BasicAuth) |
 
 ### Token Resolution Order
 
@@ -83,6 +84,9 @@ gh devlake configure connection --plugin github --org my-org
 # Copilot connection
 gh devlake configure connection --plugin gh-copilot --org my-org
 
+# Jenkins connection (endpoint required)
+gh devlake configure connection --plugin jenkins --endpoint https://jenkins.example.com --username admin
+
 # Enterprise Copilot metrics
 gh devlake configure connection --plugin gh-copilot --org my-org --enterprise my-enterprise
 
@@ -124,7 +128,7 @@ gh devlake configure connection list [--plugin <plugin>]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(all plugins)* | Filter output to one plugin (`github`, `gh-copilot`) |
+| `--plugin` | *(all plugins)* | Filter output to one plugin (`github`, `gh-copilot`, `jenkins`) |
 
 ### Output
 
@@ -151,7 +155,7 @@ gh devlake configure connection test [--plugin <plugin>] [--id <id>]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin to test (`github`, `gh-copilot`) |
+| `--plugin` | *(interactive)* | Plugin to test (`github`, `gh-copilot`, `jenkins`) |
 | `--id` | `0` | Connection ID to test |
 
 Both flags are required for non-interactive mode. If either is omitted, the CLI prompts interactively.
@@ -183,7 +187,7 @@ gh devlake configure connection update [--plugin <plugin>] [--id <id>] [update f
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin slug (`github`, `gh-copilot`) |
+| `--plugin` | *(interactive)* | Plugin slug (`github`, `gh-copilot`, `jenkins`) |
 | `--id` | *(interactive)* | Connection ID to update |
 | `--token` | | New PAT for token rotation |
 | `--org` | | New organization slug |

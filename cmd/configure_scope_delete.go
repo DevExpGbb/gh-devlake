@@ -84,7 +84,7 @@ func runScopeDelete(cmd *cobra.Command, args []string) error {
 		selectedConnID = picked.ID
 
 		// List scopes for picked connection
-		fmt.Printf("\n\U0001f4cb Listing scopes for %s connection ID=%d...\n", selectedPlugin, selectedConnID)
+		fmt.Printf("\n📋 Listing scopes for %s connection ID=%d...\n", selectedPlugin, selectedConnID)
 		resp, err := client.ListScopes(selectedPlugin, selectedConnID)
 		if err != nil {
 			return fmt.Errorf("failed to list scopes: %w", err)
@@ -146,7 +146,7 @@ func runScopeDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	// Delete scope
-	fmt.Printf("\n\U0001f5d1\ufe0f  Deleting scope %s from %s connection ID=%d...\n", selectedScopeID, selectedPlugin, selectedConnID)
+	fmt.Printf("\n🗑️  Deleting scope %s from %s connection ID=%d...\n", selectedScopeID, selectedPlugin, selectedConnID)
 	if err := client.DeleteScope(selectedPlugin, selectedConnID, selectedScopeID); err != nil {
 		return fmt.Errorf("failed to delete scope: %w", err)
 	}

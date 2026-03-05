@@ -2,7 +2,7 @@
 
 Manage scopes (repos, orgs) on existing DevLake connections.
 
-Scopes define *what* data DevLake collects from a connection — specific repos for GitHub, or an org/enterprise for Copilot. This command only manages scopes; it does **not** create projects or trigger data syncs. After scoping, run [`configure project add`](configure-project.md) to create a project and start collection.
+Scopes define *what* data DevLake collects from a connection — specific repos for GitHub, jobs for Jenkins, or an org/enterprise for Copilot. This command only manages scopes; it does **not** create projects or trigger data syncs. After scoping, run [`configure project add`](configure-project.md) to create a project and start collection.
 
 See [concepts.md](concepts.md) for what a scope is and how DORA patterns work.
 
@@ -10,7 +10,7 @@ See [concepts.md](concepts.md) for what a scope is and how DORA patterns work.
 
 | Subcommand | Description |
 |------------|-------------|
-| [`configure scope add`](#configure-scope-add) | Add repo/org scopes to a connection |
+| [`configure scope add`](#configure-scope-add) | Add repo/org/job scopes to a connection |
 | [`configure scope list`](#configure-scope-list) | List scopes on a connection |
 | [`configure scope delete`](#configure-scope-delete) | Remove a scope from a connection |
 
@@ -20,7 +20,7 @@ Aliases: `scopes`
 
 ## configure scope add
 
-Add repository or organization scopes to an existing DevLake connection.
+Add repository, job, or organization scopes to an existing DevLake connection.
 
 ### Usage
 
@@ -32,12 +32,13 @@ gh devlake configure scope add [flags]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive or required)* | Plugin to configure (`github`, `gh-copilot`) |
+| `--plugin` | *(interactive or required)* | Plugin to configure (`github`, `gh-copilot`, `jenkins`) |
 | `--connection-id` | *(auto-detected)* | Override the connection ID to scope |
 | `--org` | *(required)* | GitHub organization slug |
 | `--enterprise` | | Enterprise slug (enables enterprise-level Copilot metrics) |
 | `--repos` | | Comma-separated repos to add (`owner/repo,owner/repo2`) |
 | `--repos-file` | | Path to a file with repos (one `owner/repo` per line) |
+| `--jobs` | | Comma-separated Jenkins job full names |
 | `--deployment-pattern` | `(?i)deploy` | Regex matching CI/CD workflow names for deployments |
 | `--production-pattern` | `(?i)prod` | Regex matching environment names for production |
 | `--incident-label` | `incident` | GitHub issue label that marks incidents |
@@ -88,6 +89,12 @@ gh devlake configure scope add --plugin gh-copilot --org my-org
 # Copilot with enterprise scope
 gh devlake configure scope add --plugin gh-copilot --org my-org --enterprise my-enterprise
 
+# Jenkins jobs via flags
+gh devlake configure scope add --plugin jenkins --org my-org --jobs "team/job1,team/job2"
+
+# Jenkins jobs (interactive remote-scope picker)
+gh devlake configure scope add --plugin jenkins --org my-org
+
 # Interactive (omit all flags)
 gh devlake configure scope add
 ```
@@ -103,6 +110,12 @@ gh devlake configure scope add
 
 1. Computes scope ID from org + enterprise: `enterprise/org`, `enterprise`, or `org`
 2. Calls `PUT /plugins/gh-copilot/connections/{id}/scopes` to add the org/enterprise scope
+
+### What It Does (Jenkins)
+
+1. Lists Jenkins jobs via the remote-scope API (interactive picker)
+2. Uses `--jobs` when provided instead of prompting
+3. Calls `PUT /plugins/jenkins/connections/{id}/scopes` with the selected jobs
 
 ---
 
@@ -120,7 +133,7 @@ gh devlake configure scope list [--plugin <plugin>] [--connection-id <id>]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin to query (`github`, `gh-copilot`) |
+| `--plugin` | *(interactive)* | Plugin to query (`github`, `gh-copilot`, `jenkins`) |
 | `--connection-id` | *(interactive)* | Connection ID to list scopes for |
 
 **Flag mode:** both `--plugin` and `--connection-id` are required.
@@ -168,7 +181,7 @@ gh devlake configure scope delete [--plugin <plugin>] [--connection-id <id>] [--
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin of the connection (`github`, `gh-copilot`) |
+| `--plugin` | *(interactive)* | Plugin of the connection (`github`, `gh-copilot`, `jenkins`) |
 | `--connection-id` | *(interactive)* | Connection ID |
 | `--scope-id` | *(interactive)* | Scope ID to delete |
 | `--force` | `false` | Skip confirmation prompt |

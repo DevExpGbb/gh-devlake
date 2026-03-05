@@ -21,6 +21,7 @@ type ScopeOpts struct {
 	Plugin        string
 	Repos         string
 	ReposFile     string
+	Jobs          string
 	ConnectionID  int
 	ProjectName   string
 	DeployPattern string
@@ -58,7 +59,7 @@ type scopeGitHubResult struct {
 // scopeGitHub resolves repos, creates scope config, and PUTs repo scopes
 // for a GitHub connection. Returns the BlueprintConnection entry and repo list.
 func scopeGitHub(client *devlake.Client, connID int, org string, opts *ScopeOpts) (*scopeGitHubResult, error) {
-	fmt.Println("\n\U0001f4e6 Resolving repositories...")
+	fmt.Println("\n📦 Resolving repositories...")
 	repos, err := resolveRepos(org, opts)
 	if err != nil {
 		return nil, err
@@ -68,7 +69,7 @@ func scopeGitHub(client *devlake.Client, connID int, org string, opts *ScopeOpts
 	}
 	fmt.Printf("   Repos to configure: %s\n", strings.Join(repos, ", "))
 
-	fmt.Println("\n\U0001f50e Looking up repo details...")
+	fmt.Println("\n🔎 Looking up repo details...")
 	var repoDetails []*gh.RepoDetails
 	for _, repo := range repos {
 		detail, err := gh.GetRepoDetails(repo)
@@ -91,7 +92,7 @@ func scopeGitHub(client *devlake.Client, connID int, org string, opts *ScopeOpts
 		fmt.Printf("   Scope config ID: %d\n", scopeConfigID)
 	}
 
-	fmt.Println("\n\U0001f4dd Adding repository scopes...")
+	fmt.Println("\n📝 Adding repository scopes...")
 	err = putGitHubScopes(client, connID, scopeConfigID, repoDetails)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add repo scopes: %w", err)
@@ -119,7 +120,7 @@ func scopeGitHub(client *devlake.Client, connID int, org string, opts *ScopeOpts
 
 // scopeCopilot PUTs the org/enterprise scope for a Copilot connection.
 func scopeCopilot(client *devlake.Client, connID int, org, enterprise string) (*devlake.BlueprintConnection, error) {
-	fmt.Println("\n\U0001f4dd Adding Copilot scope...")
+	fmt.Println("\n📝 Adding Copilot scope...")
 	scopeID := copilotScopeID(org, enterprise)
 	err := putCopilotScope(client, connID, org, enterprise)
 	if err != nil {
@@ -261,6 +262,96 @@ func resolveRepos(org string, opts *ScopeOpts) ([]string, error) {
 		}
 	}
 	return repos, nil
+}
+
+// resolveJenkinsJobs determines Jenkins jobs from flags or interactive remote-scope browsing.
+func resolveJenkinsJobs(client *devlake.Client, connID int, opts *ScopeOpts) ([]string, error) {
+	if opts.Jobs != "" {
+		var jobs []string
+		for _, j := range strings.Split(opts.Jobs, ",") {
+			j = strings.TrimSpace(j)
+			if j != "" {
+				jobs = append(jobs, j)
+			}
+		}
+		if len(jobs) == 0 {
+			return nil, fmt.Errorf("no Jenkins jobs provided via --jobs")
+		}
+		return jobs, nil
+	}
+
+	fmt.Println("\n🔎 Discovering Jenkins jobs...")
+	scopes, err := listJenkinsRemoteJobs(client, connID)
+	if err != nil {
+		return nil, fmt.Errorf("could not list Jenkins jobs: %w", err)
+	}
+	if len(scopes) == 0 {
+		return nil, fmt.Errorf("no Jenkins jobs found on connection %d", connID)
+	}
+
+	var labels []string
+	labelToFullName := make(map[string]string)
+	for _, s := range scopes {
+		label := s.FullName
+		if label == "" {
+			label = s.Name
+		}
+		if label == "" {
+			label = s.ID
+		}
+		if label == "" {
+			continue
+		}
+		labels = append(labels, label)
+		if s.FullName != "" {
+			labelToFullName[label] = s.FullName
+		} else {
+			labelToFullName[label] = label
+		}
+	}
+
+	fmt.Println()
+	selected := prompt.SelectMulti("Select Jenkins jobs to collect", labels)
+	var jobs []string
+	for _, choice := range selected {
+		if full := labelToFullName[choice]; full != "" {
+			jobs = append(jobs, full)
+		}
+	}
+	return jobs, nil
+}
+
+// listJenkinsRemoteJobs walks the Jenkins remote-scope tree and returns all job scopes.
+func listJenkinsRemoteJobs(client *devlake.Client, connID int) ([]devlake.RemoteScopeChild, error) {
+	var (
+		allJobs    []devlake.RemoteScopeChild
+		groupQueue = []string{""}
+	)
+	for len(groupQueue) > 0 {
+		groupID := groupQueue[0]
+		groupQueue = groupQueue[1:]
+
+		pageToken := ""
+		for {
+			resp, err := client.ListRemoteScopes("jenkins", connID, groupID, pageToken)
+			if err != nil {
+				return nil, fmt.Errorf("listing remote scopes: %w", err)
+			}
+			for _, child := range resp.Children {
+				switch child.Type {
+				case "group":
+					groupQueue = append(groupQueue, child.ID)
+				case "scope":
+					allJobs = append(allJobs, child)
+				}
+			}
+			if resp.NextPageToken == "" {
+				break
+			}
+			pageToken = resp.NextPageToken
+		}
+	}
+	return allJobs, nil
 }
 
 // ensureScopeConfig creates a DORA scope config or returns an existing one.
@@ -577,6 +668,47 @@ func putGitLabScopes(client *devlake.Client, connID int, projects []*devlake.Git
 		data = append(data, p)
 	}
 	return client.PutScopes("gitlab", connID, &devlake.ScopeBatchRequest{Data: data})
+}
+
+// scopeJenkinsHandler is the ScopeHandler for the jenkins plugin.
+func scopeJenkinsHandler(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error) {
+	if opts == nil {
+		opts = &ScopeOpts{}
+	}
+	jobs, err := resolveJenkinsJobs(client, connID, opts)
+	if err != nil {
+		return nil, err
+	}
+	if len(jobs) == 0 {
+		return nil, fmt.Errorf("at least one Jenkins job is required")
+	}
+
+	fmt.Println("\n📝 Adding Jenkins job scopes...")
+	var (
+		data   []any
+		scopes []devlake.BlueprintScope
+	)
+	for _, job := range jobs {
+		data = append(data, devlake.JenkinsJobScope{
+			ConnectionID: connID,
+			FullName:     job,
+			Name:         job,
+		})
+		scopes = append(scopes, devlake.BlueprintScope{
+			ScopeID:   job,
+			ScopeName: job,
+		})
+	}
+	if err := client.PutScopes("jenkins", connID, &devlake.ScopeBatchRequest{Data: data}); err != nil {
+		return nil, fmt.Errorf("failed to add Jenkins job scopes: %w", err)
+	}
+	fmt.Printf("   ✅ Added %d Jenkins job scope(s)\n", len(jobs))
+
+	return &devlake.BlueprintConnection{
+		PluginName:   "jenkins",
+		ConnectionID: connID,
+		Scopes:       scopes,
+	}, nil
 }
 
 // scopeJiraHandler is the ScopeHandler for the jira plugin.

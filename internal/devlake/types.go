@@ -55,6 +55,13 @@ type GitLabProjectScope struct {
 	ScopeConfigID     int    `json:"scopeConfigId,omitempty"`
 }
 
+// JenkinsJobScope represents a Jenkins job scope entry.
+type JenkinsJobScope struct {
+	ConnectionID int    `json:"connectionId"`
+	FullName     string `json:"fullName"`
+	Name         string `json:"name"`
+}
+
 // JiraBoardScope represents a Jira board scope entry for PUT /scopes.
 type JiraBoardScope struct {
 	BoardID      uint64 `json:"boardId"`
@@ -153,7 +160,7 @@ type ScopeListResponse struct {
 
 // RemoteScopeChild represents one item (group or scope) from the remote-scope API.
 type RemoteScopeChild struct {
-	Type     string          `json:"type"`     // "group" or "scope"
+	Type     string          `json:"type"` // "group" or "scope"
 	ID       string          `json:"id"`
 	ParentID string          `json:"parentId"`
 	Name     string          `json:"name"`
