@@ -13,7 +13,7 @@ func TestNewAddConnectionCmd(t *testing.T) {
 		t.Error("expected Short to be set")
 	}
 
-	flags := []string{"plugin", "org", "enterprise", "token", "env-file", "skip-cleanup", "name", "proxy", "endpoint"}
+	flags := []string{"plugin", "org", "enterprise", "token", "username", "env-file", "skip-cleanup", "name", "proxy", "endpoint"}
 	for _, f := range flags {
 		if addConnectionCmd.Flags().Lookup(f) == nil {
 			t.Errorf("expected flag --%s to be registered on addConnectionCmd", f)

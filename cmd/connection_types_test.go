@@ -1,6 +1,10 @@
 package cmd
 
-import "testing"
+import (
+	"fmt"
+	"os"
+	"testing"
+)
 
 func TestBuildCreateRequest_RateLimit(t *testing.T) {
 	tests := []struct {
@@ -140,4 +144,250 @@ func TestAvailablePluginsScopeHints(t *testing.T) {
 			t.Errorf("plugin %q has empty ScopeHint", def.Plugin)
 		}
 	}
+}
+
+// TestBuildCreateRequest_AuthMethod verifies that AuthMethod defaults to "AccessToken"
+// when empty, and uses the configured value when set.
+func TestBuildCreateRequest_AuthMethod(t *testing.T) {
+	tests := []struct {
+		name           string
+		authMethod     string
+		wantAuthMethod string
+	}{
+		{"empty defaults to AccessToken", "", "AccessToken"},
+		{"explicit AccessToken", "AccessToken", "AccessToken"},
+		{"BasicAuth", "BasicAuth", "BasicAuth"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			def := &ConnectionDef{
+				Endpoint:   "https://example.com/",
+				AuthMethod: tt.authMethod,
+			}
+			req := def.BuildCreateRequest("test", ConnectionParams{Token: "tok"})
+			if req.AuthMethod != tt.wantAuthMethod {
+				t.Errorf("got AuthMethod %q, want %q", req.AuthMethod, tt.wantAuthMethod)
+			}
+		})
+	}
+}
+
+// TestBuildTestRequest_AuthMethod mirrors TestBuildCreateRequest_AuthMethod for the test request.
+func TestBuildTestRequest_AuthMethod(t *testing.T) {
+	tests := []struct {
+		name           string
+		authMethod     string
+		wantAuthMethod string
+	}{
+		{"empty defaults to AccessToken", "", "AccessToken"},
+		{"explicit AccessToken", "AccessToken", "AccessToken"},
+		{"BasicAuth", "BasicAuth", "BasicAuth"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			def := &ConnectionDef{
+				Endpoint:   "https://example.com/",
+				AuthMethod: tt.authMethod,
+			}
+			req := def.BuildTestRequest("test", ConnectionParams{Token: "tok"})
+			if req.AuthMethod != tt.wantAuthMethod {
+				t.Errorf("got AuthMethod %q, want %q", req.AuthMethod, tt.wantAuthMethod)
+			}
+		})
+	}
+}
+
+// TestBuildCreateRequest_BasicAuth verifies that Username and Password are set
+// when NeedsUsername is true and a Username is provided in ConnectionParams.
+func TestBuildCreateRequest_BasicAuth(t *testing.T) {
+	def := &ConnectionDef{
+		Plugin:        "jenkins",
+		Endpoint:      "https://jenkins.example.com/",
+		AuthMethod:    "BasicAuth",
+		NeedsUsername: true,
+	}
+
+	t.Run("username and password populated, token empty", func(t *testing.T) {
+		req := def.BuildCreateRequest("test", ConnectionParams{
+			Token:    "mypassword",
+			Username: "admin",
+		})
+		if req.Username != "admin" {
+			t.Errorf("got Username %q, want %q", req.Username, "admin")
+		}
+		if req.Password != "mypassword" {
+			t.Errorf("got Password %q, want %q", req.Password, "mypassword")
+		}
+		if req.Token != "" {
+			t.Errorf("expected empty Token for BasicAuth, got %q", req.Token)
+		}
+		if req.AuthMethod != "BasicAuth" {
+			t.Errorf("got AuthMethod %q, want %q", req.AuthMethod, "BasicAuth")
+		}
+	})
+
+	t.Run("no username = token field used instead", func(t *testing.T) {
+		req := def.BuildCreateRequest("test", ConnectionParams{Token: "tok"})
+		if req.Username != "" {
+			t.Errorf("expected empty Username, got %q", req.Username)
+		}
+		if req.Password != "" {
+			t.Errorf("expected empty Password, got %q", req.Password)
+		}
+		if req.Token != "tok" {
+			t.Errorf("expected Token %q, got %q", "tok", req.Token)
+		}
+	})
+}
+
+// TestBuildTestRequest_BasicAuth mirrors TestBuildCreateRequest_BasicAuth for the test request.
+func TestBuildTestRequest_BasicAuth(t *testing.T) {
+	def := &ConnectionDef{
+		Plugin:        "jenkins",
+		Endpoint:      "https://jenkins.example.com/",
+		AuthMethod:    "BasicAuth",
+		NeedsUsername: true,
+	}
+
+	t.Run("username and password populated, token empty", func(t *testing.T) {
+		req := def.BuildTestRequest("test", ConnectionParams{
+			Token:    "mypassword",
+			Username: "admin",
+		})
+		if req.Username != "admin" {
+			t.Errorf("got Username %q, want %q", req.Username, "admin")
+		}
+		if req.Password != "mypassword" {
+			t.Errorf("got Password %q, want %q", req.Password, "mypassword")
+		}
+		if req.Token != "" {
+			t.Errorf("expected empty Token for BasicAuth, got %q", req.Token)
+		}
+		if req.AuthMethod != "BasicAuth" {
+			t.Errorf("got AuthMethod %q, want %q", req.AuthMethod, "BasicAuth")
+		}
+	})
+
+	t.Run("no username = token field used instead", func(t *testing.T) {
+		req := def.BuildTestRequest("test", ConnectionParams{Token: "tok"})
+		if req.Username != "" {
+			t.Errorf("expected empty Username, got %q", req.Username)
+		}
+		if req.Password != "" {
+			t.Errorf("expected empty Password, got %q", req.Password)
+		}
+		if req.Token != "tok" {
+			t.Errorf("expected Token %q, got %q", "tok", req.Token)
+		}
+	})
+}
+
+// TestNeedsTokenExpiry verifies that the NeedsTokenExpiry field is set on the
+// github and gh-copilot registry entries (and not on others).
+func TestNeedsTokenExpiry(t *testing.T) {
+	tests := []struct {
+		plugin string
+		want   bool
+	}{
+		{"github", true},
+		{"gh-copilot", true},
+		{"gitlab", false},
+		{"azure-devops", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.plugin, func(t *testing.T) {
+			def := FindConnectionDef(tt.plugin)
+			if def == nil {
+				t.Fatalf("plugin %q not found in registry", tt.plugin)
+			}
+			if def.NeedsTokenExpiry != tt.want {
+				t.Errorf("plugin %q: NeedsTokenExpiry=%v, want %v", tt.plugin, def.NeedsTokenExpiry, tt.want)
+			}
+		})
+	}
+}
+
+// TestLooksLikeZeroDateTokenExpiresAt verifies the helper detects zero-date errors.
+func TestLooksLikeZeroDateTokenExpiresAt(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil error", nil, false},
+		{"unrelated error", fmt.Errorf("something else"), false},
+		{"zero date error", fmt.Errorf("token_expires_at: 0000-00-00 is invalid"), true},
+		{"only token_expires_at", fmt.Errorf("token_expires_at is bad"), false},
+		{"only 0000-00-00", fmt.Errorf("date 0000-00-00 is not valid"), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := looksLikeZeroDateTokenExpiresAt(tt.err)
+			if got != tt.want {
+				t.Errorf("got %v, want %v for error: %v", got, tt.want, tt.err)
+			}
+		})
+	}
+}
+
+// TestResolveUsername covers the flag → env file → env var resolution paths for resolveUsername.
+func TestResolveUsername(t *testing.T) {
+	def := &ConnectionDef{
+		Plugin:              "jenkins",
+		DisplayName:         "Jenkins",
+		NeedsUsername:       true,
+		UsernameEnvVars:     []string{"JENKINS_USER", "JENKINS_USERNAME"},
+		UsernameEnvFileKeys: []string{"JENKINS_USER"},
+	}
+
+	t.Run("flag value takes priority over everything", func(t *testing.T) {
+		t.Setenv("JENKINS_USER", "env-user")
+		got := resolveUsername(def, "flag-user", "/nonexistent/.devlake.env")
+		if got != "flag-user" {
+			t.Errorf("got %q, want %q", got, "flag-user")
+		}
+	})
+
+	t.Run("env file key resolved when no flag", func(t *testing.T) {
+		envFile := t.TempDir() + "/.devlake.env"
+		if err := os.WriteFile(envFile, []byte("JENKINS_USER=envfile-user\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("JENKINS_USER", "")
+		t.Setenv("JENKINS_USERNAME", "")
+		got := resolveUsername(def, "", envFile)
+		if got != "envfile-user" {
+			t.Errorf("got %q, want %q", got, "envfile-user")
+		}
+	})
+
+	t.Run("first env var used when no flag or env file", func(t *testing.T) {
+		t.Setenv("JENKINS_USER", "primary-env-user")
+		t.Setenv("JENKINS_USERNAME", "secondary-env-user")
+		got := resolveUsername(def, "", "/nonexistent/.devlake.env")
+		if got != "primary-env-user" {
+			t.Errorf("got %q, want %q", got, "primary-env-user")
+		}
+	})
+
+	t.Run("second env var used when first is empty", func(t *testing.T) {
+		t.Setenv("JENKINS_USER", "")
+		t.Setenv("JENKINS_USERNAME", "secondary-env-user")
+		got := resolveUsername(def, "", "/nonexistent/.devlake.env")
+		if got != "secondary-env-user" {
+			t.Errorf("got %q, want %q", got, "secondary-env-user")
+		}
+	})
+
+	t.Run("env file takes priority over env vars", func(t *testing.T) {
+		envFile := t.TempDir() + "/.devlake.env"
+		if err := os.WriteFile(envFile, []byte("JENKINS_USER=envfile-wins\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("JENKINS_USER", "env-loses")
+		got := resolveUsername(def, "", envFile)
+		if got != "envfile-wins" {
+			t.Errorf("got %q, want %q", got, "envfile-wins")
+		}
+	})
 }

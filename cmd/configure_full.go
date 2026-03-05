@@ -133,6 +133,16 @@ func runConnectionsInternal(defs []*ConnectionDef, org, enterprise, tokenVal, en
 			Org:        pluginOrg,
 			Enterprise: pluginEnterprise,
 		}
+
+		// Resolve username per-plugin for BasicAuth
+		if def.NeedsUsername {
+			username := resolveUsername(def, "", envFile)
+			if username == "" {
+				fmt.Printf("   ⚠️  Username is required for %s, skipping\n", def.DisplayName)
+				continue
+			}
+			params.Username = username
+		}
 		r, err := buildAndCreateConnection(client, def, params, pluginOrg, true)
 		if err != nil {
 			fmt.Printf("   ⚠️  Could not create %s connection: %v\n", def.DisplayName, err)

@@ -17,6 +17,7 @@ var (
 	connOrg        string
 	connEnterprise string
 	connToken      string
+	connUsername   string
 	connEnvFile    string
 	connSkipClean  bool
 	connName       string
@@ -34,7 +35,8 @@ add connections for additional plugins.
 
 Shared flags (all plugins):
   --plugin       Plugin to configure
-  --token        Personal access token
+  --token        Personal access token (or password for BasicAuth plugins)
+  --username     Username for BasicAuth plugins (Jenkins, Bitbucket, Jira)
   --name         Connection display name
   --endpoint     API endpoint override
   --proxy        HTTP proxy URL
@@ -52,7 +54,10 @@ Example (GitHub):
   gh devlake configure connection add --plugin github --token ghp_xxx --org my-org
 
 Example (Copilot):
-  gh devlake configure connection add --plugin gh-copilot --token ghp_xxx --org my-org --enterprise my-ent`,
+  gh devlake configure connection add --plugin gh-copilot --token ghp_xxx --org my-org --enterprise my-ent
+
+Example (Jenkins):
+  gh devlake configure connection add --plugin jenkins --username admin --token mypassword`,
 	RunE: runAddConnection,
 }
 
@@ -60,7 +65,8 @@ func init() {
 	addConnectionCmd.Flags().StringVar(&connPlugin, "plugin", "", fmt.Sprintf("Plugin to configure (%s)", strings.Join(availablePluginSlugs(), ", ")))
 	addConnectionCmd.Flags().StringVar(&connOrg, "org", "", "Organization slug")
 	addConnectionCmd.Flags().StringVar(&connEnterprise, "enterprise", "", "Enterprise slug")
-	addConnectionCmd.Flags().StringVar(&connToken, "token", "", "Personal access token")
+	addConnectionCmd.Flags().StringVar(&connToken, "token", "", "Personal access token (used as password for BasicAuth plugins)")
+	addConnectionCmd.Flags().StringVar(&connUsername, "username", "", "Username for BasicAuth plugins (Jenkins, Bitbucket, Jira)")
 	addConnectionCmd.Flags().StringVar(&connEnvFile, "env-file", ".devlake.env", "Path to env file containing PAT")
 	addConnectionCmd.Flags().BoolVar(&connSkipClean, "skip-cleanup", false, "Do not delete .devlake.env after setup")
 	addConnectionCmd.Flags().StringVar(&connName, "name", "", "Connection display name (defaults to \"Plugin - org\")")
@@ -127,6 +133,15 @@ func runAddConnection(cmd *cobra.Command, args []string) error {
 		Name:       connName,
 		Proxy:      connProxy,
 		Endpoint:   connEndpoint,
+	}
+
+	// Resolve username for BasicAuth plugins
+	if def.NeedsUsername {
+		username := resolveUsername(def, connUsername, connEnvFile)
+		if username == "" {
+			return fmt.Errorf("username is required for %s (provide it via --username or at the prompt)", def.DisplayName)
+		}
+		params.Username = username
 	}
 	result, err := buildAndCreateConnection(client, def, params, org, true)
 	if err != nil {
