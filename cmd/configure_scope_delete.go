@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/DevExpGBB/gh-devlake/internal/devlake"
 	"github.com/DevExpGBB/gh-devlake/internal/prompt"
 )
 
@@ -101,14 +101,18 @@ func runScopeDelete(cmd *cobra.Command, args []string) error {
 		}
 		var entries []scopeEntry
 		var labels []string
+		def := FindConnectionDef(selectedPlugin)
 		for _, s := range resp.Scopes {
-			id := s.Scope.ID
-			if id == "" {
-				id = strconv.Itoa(s.Scope.GithubID)
-			}
-			name := s.Scope.FullName
+			name := s.ScopeFullName()
 			if name == "" {
-				name = s.Scope.Name
+				name = s.ScopeName()
+			}
+			var id string
+			if def != nil && def.ScopeIDField != "" {
+				id = devlake.ExtractScopeID(s.RawScope, def.ScopeIDField)
+			}
+			if id == "" {
+				id = name
 			}
 			label := fmt.Sprintf("[%s] %s", id, name)
 			entries = append(entries, scopeEntry{id: id, label: label})

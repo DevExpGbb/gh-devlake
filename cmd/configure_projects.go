@@ -233,23 +233,27 @@ func listConnectionScopes(client *devlake.Client, c connChoice) (*addedConnectio
 
 	var bpScopes []devlake.BlueprintScope
 	var repos []string
+	def := FindConnectionDef(c.plugin)
 	for _, w := range resp.Scopes {
-		s := w.Scope
-		// Resolve scope ID: GitHub uses githubId (int), Copilot uses id (string)
-		scopeID := s.ID
-		if c.plugin == "github" && s.GithubID > 0 {
-			scopeID = fmt.Sprintf("%d", s.GithubID)
+		// Generic scope ID extraction using the plugin's configured ScopeIDField.
+		var scopeID string
+		if def != nil && def.ScopeIDField != "" {
+			scopeID = devlake.ExtractScopeID(w.RawScope, def.ScopeIDField)
 		}
-		scopeName := s.FullName
+		fullName := w.ScopeFullName()
+		scopeName := fullName
 		if scopeName == "" {
-			scopeName = s.Name
+			scopeName = w.ScopeName()
+		}
+		if scopeID == "" {
+			scopeID = scopeName
 		}
 		bpScopes = append(bpScopes, devlake.BlueprintScope{
 			ScopeID:   scopeID,
 			ScopeName: scopeName,
 		})
-		if c.plugin == "github" && s.FullName != "" {
-			repos = append(repos, s.FullName)
+		if def != nil && def.HasRepoScopes && fullName != "" {
+			repos = append(repos, fullName)
 		}
 		fmt.Printf("   %s (ID: %s)\n", scopeName, scopeID)
 	}

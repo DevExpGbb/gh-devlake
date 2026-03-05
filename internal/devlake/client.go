@@ -462,6 +462,43 @@ func (c *Client) GetPipeline(id int) (*Pipeline, error) {
 	return doGet[Pipeline](c, fmt.Sprintf("/pipelines/%d", id))
 }
 
+// ListRemoteScopes queries the DevLake remote-scope API for a plugin connection.
+// groupID and pageToken are optional (pass "" to omit).
+func (c *Client) ListRemoteScopes(plugin string, connID int, groupID, pageToken string) (*RemoteScopeResponse, error) {
+	path := fmt.Sprintf("/plugins/%s/connections/%d/remote-scopes", plugin, connID)
+	q := url.Values{}
+	if groupID != "" {
+		q.Set("groupId", groupID)
+	}
+	if pageToken != "" {
+		q.Set("pageToken", pageToken)
+	}
+	if len(q) > 0 {
+		path += "?" + q.Encode()
+	}
+	return doGet[RemoteScopeResponse](c, path)
+}
+
+// SearchRemoteScopes queries the DevLake search-remote-scopes API for a plugin connection.
+// page and pageSize control pagination; pass 0 to use DevLake defaults.
+func (c *Client) SearchRemoteScopes(plugin string, connID int, search string, page, pageSize int) (*RemoteScopeResponse, error) {
+	path := fmt.Sprintf("/plugins/%s/connections/%d/search-remote-scopes", plugin, connID)
+	q := url.Values{}
+	if search != "" {
+		q.Set("search", search)
+	}
+	if page > 0 {
+		q.Set("page", fmt.Sprintf("%d", page))
+	}
+	if pageSize > 0 {
+		q.Set("pageSize", fmt.Sprintf("%d", pageSize))
+	}
+	if len(q) > 0 {
+		path += "?" + q.Encode()
+	}
+	return doGet[RemoteScopeResponse](c, path)
+}
+
 // TriggerMigration triggers the DevLake database migration endpoint.
 func (c *Client) TriggerMigration() error {
 	resp, err := c.HTTPClient.Get(c.BaseURL + "/proceed-db-migration")

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -107,18 +106,28 @@ func runScopeList(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to list scopes: %w", err)
 	}
 
+	def := FindConnectionDef(selectedPlugin)
+
+	// scopeIDFor extracts the scope ID using the plugin's ScopeIDField (def.ScopeIDField).
+	// When ExtractScopeID returns "" (field absent or plugin has no ScopeIDField configured),
+	// it falls back to the display name so the output always shows a usable identifier.
+	scopeIDFor := func(s *devlake.ScopeListWrapper) string {
+		if def != nil && def.ScopeIDField != "" {
+			if id := devlake.ExtractScopeID(s.RawScope, def.ScopeIDField); id != "" {
+				return id
+			}
+		}
+		return s.ScopeName()
+	}
+
 	// JSON output path
 	if outputJSON {
 		items := make([]scopeListItem, len(resp.Scopes))
 		for i, s := range resp.Scopes {
-			scopeID := s.Scope.ID
-			if scopeID == "" {
-				scopeID = strconv.Itoa(s.Scope.GithubID)
-			}
 			items[i] = scopeListItem{
-				ID:       scopeID,
-				Name:     s.Scope.Name,
-				FullName: s.Scope.FullName,
+				ID:       scopeIDFor(&s),
+				Name:     s.ScopeName(),
+				FullName: s.ScopeFullName(),
 			}
 		}
 		return printJSON(items)
@@ -133,11 +142,7 @@ func runScopeList(cmd *cobra.Command, args []string) error {
 	fmt.Fprintln(w, "Scope ID\tName\tFull Name")
 	fmt.Fprintln(w, strings.Repeat("\u2500", 10)+"\t"+strings.Repeat("\u2500", 20)+"\t"+strings.Repeat("\u2500", 30))
 	for _, s := range resp.Scopes {
-		scopeID := s.Scope.ID
-		if scopeID == "" {
-			scopeID = strconv.Itoa(s.Scope.GithubID)
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n", scopeID, s.Scope.Name, s.Scope.FullName)
+		fmt.Fprintf(w, "%s\t%s\t%s\n", scopeIDFor(&s), s.ScopeName(), s.ScopeFullName())
 	}
 	w.Flush()
 	fmt.Println()
