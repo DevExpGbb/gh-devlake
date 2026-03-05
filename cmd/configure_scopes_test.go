@@ -49,8 +49,8 @@ func TestRunConfigureScopes_PluginFlag(t *testing.T) {
 
 	t.Run("unknown plugin returns error", func(t *testing.T) {
 		cmd, opts := makeCmd()
-		opts.Plugin = "gitlab"
-		_ = cmd.Flags().Set("plugin", "gitlab")
+		opts.Plugin = "nonexistent-plugin"
+		_ = cmd.Flags().Set("plugin", "nonexistent-plugin")
 		err := runScopeAdd(cmd, nil, opts)
 		if err == nil {
 			t.Error("expected error for unavailable plugin")

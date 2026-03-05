@@ -58,7 +58,7 @@ func TestSelectPlugin_UnknownSlug(t *testing.T) {
 }
 
 func TestSelectPlugin_UnavailablePlugin(t *testing.T) {
-	_, err := selectPlugin("gitlab")
+	_, err := selectPlugin("azure-devops")
 	if err == nil {
 		t.Fatal("expected error for unavailable plugin, got nil")
 	}

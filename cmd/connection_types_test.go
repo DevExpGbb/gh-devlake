@@ -282,6 +282,99 @@ func TestBuildTestRequest_BasicAuth(t *testing.T) {
 	})
 }
 
+// TestGitLabRegistryEntry verifies the GitLab plugin is correctly defined in the registry.
+func TestGitLabRegistryEntry(t *testing.T) {
+	def := FindConnectionDef("gitlab")
+	if def == nil {
+		t.Fatal("gitlab not found in registry")
+	}
+
+	t.Run("is available", func(t *testing.T) {
+		if !def.Available {
+			t.Error("gitlab should be Available=true")
+		}
+	})
+
+	t.Run("has correct endpoint", func(t *testing.T) {
+		want := "https://gitlab.com/api/v4/"
+		if def.Endpoint != want {
+			t.Errorf("got Endpoint %q, want %q", def.Endpoint, want)
+		}
+	})
+
+	t.Run("supports test", func(t *testing.T) {
+		if !def.SupportsTest {
+			t.Error("gitlab should have SupportsTest=true")
+		}
+	})
+
+	t.Run("has scope func", func(t *testing.T) {
+		if def.ScopeFunc == nil {
+			t.Error("gitlab ScopeFunc should not be nil")
+		}
+	})
+
+	t.Run("has correct scope id field", func(t *testing.T) {
+		if def.ScopeIDField != "gitlabId" {
+			t.Errorf("got ScopeIDField %q, want %q", def.ScopeIDField, "gitlabId")
+		}
+	})
+
+	t.Run("has repo scopes", func(t *testing.T) {
+		if !def.HasRepoScopes {
+			t.Error("gitlab should have HasRepoScopes=true")
+		}
+	})
+
+	t.Run("has required scopes", func(t *testing.T) {
+		if len(def.RequiredScopes) == 0 {
+			t.Error("gitlab should have RequiredScopes")
+		}
+	})
+
+	t.Run("has scope hint", func(t *testing.T) {
+		if def.ScopeHint == "" {
+			t.Error("gitlab should have a non-empty ScopeHint")
+		}
+	})
+
+	t.Run("has env var names", func(t *testing.T) {
+		if len(def.EnvVarNames) == 0 {
+			t.Error("gitlab should have EnvVarNames")
+		}
+	})
+
+	t.Run("uses access token auth", func(t *testing.T) {
+		if def.authMethod() != "AccessToken" {
+			t.Errorf("got AuthMethod %q, want %q", def.authMethod(), "AccessToken")
+		}
+	})
+
+	t.Run("build create request uses token field", func(t *testing.T) {
+		req := def.BuildCreateRequest("test-conn", ConnectionParams{Token: "glpat-test123"})
+		if req.Token != "glpat-test123" {
+			t.Errorf("got Token %q, want %q", req.Token, "glpat-test123")
+		}
+		if req.Endpoint != def.Endpoint {
+			t.Errorf("got Endpoint %q, want %q", req.Endpoint, def.Endpoint)
+		}
+		if req.RateLimitPerHour != 3600 {
+			t.Errorf("got RateLimitPerHour %d, want 3600", req.RateLimitPerHour)
+		}
+	})
+
+	t.Run("build create request accepts custom endpoint", func(t *testing.T) {
+		customEndpoint := "https://gitlab.mycompany.com/api/v4/"
+		req := def.BuildCreateRequest("self-hosted", ConnectionParams{
+			Token:    "glpat-test",
+			Endpoint: customEndpoint,
+		})
+		if req.Endpoint != customEndpoint {
+			t.Errorf("got Endpoint %q, want %q", req.Endpoint, customEndpoint)
+		}
+	})
+}
+
 // TestNeedsTokenExpiry verifies that the NeedsTokenExpiry field is set on the
 // github and gh-copilot registry entries (and not on others).
 func TestNeedsTokenExpiry(t *testing.T) {
