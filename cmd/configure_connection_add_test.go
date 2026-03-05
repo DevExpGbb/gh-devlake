@@ -57,7 +57,7 @@ func TestSelectPlugin_UnknownSlug(t *testing.T) {
 	}
 }
 
-func TestSelectPlugin_UnavailablePlugin(t *testing.T) {
+func TestSelectPlugin_AzureDevOpsAlias(t *testing.T) {
 	def, err := selectPlugin("azure-devops")
 	if err != nil {
 		t.Fatalf("expected alias resolution for azure-devops, got error: %v", err)
