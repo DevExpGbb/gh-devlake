@@ -490,7 +490,7 @@ func TestLooksLikeZeroDateTokenExpiresAt(t *testing.T) {
 	}
 }
 
-// TestResolveUsername covers the flag → env file → env var resolution paths for resolveUsername.
+// TestResolveUsername covers the flag ΓåÆ env file ΓåÆ env var resolution paths for resolveUsername.
 func TestResolveUsername(t *testing.T) {
 	def := &ConnectionDef{
 		Plugin:              "jenkins",
@@ -550,4 +550,29 @@ func TestResolveUsername(t *testing.T) {
 			t.Errorf("got %q, want %q", got, "envfile-wins")
 		}
 	})
+}
+
+func TestConnectionRegistry_Jenkins(t *testing.T) {
+def := FindConnectionDef("jenkins")
+if def == nil {
+t.Fatal("jenkins connection def not found")
+}
+if !def.Available {
+t.Errorf("jenkins should be available")
+}
+if def.AuthMethod != "BasicAuth" {
+t.Errorf("jenkins AuthMethod = %q, want BasicAuth", def.AuthMethod)
+}
+if !def.NeedsUsername {
+t.Errorf("jenkins NeedsUsername should be true")
+}
+if def.ScopeIDField != "fullName" {
+t.Errorf("jenkins ScopeIDField = %q, want %q", def.ScopeIDField, "fullName")
+}
+if def.ScopeFunc == nil {
+t.Errorf("jenkins ScopeFunc should be set")
+}
+if len(def.ScopeFlags) == 0 || def.ScopeFlags[0].Name != "jobs" {
+t.Errorf("jenkins ScopeFlags should include jobs flag")
+}
 }
