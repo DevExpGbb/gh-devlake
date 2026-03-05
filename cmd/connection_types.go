@@ -233,6 +233,7 @@ var connectionRegistry = []*ConnectionDef{
 		Plugin:           "gitlab",
 		DisplayName:      "GitLab",
 		Available:        true,
+		AuthMethod:       "AccessToken",
 		Endpoint:         "https://gitlab.com/api/v4/",
 		SupportsTest:     true,
 		RateLimitPerHour: 3600,
