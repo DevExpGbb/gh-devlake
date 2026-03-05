@@ -1021,3 +1021,86 @@ func putBitbucketScopes(client *devlake.Client, connID int, repos []*devlake.Bit
 	}
 	return client.PutScopes("bitbucket", connID, &devlake.ScopeBatchRequest{Data: data})
 }
+
+// scopeSonarQubeHandler is the ScopeHandler for the sonarqube plugin.
+func scopeSonarQubeHandler(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error) {
+	fmt.Println("\n📋 Fetching SonarQube projects...")
+
+	// Aggregate all pages of remote scopes
+	var allChildren []devlake.RemoteScopeChild
+	pageToken := ""
+	for {
+		remoteScopes, err := client.ListRemoteScopes("sonarqube", connID, "", pageToken)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list SonarQube projects: %w", err)
+		}
+		allChildren = append(allChildren, remoteScopes.Children...)
+		pageToken = remoteScopes.NextPageToken
+		if pageToken == "" {
+			break
+		}
+	}
+
+	// Extract projects from remote-scope response
+	var projectOptions []string
+	projectMap := make(map[string]*devlake.RemoteScopeChild)
+	for i := range allChildren {
+		child := &allChildren[i]
+		if child.Type == "scope" {
+			label := child.Name
+			if child.ID != "" {
+				label = fmt.Sprintf("%s (key: %s)", child.Name, child.ID)
+			}
+			projectOptions = append(projectOptions, label)
+			projectMap[label] = child
+		}
+	}
+
+	if len(projectOptions) == 0 {
+		return nil, fmt.Errorf("no SonarQube projects found for connection %d", connID)
+	}
+
+	fmt.Println()
+	selectedLabels := prompt.SelectMulti("Select SonarQube projects to track", projectOptions)
+	if len(selectedLabels) == 0 {
+		return nil, fmt.Errorf("at least one project must be selected")
+	}
+
+	// Build scope data for PUT
+	fmt.Println("\n📝 Adding SonarQube project scopes...")
+	var scopeData []any
+	var blueprintScopes []devlake.BlueprintScope
+	for _, label := range selectedLabels {
+		child := projectMap[label]
+		// Use child.ID as projectKey
+		if child.ID == "" {
+			fmt.Printf("   ⚠️  Skipping project %q: empty project key\n", child.Name)
+			continue
+		}
+		scopeData = append(scopeData, devlake.SonarQubeProjectScope{
+			ConnectionID: connID,
+			ProjectKey:   child.ID,
+			Name:         child.Name,
+		})
+		blueprintScopes = append(blueprintScopes, devlake.BlueprintScope{
+			ScopeID:   child.ID,
+			ScopeName: child.Name,
+		})
+	}
+
+	if len(scopeData) == 0 {
+		return nil, fmt.Errorf("no valid projects to add")
+	}
+
+	err := client.PutScopes("sonarqube", connID, &devlake.ScopeBatchRequest{Data: scopeData})
+	if err != nil {
+		return nil, fmt.Errorf("failed to add SonarQube project scopes: %w", err)
+	}
+	fmt.Printf("   ✅ Added %d project scope(s)\n", len(scopeData))
+
+	return &devlake.BlueprintConnection{
+		PluginName:   "sonarqube",
+		ConnectionID: connID,
+		Scopes:       blueprintScopes,
+	}, nil
+}
