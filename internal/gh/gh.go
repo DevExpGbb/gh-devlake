@@ -74,3 +74,82 @@ func parseRepoDetails(data []byte) (*RepoDetails, error) {
 	}
 	return &details, nil
 }
+
+// AddAssigneesResponse holds the response from the addAssigneesToAssignable mutation.
+type AddAssigneesResponse struct {
+	Data struct {
+		AddAssigneesToAssignable struct {
+			Assignable struct {
+				Assignees struct {
+					Nodes []struct {
+						Login string `json:"login"`
+					} `json:"nodes"`
+				} `json:"assignees"`
+			} `json:"assignable"`
+		} `json:"addAssigneesToAssignable"`
+	} `json:"data"`
+	Errors []struct {
+		Message string `json:"message"`
+	} `json:"errors"`
+}
+
+// AddAssigneesByLogin adds assignees to an issue or pull request using their login names.
+// This function tests if the GraphQL addAssigneesToAssignable mutation works with bot login names
+// instead of node_id. The assignableID should be the node_id of the issue or pull request.
+func AddAssigneesByLogin(assignableID string, assigneeLogins []string) (*AddAssigneesResponse, error) {
+	if len(assigneeLogins) == 0 {
+		return nil, fmt.Errorf("assigneeLogins cannot be empty")
+	}
+
+	// Build the GraphQL mutation with login names instead of node IDs
+	mutation := `mutation($assignableId: ID!, $assigneeIds: [ID!]!) {
+		addAssigneesToAssignable(input: {assignableId: $assignableId, assigneeIds: $assigneeIds}) {
+			assignable {
+				assignees(first: 10) {
+					nodes {
+						login
+					}
+				}
+			}
+		}
+	}`
+
+	// Create variables object
+	variables := map[string]interface{}{
+		"assignableId": assignableID,
+		"assigneeIds":  assigneeLogins,
+	}
+
+	// Build the full GraphQL request
+	request := map[string]interface{}{
+		"query":     mutation,
+		"variables": variables,
+	}
+
+	requestJSON, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal GraphQL request: %w", err)
+	}
+
+	// Execute the GraphQL mutation via gh api graphql
+	out, err := exec.Command("gh", "api", "graphql", "-f", fmt.Sprintf("query=%s", string(requestJSON))).Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return nil, fmt.Errorf("gh api graphql failed: %w (stderr: %s)", err, string(exitErr.Stderr))
+		}
+		return nil, fmt.Errorf("gh api graphql failed: %w", err)
+	}
+
+	// Parse the response
+	var response AddAssigneesResponse
+	if err := json.Unmarshal(out, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse GraphQL response: %w", err)
+	}
+
+	// Check for GraphQL errors
+	if len(response.Errors) > 0 {
+		return &response, fmt.Errorf("GraphQL error: %s", response.Errors[0].Message)
+	}
+
+	return &response, nil
+}
