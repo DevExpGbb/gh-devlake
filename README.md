@@ -74,8 +74,8 @@ Four concepts to understand — then every command makes sense:
 
 | Concept | What It Is |
 |---------|-----------|
-| **Connection** | An authenticated link to a data source (GitHub, Copilot). Each gets its own PAT. |
-| **Scope** | *What* to collect — specific repos for GitHub, an org/enterprise for Copilot. |
+| **Connection** | An authenticated link to a data source (GitHub, Copilot, Jenkins). Each gets its own PAT/credentials. |
+| **Scope** | *What* to collect — specific repos for GitHub, an org/enterprise for Copilot, jobs for Jenkins. |
 | **Project** | Groups connections + scopes into a single view with DORA metrics enabled. |
 | **Blueprint** | The sync schedule (cron). Created automatically with the project. |
 
@@ -119,6 +119,9 @@ gh devlake configure connection add --plugin github --org my-org
 
 # Copilot (usage metrics, seats, acceptance rates)
 gh devlake configure connection add --plugin gh-copilot --org my-org
+
+# Jenkins (jobs and build data for DORA)
+gh devlake configure connection add --plugin jenkins --endpoint https://jenkins.example.com --username admin --token myapitoken
 ```
 
 The CLI tests each connection before saving. On success:
@@ -141,6 +144,9 @@ gh devlake configure scope add --plugin github --org my-org
 
 # Copilot — org-level metrics
 gh devlake configure scope add --plugin gh-copilot --org my-org
+
+# Jenkins — pick jobs interactively (or pass --jobs)
+gh devlake configure scope add --plugin jenkins --org my-org
 ```
 
 DORA patterns (deployment workflow, production environment, incident label) use sensible defaults. See [docs/configure-scope.md](docs/configure-scope.md) for overrides.
@@ -186,6 +192,7 @@ For the full guide, see [Day-2 Operations](docs/day-2.md).
 |--------|--------|------------------|---------------------|
 | GitHub | ✅ Available | Repos, PRs, issues, workflows, deployments (DORA) | `repo`, `read:org`, `read:user` |
 | GitHub Copilot | ✅ Available | Usage metrics, seats, acceptance rates | `manage_billing:copilot`, `read:org` (+ `read:enterprise` for enterprise metrics) |
+| Jenkins | ✅ Available | Jobs, builds, deployments (DORA) | Username + API token/password |
 | Jira | ✅ Available | Boards, issues, sprints (change lead time, cycle time) | API token (permissions from user account) |
 | Azure DevOps | 🔜 Coming soon | Repos, pipelines, deployments (DORA) | (TBD) |
 | GitLab | ✅ Available | Repos, MRs, pipelines, deployments (DORA) | `read_api`, `read_repository` |
