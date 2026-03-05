@@ -556,6 +556,67 @@ func TestResolveUsername(t *testing.T) {
 	})
 }
 
+// TestConnectionRegistry_Bitbucket verifies the Bitbucket Cloud plugin registry entry.
+func TestConnectionRegistry_Bitbucket(t *testing.T) {
+	def := FindConnectionDef("bitbucket")
+	if def == nil {
+		t.Fatal("bitbucket connection def not found")
+	}
+	if !def.Available {
+		t.Errorf("bitbucket should be available")
+	}
+	if def.AuthMethod != "BasicAuth" {
+		t.Errorf("bitbucket AuthMethod = %q, want BasicAuth", def.AuthMethod)
+	}
+	if !def.NeedsUsername {
+		t.Errorf("bitbucket NeedsUsername should be true")
+	}
+	if def.ScopeIDField != "bitbucketId" {
+		t.Errorf("bitbucket ScopeIDField = %q, want %q", def.ScopeIDField, "bitbucketId")
+	}
+	if !def.HasRepoScopes {
+		t.Errorf("bitbucket HasRepoScopes should be true")
+	}
+	if def.ScopeFunc == nil {
+		t.Errorf("bitbucket ScopeFunc should be set")
+	}
+	wantEnvVars := []string{"BITBUCKET_TOKEN", "BITBUCKET_APP_PASSWORD"}
+	if len(def.EnvVarNames) != len(wantEnvVars) {
+		t.Errorf("bitbucket EnvVarNames length: got %d, want %d", len(def.EnvVarNames), len(wantEnvVars))
+	} else {
+		for i, v := range wantEnvVars {
+			if def.EnvVarNames[i] != v {
+				t.Errorf("bitbucket EnvVarNames[%d]: got %q, want %q", i, def.EnvVarNames[i], v)
+			}
+		}
+	}
+	wantUserEnvVars := []string{"BITBUCKET_USER", "BITBUCKET_USERNAME"}
+	if len(def.UsernameEnvVars) != len(wantUserEnvVars) {
+		t.Errorf("bitbucket UsernameEnvVars length: got %d, want %d", len(def.UsernameEnvVars), len(wantUserEnvVars))
+	} else {
+		for i, v := range wantUserEnvVars {
+			if def.UsernameEnvVars[i] != v {
+				t.Errorf("bitbucket UsernameEnvVars[%d]: got %q, want %q", i, def.UsernameEnvVars[i], v)
+			}
+		}
+	}
+
+	// BasicAuth: BuildCreateRequest puts credentials into username/password, not token
+	req := def.BuildCreateRequest("test-conn", ConnectionParams{
+		Token:    "app-password",
+		Username: "myuser",
+	})
+	if req.Username != "myuser" {
+		t.Errorf("bitbucket create request Username = %q, want %q", req.Username, "myuser")
+	}
+	if req.Password != "app-password" {
+		t.Errorf("bitbucket create request Password = %q, want %q", req.Password, "app-password")
+	}
+	if req.Token != "" {
+		t.Errorf("bitbucket create request Token should be empty for BasicAuth, got %q", req.Token)
+	}
+}
+
 func TestConnectionRegistry_Jenkins(t *testing.T) {
 	def := FindConnectionDef("jenkins")
 	if def == nil {

@@ -876,7 +876,7 @@ func searchBitbucketReposBySlugs(client *devlake.Client, connID int, slugs []str
 			if r == nil {
 				continue
 			}
-			if r.FullName == slug || r.Name == slug {
+			if r.BitbucketID == slug || r.FullName == slug || r.Name == slug {
 				found = r
 				break
 			}
