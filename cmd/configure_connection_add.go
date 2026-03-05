@@ -84,12 +84,13 @@ func runAddConnection(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// In flag mode, warn about flags that don't apply to the selected plugin.
-	// In interactive mode, print applicable flags after selection.
-	if connPlugin != "" {
-		warnIrrelevantFlags(cmd, def, collectAllConnectionFlagDefs())
-	} else {
+	// Warn about flags that don't apply to the selected plugin in both modes.
+	warnIrrelevantFlags(cmd, def, collectAllConnectionFlagDefs())
+	// In interactive mode (no --plugin), also show contextual help for
+	// the selected plugin's applicable flags.
+	if connPlugin == "" {
 		printContextualFlagHelp(def, def.ConnectionFlags, "Connection")
+		fmt.Println()
 	}
 
 	// ── Prompt for org if needed ──

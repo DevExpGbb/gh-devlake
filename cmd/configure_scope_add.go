@@ -94,8 +94,10 @@ func runScopeAdd(cmd *cobra.Command, args []string, opts *ScopeOpts) error {
 		for _, d := range available {
 			if d.DisplayName == chosen {
 				selectedPlugin = d.Plugin
-				// Print applicable flags after interactive plugin selection.
+				// Print applicable flags and warn about irrelevant ones after
+				// interactive plugin selection.
 				printContextualFlagHelp(d, d.ScopeFlags, "Scope")
+				warnIrrelevantFlags(cmd, d, collectAllScopeFlagDefs())
 				break
 			}
 		}
