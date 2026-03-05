@@ -115,8 +115,8 @@ sequenceDiagram
     Note over Human,Codex: \u2550\u2550\u2550 PHASE 2: DISPATCH \u2550\u2550\u2550
     par Parallel dispatch to multiple agents
         Foreman->>Copilot: assign_copilot_to_issue #A<br/>(best reasoning model, base: main)
-        Foreman->>Claude: issue_write assignees:[Claude] #B<br/>(complex refactor)
-        Foreman->>Codex: issue_write assignees:[Codex] #C<br/>(targeted bug fix)
+        Foreman->>Claude: gh api graphql addAssigneesToAssignable #B<br/>(complex refactor, node_id: BOT_kgDODnPHJg)
+        Foreman->>Codex: gh api graphql addAssigneesToAssignable #C<br/>(targeted bug fix, node_id: BOT_kgDODnSAjQ)
     end
     Foreman-->>Human: "Dispatched 3 issues to<br/>Copilot, Claude, Codex."
 
