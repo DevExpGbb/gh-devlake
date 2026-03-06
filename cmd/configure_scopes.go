@@ -142,14 +142,15 @@ func resolveConnectionID(client *devlake.Client, state *devlake.State, plugin st
 	if flagValue > 0 {
 		return flagValue, nil
 	}
+	canonical := plugin
 	if state != nil {
 		for _, c := range state.Connections {
-			if c.Plugin == plugin {
+			if canonicalPluginSlug(c.Plugin) == canonical {
 				return c.ConnectionID, nil
 			}
 		}
 	}
-	conns, err := client.ListConnections(plugin)
+	conns, err := client.ListConnections(canonical)
 	if err != nil {
 		return 0, fmt.Errorf("could not list %s connections: %w", plugin, err)
 	}
@@ -618,7 +619,10 @@ func listAzureDevOpsRemoteChildren(client *devlake.Client, connID int, groupID s
 func azureDevOpsScopePayload(child devlake.RemoteScopeChild, connID int) map[string]any {
 	var payload map[string]any
 	if len(child.Data) > 0 {
-		_ = json.Unmarshal(child.Data, &payload)
+		if err := json.Unmarshal(child.Data, &payload); err != nil {
+			fmt.Printf("\n⚠️  Could not decode Azure DevOps scope data for %s: %v\n", child.ID, err)
+			payload = make(map[string]any)
+		}
 	}
 	if payload == nil {
 		payload = make(map[string]any)

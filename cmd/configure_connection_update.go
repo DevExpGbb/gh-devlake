@@ -147,7 +147,7 @@ func runUpdateConnection(cmd *cobra.Command, args []string) error {
 	// ── Update state file ──
 	statePath, state := devlake.FindStateFile(disc.URL, disc.GrafanaURL)
 	for i, c := range state.Connections {
-		if c.Plugin == plugin && c.ConnectionID == updated.ID {
+		if canonicalPluginSlug(c.Plugin) == plugin && c.ConnectionID == updated.ID {
 			state.Connections[i].Name = updated.Name
 			state.Connections[i].Organization = updated.Organization
 			state.Connections[i].Enterprise = updated.Enterprise
