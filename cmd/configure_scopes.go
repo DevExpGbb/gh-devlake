@@ -629,7 +629,7 @@ func azureDevOpsScopePayload(child devlake.RemoteScopeChild, connID int) map[str
 	if _, ok := payload["name"]; !ok || payload["name"] == "" {
 		payload["name"] = child.Name
 	}
-	if _, ok := payload["fullName"]; !ok && child.FullName != "" {
+	if v, ok := payload["fullName"]; (!ok || v == "") && child.FullName != "" {
 		payload["fullName"] = child.FullName
 	}
 	payload["connectionId"] = connID

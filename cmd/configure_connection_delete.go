@@ -56,6 +56,7 @@ func runDeleteConnection(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	}
+	canonicalPlugin := canonicalPluginSlug(connDeletePlugin)
 
 	// ── Discover DevLake ──
 	client, disc, err := discoverClient(cfgURL)
@@ -64,7 +65,7 @@ func runDeleteConnection(cmd *cobra.Command, args []string) error {
 	}
 
 	// ── Resolve plugin + ID ──
-	plugin := connDeletePlugin
+	plugin := canonicalPlugin
 	connID := connDeleteID
 
 	if !(pluginFlagSet && idFlagSet) {

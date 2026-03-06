@@ -56,6 +56,7 @@ func runUpdateConnection(cmd *cobra.Command, args []string) error {
 	printBanner("DevLake — Update Connection")
 
 	flagMode := updateConnPlugin != "" || updateConnID != 0
+	canonicalPlugin := canonicalPluginSlug(updateConnPlugin)
 
 	// ── Validate flags before making any network calls ──
 	if flagMode {
@@ -78,7 +79,7 @@ func runUpdateConnection(cmd *cobra.Command, args []string) error {
 	var connID int
 
 	if flagMode {
-		plugin = updateConnPlugin
+		plugin = canonicalPlugin
 		connID = updateConnID
 	} else {
 		// ── Interactive: let user pick ──

@@ -47,7 +47,7 @@ func runTestConnection(cmd *cobra.Command, args []string) error {
 		if _, err := requirePlugin(connTestPlugin); err != nil {
 			return err
 		}
-		plugin = connTestPlugin
+		plugin = canonicalPluginSlug(connTestPlugin)
 		connID = connTestID
 	} else {
 		// ── Interactive mode: list all connections and let user pick ──

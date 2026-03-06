@@ -143,6 +143,15 @@ func pluginDisplayName(plugin string) string {
 	return plugin
 }
 
+// canonicalPluginSlug returns the canonical registry slug for a plugin, resolving aliases.
+// If the slug is unknown, it returns the input unchanged.
+func canonicalPluginSlug(slug string) string {
+	if def := FindConnectionDef(slug); def != nil {
+		return def.Plugin
+	}
+	return slug
+}
+
 // deduplicateResults removes duplicate (Plugin, ConnectionID) pairs,
 // keeping the first occurrence. Multiple connections of the same plugin
 // with different IDs are preserved.
