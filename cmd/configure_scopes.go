@@ -905,10 +905,20 @@ func browseBitbucketReposInteractively(client *devlake.Client, connID int, works
 		if err != nil {
 			return nil, fmt.Errorf("listing Bitbucket workspaces: %w", err)
 		}
+		allWS := resp.Children
+		nextToken := resp.NextPageToken
+		for nextToken != "" {
+			page, err := client.ListRemoteScopes("bitbucket", connID, "", nextToken)
+			if err != nil {
+				break
+			}
+			allWS = append(allWS, page.Children...)
+			nextToken = page.NextPageToken
+		}
 
 		var workspaceLabels []string
 		workspaceIDByLabel := make(map[string]string)
-		for _, child := range resp.Children {
+		for _, child := range allWS {
 			if child.Type == "group" {
 				label := child.FullName
 				if label == "" {
@@ -938,11 +948,21 @@ func browseBitbucketReposInteractively(client *devlake.Client, connID int, works
 	if err != nil {
 		return nil, fmt.Errorf("listing repositories in workspace %q: %w", workspaceID, err)
 	}
+	allChildren := resp.Children
+	nextToken := resp.NextPageToken
+	for nextToken != "" {
+		page, err := client.ListRemoteScopes("bitbucket", connID, workspaceID, nextToken)
+		if err != nil {
+			break
+		}
+		allChildren = append(allChildren, page.Children...)
+		nextToken = page.NextPageToken
+	}
 
 	var repoLabels []string
 	repoByLabel := make(map[string]*devlake.RemoteScopeChild)
-	for i := range resp.Children {
-		child := &resp.Children[i]
+	for i := range allChildren {
+		child := &allChildren[i]
 		if child.Type != "scope" {
 			continue
 		}
