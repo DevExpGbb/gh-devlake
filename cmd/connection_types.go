@@ -324,6 +324,24 @@ var connectionRegistry = []*ConnectionDef{
 		ScopeIDField:   "boardId",
 		HasRepoScopes:  false,
 	},
+	{
+		Plugin:           "sonarqube",
+		DisplayName:      "SonarQube",
+		Available:        true,
+		Endpoint:         "", // user must provide (e.g., https://sonar.example.com/)
+		SupportsTest:     true,
+		AuthMethod:       "AccessToken",
+		RateLimitPerHour: 0, // uses default 4500
+		// SonarQube uses API tokens; permissions come from the user account.
+		RequiredScopes: []string{},
+		ScopeHint:      "",
+		TokenPrompt:    "SonarQube token",
+		EnvVarNames:    []string{"SONARQUBE_TOKEN", "SONAR_TOKEN"},
+		EnvFileKeys:    []string{"SONARQUBE_TOKEN", "SONAR_TOKEN"},
+		ScopeFunc:      scopeSonarQubeHandler,
+		ScopeIDField:   "projectKey",
+		HasRepoScopes:  false,
+	},
 }
 
 // AvailableConnections returns only available (non-coming-soon) connection defs.

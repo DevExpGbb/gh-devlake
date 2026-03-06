@@ -81,6 +81,13 @@ type BitbucketRepoScope struct {
 	HTMLURL      string `json:"htmlUrl,omitempty"`
 }
 
+// SonarQubeProjectScope represents a SonarQube project scope entry for PUT /scopes.
+type SonarQubeProjectScope struct {
+	ConnectionID int    `json:"connectionId"`
+	ProjectKey   string `json:"projectKey"`
+	Name         string `json:"name"`
+}
+
 // ScopeBatchRequest is the payload for PUT /scopes (batch upsert).
 type ScopeBatchRequest struct {
 	Data []any `json:"data"`

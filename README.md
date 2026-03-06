@@ -194,9 +194,10 @@ For the full guide, see [Day-2 Operations](docs/day-2.md).
 | GitHub Copilot | ✅ Available | Usage metrics, seats, acceptance rates | `manage_billing:copilot`, `read:org` (+ `read:enterprise` for enterprise metrics) |
 | Jenkins | ✅ Available | Jobs, builds, deployments (DORA) | Username + API token/password |
 | Jira | ✅ Available | Boards, issues, sprints (change lead time, cycle time) | API token (permissions from user account) |
-| Azure DevOps | 🔜 Coming soon | Repos, pipelines, deployments (DORA) | (TBD) |
 | GitLab | ✅ Available | Repos, MRs, pipelines, deployments (DORA) | `read_api`, `read_repository` |
 | Bitbucket Cloud | ✅ Available | Repos, PRs, commits | Bitbucket username + app password |
+| SonarQube | ✅ Available | Code quality, coverage, code smells (quality gates) | API token (permissions from user account) |
+| Azure DevOps | 🔜 Coming soon | Repos, pipelines, deployments (DORA) | (TBD) |
 
 See [Token Handling](docs/token-handling.md) for env key names and multi-plugin `.devlake.env` examples.
 
