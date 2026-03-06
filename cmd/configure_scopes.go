@@ -1047,10 +1047,11 @@ func scopeSonarQubeHandler(client *devlake.Client, connID int, org, enterprise s
 	for i := range allChildren {
 		child := &allChildren[i]
 		if child.Type == "scope" {
-			label := child.Name
-			if child.ID != "" {
-				label = fmt.Sprintf("%s (key: %s)", child.Name, child.ID)
+			// Skip projects without a valid project key (child.ID)
+			if child.ID == "" {
+				continue
 			}
+			label := fmt.Sprintf("%s (key: %s)", child.Name, child.ID)
 			projectOptions = append(projectOptions, label)
 			projectMap[label] = child
 		}
@@ -1063,7 +1064,7 @@ func scopeSonarQubeHandler(client *devlake.Client, connID int, org, enterprise s
 	fmt.Println()
 	selectedLabels := prompt.SelectMulti("Select SonarQube projects to track", projectOptions)
 	if len(selectedLabels) == 0 {
-		return nil, fmt.Errorf("at least one project must be selected")
+		return nil, fmt.Errorf("at least one SonarQube project must be selected")
 	}
 
 	// Build scope data for PUT
@@ -1072,11 +1073,6 @@ func scopeSonarQubeHandler(client *devlake.Client, connID int, org, enterprise s
 	var blueprintScopes []devlake.BlueprintScope
 	for _, label := range selectedLabels {
 		child := projectMap[label]
-		// Use child.ID as projectKey
-		if child.ID == "" {
-			fmt.Printf("   ⚠️  Skipping project %q: empty project key\n", child.Name)
-			continue
-		}
 		scopeData = append(scopeData, devlake.SonarQubeProjectScope{
 			ConnectionID: connID,
 			ProjectKey:   child.ID,
