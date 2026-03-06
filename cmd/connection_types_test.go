@@ -601,6 +601,23 @@ func TestConnectionRegistry_Bitbucket(t *testing.T) {
 		}
 	}
 
+	// ScopeFlags: repos and repos-file flags must be registered
+	foundRepos, foundReposFile := false, false
+	for _, f := range def.ScopeFlags {
+		switch f.Name {
+		case "repos":
+			foundRepos = true
+		case "repos-file":
+			foundReposFile = true
+		}
+	}
+	if !foundRepos {
+		t.Errorf("bitbucket ScopeFlags should include repos flag")
+	}
+	if !foundReposFile {
+		t.Errorf("bitbucket ScopeFlags should include repos-file flag")
+	}
+
 	// BasicAuth: BuildCreateRequest puts credentials into username/password, not token
 	req := def.BuildCreateRequest("test-conn", ConnectionParams{
 		Token:    "app-password",
