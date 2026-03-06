@@ -60,13 +60,14 @@ func runScopeDelete(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	}
+	canonicalPlugin := canonicalPluginSlug(scopeDeletePlugin)
 
 	client, _, err := discoverClient(cfgURL)
 	if err != nil {
 		return err
 	}
 
-	selectedPlugin := scopeDeletePlugin
+	selectedPlugin := canonicalPlugin
 	selectedConnID := scopeDeleteConnID
 	selectedScopeID := scopeDeleteScopeID
 

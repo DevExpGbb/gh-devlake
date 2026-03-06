@@ -217,6 +217,68 @@ func TestJiraConnectionDef(t *testing.T) {
 	}
 }
 
+// TestAzureDevOpsRegistryEntry verifies the Azure DevOps plugin registry entry.
+func TestAzureDevOpsRegistryEntry(t *testing.T) {
+	def := FindConnectionDef("azuredevops_go")
+	if def == nil {
+		t.Fatal("azuredevops_go plugin not found in registry")
+	}
+
+	tests := []struct {
+		name string
+		got  interface{}
+		want interface{}
+	}{
+		{"Plugin", def.Plugin, "azuredevops_go"},
+		{"DisplayName", def.DisplayName, "Azure DevOps"},
+		{"Available", def.Available, true},
+		{"Endpoint", def.Endpoint, ""},
+		{"NeedsOrg", def.NeedsOrg, true},
+		{"SupportsTest", def.SupportsTest, true},
+		{"AuthMethod", def.authMethod(), "AccessToken"},
+		{"ScopeIDField", def.ScopeIDField, "id"},
+		{"HasRepoScopes", def.HasRepoScopes, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.got != tt.want {
+				t.Errorf("%s: got %v, want %v", tt.name, tt.got, tt.want)
+			}
+		})
+	}
+
+	if def.ScopeFunc == nil {
+		t.Error("ScopeFunc should not be nil")
+	}
+	if len(def.RequiredScopes) != 0 {
+		t.Errorf("RequiredScopes should be empty, got %v", def.RequiredScopes)
+	}
+	if def.ScopeHint != "" {
+		t.Errorf("ScopeHint should be empty, got %q", def.ScopeHint)
+	}
+
+	expectedEnvVars := []string{"AZURE_DEVOPS_PAT", "AZDO_PAT"}
+	if len(def.EnvVarNames) != len(expectedEnvVars) {
+		t.Fatalf("EnvVarNames length: got %d, want %d", len(def.EnvVarNames), len(expectedEnvVars))
+	}
+	for i, v := range expectedEnvVars {
+		if def.EnvVarNames[i] != v {
+			t.Errorf("EnvVarNames[%d]: got %q, want %q", i, def.EnvVarNames[i], v)
+		}
+	}
+
+	expectedEnvFileKeys := []string{"AZURE_DEVOPS_PAT", "AZDO_PAT"}
+	if len(def.EnvFileKeys) != len(expectedEnvFileKeys) {
+		t.Fatalf("EnvFileKeys length: got %d, want %d", len(def.EnvFileKeys), len(expectedEnvFileKeys))
+	}
+	for i, v := range expectedEnvFileKeys {
+		if def.EnvFileKeys[i] != v {
+			t.Errorf("EnvFileKeys[%d]: got %q, want %q", i, def.EnvFileKeys[i], v)
+		}
+	}
+}
+
 // TestBuildCreateRequest_AuthMethod verifies that AuthMethod defaults to "AccessToken"
 // when empty, and uses the configured value when set.
 func TestBuildCreateRequest_AuthMethod(t *testing.T) {
@@ -456,7 +518,7 @@ func TestNeedsTokenExpiry(t *testing.T) {
 		{"github", true},
 		{"gh-copilot", true},
 		{"gitlab", false},
-		{"azure-devops", false},
+		{"azuredevops_go", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.plugin, func(t *testing.T) {

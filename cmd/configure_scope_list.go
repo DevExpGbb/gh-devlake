@@ -58,6 +58,7 @@ func runScopeList(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	}
+	canonicalPlugin := canonicalPluginSlug(scopeListPlugin)
 
 	// In JSON mode, flags are required (interactive prompts are not supported)
 	if outputJSON && !(pluginFlagSet && connIDFlagSet) {
@@ -81,7 +82,7 @@ func runScopeList(cmd *cobra.Command, args []string) error {
 		client = c
 	}
 
-	selectedPlugin := scopeListPlugin
+	selectedPlugin := canonicalPlugin
 	selectedConnID := scopeListConnID
 
 	if !(pluginFlagSet && connIDFlagSet) {

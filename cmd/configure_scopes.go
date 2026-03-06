@@ -142,14 +142,15 @@ func resolveConnectionID(client *devlake.Client, state *devlake.State, plugin st
 	if flagValue > 0 {
 		return flagValue, nil
 	}
+	canonical := plugin
 	if state != nil {
 		for _, c := range state.Connections {
-			if c.Plugin == plugin {
+			if canonicalPluginSlug(c.Plugin) == canonical {
 				return c.ConnectionID, nil
 			}
 		}
 	}
-	conns, err := client.ListConnections(plugin)
+	conns, err := client.ListConnections(canonical)
 	if err != nil {
 		return 0, fmt.Errorf("could not list %s connections: %w", plugin, err)
 	}
@@ -470,6 +471,183 @@ func scopeGitHubHandler(client *devlake.Client, connID int, org, enterprise stri
 // scopeCopilotHandler is the ScopeHandler for the gh-copilot plugin.
 func scopeCopilotHandler(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error) {
 	return scopeCopilot(client, connID, org, enterprise)
+}
+
+// scopeAzureDevOpsHandler browses Azure DevOps projects and repositories via the
+// remote-scope API and adds the selected repositories as scopes.
+func scopeAzureDevOpsHandler(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error) {
+	fmt.Println("\n🔍 Fetching Azure DevOps projects...")
+	rootChildren, err := listAzureDevOpsRemoteChildren(client, connID, "")
+	if err != nil {
+		return nil, fmt.Errorf("listing Azure DevOps projects: %w", err)
+	}
+
+	var (
+		projects []devlake.RemoteScopeChild
+		scopes   []devlake.RemoteScopeChild
+	)
+	for _, child := range rootChildren {
+		switch child.Type {
+		case "group":
+			projects = append(projects, child)
+		case "scope":
+			scopes = append(scopes, child)
+		}
+	}
+
+	var selectedScopes []devlake.RemoteScopeChild
+	if len(projects) > 0 {
+		projectLabels := make([]string, 0, len(projects))
+		projectByLabel := make(map[string]devlake.RemoteScopeChild)
+		for _, p := range projects {
+			label := azureScopeLabel(p)
+			projectLabels = append(projectLabels, label)
+			projectByLabel[label] = p
+		}
+
+		fmt.Println()
+		chosenProjects := prompt.SelectMulti("Select Azure DevOps projects", projectLabels)
+		if len(chosenProjects) == 0 {
+			return nil, fmt.Errorf("at least one Azure DevOps project must be selected")
+		}
+
+		for _, label := range chosenProjects {
+			project := projectByLabel[label]
+			fmt.Printf("\n🔍 Listing repositories in project %q...\n", label)
+			children, err := listAzureDevOpsRemoteChildren(client, connID, project.ID)
+			if err != nil {
+				return nil, fmt.Errorf("listing repositories in project %q: %w", label, err)
+			}
+			var repoLabels []string
+			repoByLabel := make(map[string]devlake.RemoteScopeChild)
+			for _, child := range children {
+				if child.Type != "scope" {
+					continue
+				}
+				l := azureScopeLabel(child)
+				repoLabels = append(repoLabels, l)
+				repoByLabel[l] = child
+			}
+			if len(repoLabels) == 0 {
+				fmt.Printf("   ⚠️  No repositories found in project %q\n", label)
+				continue
+			}
+
+			fmt.Println()
+			chosenRepos := prompt.SelectMulti("Select repositories to collect", repoLabels)
+			for _, repoLabel := range chosenRepos {
+				selectedScopes = append(selectedScopes, repoByLabel[repoLabel])
+			}
+		}
+	} else if len(scopes) > 0 {
+		scopeLabels := make([]string, 0, len(scopes))
+		scopeByLabel := make(map[string]devlake.RemoteScopeChild)
+		for _, s := range scopes {
+			label := azureScopeLabel(s)
+			scopeLabels = append(scopeLabels, label)
+			scopeByLabel[label] = s
+		}
+
+		fmt.Println()
+		chosenScopes := prompt.SelectMulti("Select Azure DevOps scopes to collect", scopeLabels)
+		for _, label := range chosenScopes {
+			selectedScopes = append(selectedScopes, scopeByLabel[label])
+		}
+	}
+
+	if len(selectedScopes) == 0 {
+		return nil, fmt.Errorf("no Azure DevOps scopes selected")
+	}
+
+	fmt.Println("\n📝 Adding Azure DevOps scopes...")
+	var (
+		data       []any
+		bpScopes   []devlake.BlueprintScope
+		pluginSlug = "azuredevops_go"
+	)
+	for _, child := range selectedScopes {
+		payload := azureDevOpsScopePayload(child, connID)
+		data = append(data, payload)
+
+		scopeID := child.ID
+		if idVal, ok := payload["id"].(string); ok && idVal != "" {
+			scopeID = idVal
+		}
+		name := azureScopeLabel(child)
+		if name == "" {
+			if n, ok := payload["name"].(string); ok {
+				name = n
+			}
+		}
+		bpScopes = append(bpScopes, devlake.BlueprintScope{
+			ScopeID:   scopeID,
+			ScopeName: name,
+		})
+	}
+
+	if err := client.PutScopes(pluginSlug, connID, &devlake.ScopeBatchRequest{Data: data}); err != nil {
+		return nil, fmt.Errorf("failed to add Azure DevOps scopes: %w", err)
+	}
+	fmt.Printf("   ✅ Added %d Azure DevOps scope(s)\n", len(data))
+
+	return &devlake.BlueprintConnection{
+		PluginName:   pluginSlug,
+		ConnectionID: connID,
+		Scopes:       bpScopes,
+	}, nil
+}
+
+func listAzureDevOpsRemoteChildren(client *devlake.Client, connID int, groupID string) ([]devlake.RemoteScopeChild, error) {
+	var (
+		children  []devlake.RemoteScopeChild
+		pageToken string
+	)
+	for {
+		resp, err := client.ListRemoteScopes("azuredevops_go", connID, groupID, pageToken)
+		if err != nil {
+			return nil, err
+		}
+		children = append(children, resp.Children...)
+		if resp.NextPageToken == "" {
+			break
+		}
+		pageToken = resp.NextPageToken
+	}
+	return children, nil
+}
+
+func azureDevOpsScopePayload(child devlake.RemoteScopeChild, connID int) map[string]any {
+	var payload map[string]any
+	if len(child.Data) > 0 {
+		if err := json.Unmarshal(child.Data, &payload); err != nil {
+			fmt.Printf("\n⚠️  Could not decode Azure DevOps scope data for %s: %v\n", child.ID, err)
+			payload = make(map[string]any)
+		}
+	}
+	if payload == nil {
+		payload = make(map[string]any)
+	}
+	if _, ok := payload["id"]; !ok || payload["id"] == "" {
+		payload["id"] = child.ID
+	}
+	if _, ok := payload["name"]; !ok || payload["name"] == "" {
+		payload["name"] = child.Name
+	}
+	if v, ok := payload["fullName"]; (!ok || v == "") && child.FullName != "" {
+		payload["fullName"] = child.FullName
+	}
+	payload["connectionId"] = connID
+	return payload
+}
+
+func azureScopeLabel(child devlake.RemoteScopeChild) string {
+	if child.FullName != "" {
+		return child.FullName
+	}
+	if child.Name != "" {
+		return child.Name
+	}
+	return child.ID
 }
 
 // scopeGitLabHandler is the ScopeHandler for the gitlab plugin.

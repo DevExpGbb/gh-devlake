@@ -64,13 +64,17 @@ func runScopeAdd(cmd *cobra.Command, args []string, opts *ScopeOpts) error {
 	printBanner("DevLake \u2014 Configure Scopes")
 
 	// Determine which plugin to scope
-	var selectedPlugin string
+	var (
+		selectedPlugin string
+		selectedDef    *ConnectionDef
+	)
 	if opts.Plugin != "" {
 		def, err := requirePlugin(opts.Plugin)
 		if err != nil {
 			return err
 		}
-		selectedPlugin = opts.Plugin
+		selectedDef = def
+		selectedPlugin = def.Plugin
 		// Warn about flags that don't apply to the selected plugin.
 		warnIrrelevantFlags(cmd, def, collectAllScopeFlagDefs())
 	} else {
@@ -96,6 +100,7 @@ func runScopeAdd(cmd *cobra.Command, args []string, opts *ScopeOpts) error {
 		for _, d := range available {
 			if d.DisplayName == chosen {
 				selectedPlugin = d.Plugin
+				selectedDef = d
 				// Print applicable flags and warn about irrelevant ones after
 				// interactive plugin selection.
 				printContextualFlagHelp(d, d.ScopeFlags, "Scope")
@@ -122,7 +127,10 @@ func runScopeAdd(cmd *cobra.Command, args []string, opts *ScopeOpts) error {
 	fmt.Printf("   %s connection ID: %d\n", pluginDisplayName(selectedPlugin), connID)
 
 	org := resolveOrg(state, opts.Org)
-	def := FindConnectionDef(selectedPlugin)
+	def := selectedDef
+	if def == nil {
+		def = FindConnectionDef(selectedPlugin)
+	}
 	if def == nil || def.ScopeFunc == nil {
 		return fmt.Errorf("scope configuration for %q is not yet supported", selectedPlugin)
 	}

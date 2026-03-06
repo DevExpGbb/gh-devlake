@@ -31,8 +31,8 @@ func adoOpts(flagValue, envFile string) ResolveOpts {
 	return ResolveOpts{
 		FlagValue:   flagValue,
 		EnvFilePath: envFile,
-		EnvFileKeys: []string{"AZURE_DEVOPS_PAT"},
-		EnvVarNames: []string{"AZURE_DEVOPS_PAT"},
+		EnvFileKeys: []string{"AZURE_DEVOPS_PAT", "AZDO_PAT"},
+		EnvVarNames: []string{"AZURE_DEVOPS_PAT", "AZDO_PAT"},
 		DisplayName: "Azure DevOps",
 	}
 }
@@ -112,6 +112,18 @@ func TestResolve_AzureDevOps_EnvVar(t *testing.T) {
 	}
 	if result.Token != "ado_test" || result.Source != "environment" {
 		t.Errorf("got token=%q source=%q, want token=%q source=%q", result.Token, result.Source, "ado_test", "environment")
+	}
+}
+
+func TestResolve_AzureDevOps_AZDO_EnvVar(t *testing.T) {
+	t.Setenv("AZURE_DEVOPS_PAT", "")
+	t.Setenv("AZDO_PAT", "azdo_fallback")
+	result, err := Resolve(adoOpts("", ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Token != "azdo_fallback" || result.Source != "environment" {
+		t.Errorf("got token=%q source=%q, want token=%q source=%q", result.Token, result.Source, "azdo_fallback", "environment")
 	}
 }
 

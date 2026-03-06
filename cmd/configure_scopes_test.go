@@ -1,11 +1,14 @@
 package cmd
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/spf13/cobra"
+
+	"github.com/DevExpGBB/gh-devlake/internal/devlake"
 )
 
 func TestCopilotScopeID(t *testing.T) {
@@ -30,6 +33,95 @@ func TestCopilotScopeID(t *testing.T) {
 				t.Errorf("copilotScopeID(%q, %q) = %q, want %q", tt.org, tt.enterprise, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestAzureScopeLabel(t *testing.T) {
+	tests := []struct {
+		name string
+		in   devlake.RemoteScopeChild
+		want string
+	}{
+		{
+			name: "prefers full name",
+			in:   devlake.RemoteScopeChild{FullName: "org/project/repo", Name: "repo", ID: "123"},
+			want: "org/project/repo",
+		},
+		{
+			name: "falls back to name",
+			in:   devlake.RemoteScopeChild{Name: "project", ID: "456"},
+			want: "project",
+		},
+		{
+			name: "falls back to id",
+			in:   devlake.RemoteScopeChild{ID: "789"},
+			want: "789",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := azureScopeLabel(tt.in); got != tt.want {
+				t.Errorf("azureScopeLabel() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAzureDevOpsScopePayload_FullNameFallback(t *testing.T) {
+	raw := map[string]any{
+		"id":       "",
+		"name":     "",
+		"fullName": "",
+	}
+	data, _ := json.Marshal(raw)
+	child := devlake.RemoteScopeChild{
+		ID:       "123",
+		Name:     "repo",
+		FullName: "org/project/repo",
+		Data:     data,
+	}
+	payload := azureDevOpsScopePayload(child, 42)
+
+	if payload["id"] != "123" {
+		t.Fatalf("id = %v, want 123", payload["id"])
+	}
+	if payload["name"] != "repo" {
+		t.Fatalf("name = %v, want repo", payload["name"])
+	}
+	if payload["fullName"] != "org/project/repo" {
+		t.Fatalf("fullName = %v, want org/project/repo", payload["fullName"])
+	}
+	if payload["connectionId"] != 42 {
+		t.Fatalf("connectionId = %v, want 42", payload["connectionId"])
+	}
+}
+
+func TestAzureDevOpsScopePayload_KeepsExistingFields(t *testing.T) {
+	raw := map[string]any{
+		"id":       "keep-id",
+		"name":     "keep-name",
+		"fullName": "keep-full",
+	}
+	data, _ := json.Marshal(raw)
+	child := devlake.RemoteScopeChild{
+		ID:       "child-id",
+		Name:     "child-name",
+		FullName: "child/full",
+		Data:     data,
+	}
+	payload := azureDevOpsScopePayload(child, 7)
+
+	if payload["id"] != "keep-id" {
+		t.Fatalf("id = %v, want keep-id", payload["id"])
+	}
+	if payload["name"] != "keep-name" {
+		t.Fatalf("name = %v, want keep-name", payload["name"])
+	}
+	if payload["fullName"] != "keep-full" {
+		t.Fatalf("fullName = %v, want keep-full", payload["fullName"])
+	}
+	if payload["connectionId"] != 7 {
+		t.Fatalf("connectionId = %v, want 7", payload["connectionId"])
 	}
 }
 

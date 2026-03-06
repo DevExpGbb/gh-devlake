@@ -197,7 +197,7 @@ For the full guide, see [Day-2 Operations](docs/day-2.md).
 | GitLab | ✅ Available | Repos, MRs, pipelines, deployments (DORA) | `read_api`, `read_repository` |
 | Bitbucket Cloud | ✅ Available | Repos, PRs, commits | Bitbucket username + app password |
 | SonarQube | ✅ Available | Code quality, coverage, code smells (quality gates) | API token (permissions from user account) |
-| Azure DevOps | 🔜 Coming soon | Repos, pipelines, deployments (DORA) | (TBD) |
+| Azure DevOps | ✅ Available | Repos, pipelines, deployments (DORA) | PAT with repo and pipeline access |
 
 See [Token Handling](docs/token-handling.md) for env key names and multi-plugin `.devlake.env` examples.
 

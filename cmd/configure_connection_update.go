@@ -56,6 +56,7 @@ func runUpdateConnection(cmd *cobra.Command, args []string) error {
 	printBanner("DevLake — Update Connection")
 
 	flagMode := updateConnPlugin != "" || updateConnID != 0
+	canonicalPlugin := canonicalPluginSlug(updateConnPlugin)
 
 	// ── Validate flags before making any network calls ──
 	if flagMode {
@@ -78,7 +79,7 @@ func runUpdateConnection(cmd *cobra.Command, args []string) error {
 	var connID int
 
 	if flagMode {
-		plugin = updateConnPlugin
+		plugin = canonicalPlugin
 		connID = updateConnID
 	} else {
 		// ── Interactive: let user pick ──
@@ -146,7 +147,7 @@ func runUpdateConnection(cmd *cobra.Command, args []string) error {
 	// ── Update state file ──
 	statePath, state := devlake.FindStateFile(disc.URL, disc.GrafanaURL)
 	for i, c := range state.Connections {
-		if c.Plugin == plugin && c.ConnectionID == updated.ID {
+		if canonicalPluginSlug(c.Plugin) == plugin && c.ConnectionID == updated.ID {
 			state.Connections[i].Name = updated.Name
 			state.Connections[i].Organization = updated.Organization
 			state.Connections[i].Enterprise = updated.Enterprise
