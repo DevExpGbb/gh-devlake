@@ -69,6 +69,18 @@ type JiraBoardScope struct {
 	Name         string `json:"name"`
 }
 
+// BitbucketRepoScope represents a Bitbucket Cloud repository scope entry for PUT /scopes.
+// BitbucketID holds the repository full name (workspace/repo-slug), which is the
+// canonical scope identifier used by the DevLake Bitbucket plugin.
+type BitbucketRepoScope struct {
+	BitbucketID  string `json:"bitbucketId"`
+	ConnectionID int    `json:"connectionId"`
+	Name         string `json:"name"`
+	FullName     string `json:"fullName"`
+	CloneURL     string `json:"cloneUrl,omitempty"`
+	HTMLURL      string `json:"htmlUrl,omitempty"`
+}
+
 // ScopeBatchRequest is the payload for PUT /scopes (batch upsert).
 type ScopeBatchRequest struct {
 	Data []any `json:"data"`
