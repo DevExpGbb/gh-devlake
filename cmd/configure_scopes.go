@@ -806,7 +806,7 @@ func scopeJiraHandler(client *devlake.Client, connID int, org, enterprise string
 func scopeBitbucketHandler(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error) {
 	repos, err := resolveBitbucketRepos(client, connID, org, opts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resolving Bitbucket repositories: %w", err)
 	}
 	if len(repos) == 0 {
 		return nil, fmt.Errorf("at least one Bitbucket repository is required")
