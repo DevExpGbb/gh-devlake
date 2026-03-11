@@ -1308,9 +1308,9 @@ func scopeArgoCDHandler(client *devlake.Client, connID int, org, enterprise stri
 			if child.ID == "" {
 				continue
 			}
-			label := child.Name
-			if label == "" {
-				label = child.ID
+			label := child.ID
+			if child.Name != "" {
+				label = fmt.Sprintf("%s (%s)", child.Name, child.ID)
 			}
 			appOptions = append(appOptions, label)
 			appMap[label] = child
