@@ -198,6 +198,7 @@ For the full guide, see [Day-2 Operations](docs/day-2.md).
 | Bitbucket Cloud | ✅ Available | Repos, PRs, commits | Bitbucket username + app password |
 | SonarQube | ✅ Available | Code quality, coverage, code smells (quality gates) | API token (permissions from user account) |
 | Azure DevOps | ✅ Available | Repos, pipelines, deployments (DORA) | PAT with repo and pipeline access |
+| ArgoCD | ✅ Available | GitOps deployments, deployment frequency (DORA) | ArgoCD auth token |
 
 See [Token Handling](docs/token-handling.md) for env key names and multi-plugin `.devlake.env` examples.
 
