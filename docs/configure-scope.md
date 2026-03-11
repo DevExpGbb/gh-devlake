@@ -34,7 +34,7 @@ gh devlake configure scope add [flags]
 |------|---------|-------------|
 | `--plugin` | *(interactive or required)* | Plugin to configure (`github`, `gh-copilot`, `gitlab`, `bitbucket`, `azuredevops_go`, `jenkins`, `jira`, `sonarqube`, `circleci`) |
 | `--connection-id` | *(auto-detected)* | Override the connection ID to scope |
-| `--org` | *(required)* | GitHub organization slug |
+| `--org` | *(plugin-dependent)* | Organization/workspace slug when the plugin requires it (e.g., GitHub, Copilot, GitLab, Bitbucket, Azure DevOps) |
 | `--enterprise` | | Enterprise slug (enables enterprise-level Copilot metrics) |
 | `--repos` | | Comma-separated repos to add (`owner/repo,owner/repo2`) |
 | `--repos-file` | | Path to a file with repos (one `owner/repo` per line) |

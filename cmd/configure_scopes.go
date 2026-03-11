@@ -1233,6 +1233,14 @@ func circleCIProjectLabel(project devlake.CircleCIProjectScope) string {
 	}
 }
 
+func circleCIUniqueLabel(project devlake.CircleCIProjectScope, counts map[string]int) string {
+	base := circleCIProjectLabel(project)
+	if counts[base] > 1 && project.ID != "" {
+		return fmt.Sprintf("%s (ID: %s)", base, project.ID)
+	}
+	return base
+}
+
 // scopeCircleCIHandler is the ScopeHandler for the circleci plugin.
 func scopeCircleCIHandler(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error) {
 	fmt.Println("\n📋 Fetching CircleCI projects...")
@@ -1253,12 +1261,22 @@ func scopeCircleCIHandler(client *devlake.Client, connID int, org, enterprise st
 
 	projectOptions := make([]string, 0, len(children))
 	projectMap := make(map[string]devlake.CircleCIProjectScope)
+	labelCounts := make(map[string]int, len(children))
 	for _, child := range children {
 		if child.Type != "scope" || child.ID == "" {
 			continue
 		}
 		project := circleCIProjectFromChild(child, connID)
-		label := circleCIProjectLabel(project)
+		baseLabel := circleCIProjectLabel(project)
+		labelCounts[baseLabel]++
+	}
+
+	for _, child := range children {
+		if child.Type != "scope" || child.ID == "" {
+			continue
+		}
+		project := circleCIProjectFromChild(child, connID)
+		label := circleCIUniqueLabel(project, labelCounts)
 		projectOptions = append(projectOptions, label)
 		projectMap[label] = project
 	}

@@ -213,6 +213,26 @@ func TestCircleCIProjectLabel(t *testing.T) {
 	}
 }
 
+func TestCircleCIUniqueLabel(t *testing.T) {
+	projectA := devlake.CircleCIProjectScope{ID: "a1", Name: "api", Slug: "gh/org/api"}
+	projectB := devlake.CircleCIProjectScope{ID: "b2", Name: "api", Slug: "gh/org/api"}
+	counts := map[string]int{
+		circleCIProjectLabel(projectA): 2,
+	}
+
+	labelA := circleCIUniqueLabel(projectA, counts)
+	labelB := circleCIUniqueLabel(projectB, counts)
+	if labelA == labelB {
+		t.Fatalf("expected unique labels, got identical %q", labelA)
+	}
+	if labelA == "api (slug: gh/org/api)" {
+		t.Fatalf("labelA should be disambiguated, got %q", labelA)
+	}
+	if labelB == "api (slug: gh/org/api)" {
+		t.Fatalf("labelB should be disambiguated, got %q", labelB)
+	}
+}
+
 func TestRunConfigureScopes_PluginFlag(t *testing.T) {
 	makeCmd := func() (*cobra.Command, *ScopeOpts) {
 		opts := &ScopeOpts{}
