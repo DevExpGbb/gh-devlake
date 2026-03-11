@@ -1264,7 +1264,9 @@ func scopeSonarQubeHandler(client *devlake.Client, connID int, org, enterprise s
 			}
 			selectedProjects = append(selectedProjects, child)
 		}
-		fmt.Printf("   Projects from --projects: %s\n", strings.Join(keys, ", "))
+		if !outputJSON {
+			fmt.Printf("   Projects from --projects: %s\n", strings.Join(keys, ", "))
+		}
 	} else {
 		fmt.Println()
 		selectedLabels := prompt.SelectMulti("Select SonarQube projects to track", projectOptions)
