@@ -88,6 +88,14 @@ type SonarQubeProjectScope struct {
 	Name         string `json:"name"`
 }
 
+// PagerDutyServiceScope represents a PagerDuty service scope entry for PUT /scopes.
+type PagerDutyServiceScope struct {
+	ConnectionID int    `json:"connectionId"`
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	URL          string `json:"url,omitempty"`
+}
+
 // ScopeBatchRequest is the payload for PUT /scopes (batch upsert).
 type ScopeBatchRequest struct {
 	Data []any `json:"data"`

@@ -32,7 +32,7 @@ gh devlake configure scope add [flags]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive or required)* | Plugin to configure (`github`, `gh-copilot`, `jenkins`) |
+| `--plugin` | *(interactive or required)* | Plugin to configure (`github`, `gh-copilot`, `gitlab`, `bitbucket`, `azuredevops_go`, `jenkins`, `jira`, `sonarqube`, `pagerduty`) |
 | `--connection-id` | *(auto-detected)* | Override the connection ID to scope |
 | `--org` | *(required)* | GitHub organization slug |
 | `--enterprise` | | Enterprise slug (enables enterprise-level Copilot metrics) |
@@ -117,6 +117,12 @@ gh devlake configure scope add
 2. Uses `--jobs` when provided instead of prompting
 3. Calls `PUT /plugins/jenkins/connections/{id}/scopes` with the selected jobs
 
+### What It Does (PagerDuty)
+
+1. Lists PagerDuty services via the remote-scope API (interactive picker)
+2. Prompts to select one or more services
+3. Calls `PUT /plugins/pagerduty/connections/{id}/scopes` with the selected services
+
 ---
 
 ## configure scope list
@@ -133,7 +139,7 @@ gh devlake configure scope list [--plugin <plugin>] [--connection-id <id>]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin to query (`github`, `gh-copilot`, `jenkins`) |
+| `--plugin` | *(interactive)* | Plugin to query (`github`, `gh-copilot`, `gitlab`, `bitbucket`, `azuredevops_go`, `jenkins`, `jira`, `sonarqube`, `pagerduty`) |
 | `--connection-id` | *(interactive)* | Connection ID to list scopes for |
 
 **Flag mode:** both `--plugin` and `--connection-id` are required.
@@ -181,7 +187,7 @@ gh devlake configure scope delete [--plugin <plugin>] [--connection-id <id>] [--
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin of the connection (`github`, `gh-copilot`, `jenkins`) |
+| `--plugin` | *(interactive)* | Plugin of the connection (`github`, `gh-copilot`, `gitlab`, `bitbucket`, `azuredevops_go`, `jenkins`, `jira`, `sonarqube`, `pagerduty`) |
 | `--connection-id` | *(interactive)* | Connection ID |
 | `--scope-id` | *(interactive)* | Scope ID to delete |
 | `--force` | `false` | Skip confirmation prompt |

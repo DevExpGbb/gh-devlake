@@ -125,6 +125,55 @@ func TestAzureDevOpsScopePayload_KeepsExistingFields(t *testing.T) {
 	}
 }
 
+func TestPagerDutyServiceFromChild_UsesData(t *testing.T) {
+	data, _ := json.Marshal(map[string]any{
+		"id":   "SVC123",
+		"name": "Checkout",
+		"url":  "https://api.pagerduty.com/services/SVC123",
+	})
+	child := &devlake.RemoteScopeChild{
+		ID:       "fallback-id",
+		Name:     "fallback-name",
+		FullName: "fallback/full",
+		Data:     data,
+	}
+
+	scope := pagerDutyServiceFromChild(child, 101)
+	if scope.ID != "SVC123" {
+		t.Fatalf("ID = %q, want SVC123", scope.ID)
+	}
+	if scope.Name != "Checkout" {
+		t.Fatalf("Name = %q, want Checkout", scope.Name)
+	}
+	if scope.URL != "https://api.pagerduty.com/services/SVC123" {
+		t.Fatalf("URL = %q, want https://api.pagerduty.com/services/SVC123", scope.URL)
+	}
+	if scope.ConnectionID != 101 {
+		t.Fatalf("ConnectionID = %d, want 101", scope.ConnectionID)
+	}
+}
+
+func TestPagerDutyServiceFromChild_Fallbacks(t *testing.T) {
+	child := &devlake.RemoteScopeChild{
+		ID:       "SVC999",
+		FullName: "Platform/Incident",
+	}
+
+	scope := pagerDutyServiceFromChild(child, 7)
+	if scope.ID != "SVC999" {
+		t.Fatalf("ID = %q, want SVC999", scope.ID)
+	}
+	if scope.Name != "Platform/Incident" {
+		t.Fatalf("Name = %q, want Platform/Incident", scope.Name)
+	}
+	if scope.URL != "" {
+		t.Fatalf("URL = %q, want empty", scope.URL)
+	}
+	if scope.ConnectionID != 7 {
+		t.Fatalf("ConnectionID = %d, want 7", scope.ConnectionID)
+	}
+}
+
 func TestRunConfigureScopes_PluginFlag(t *testing.T) {
 	makeCmd := func() (*cobra.Command, *ScopeOpts) {
 		opts := &ScopeOpts{}

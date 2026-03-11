@@ -336,6 +336,18 @@ var connectionRegistry = []*ConnectionDef{
 		HasRepoScopes:  false,
 	},
 	{
+		Plugin:       "pagerduty",
+		DisplayName:  "PagerDuty",
+		Available:    true,
+		Endpoint:     "https://api.pagerduty.com/",
+		SupportsTest: true,
+		TokenPrompt:  "PagerDuty API key",
+		EnvVarNames:  []string{"PAGERDUTY_TOKEN", "PAGERDUTY_API_KEY"},
+		EnvFileKeys:  []string{"PAGERDUTY_TOKEN", "PAGERDUTY_API_KEY"},
+		ScopeFunc:    scopePagerDutyHandler,
+		ScopeIDField: "id",
+	},
+	{
 		Plugin:           "sonarqube",
 		DisplayName:      "SonarQube",
 		Available:        true,

@@ -22,7 +22,7 @@ Aliases: `connections`
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin to configure (`github`, `gh-copilot`, `jenkins`) |
+| `--plugin` | *(interactive)* | Plugin to configure (`github`, `gh-copilot`, `gitlab`, `bitbucket`, `azuredevops_go`, `jenkins`, `jira`, `sonarqube`, `pagerduty`) |
 | `--org` | *(required for Copilot)* | GitHub organization slug |
 | `--enterprise` | | GitHub enterprise slug (for enterprise-level Copilot metrics) |
 | `--name` | `Plugin - org` | Connection display name |
@@ -40,6 +40,7 @@ Aliases: `connections`
 | `github` | `repo`, `read:org`, `read:user` |
 | `gh-copilot` | `manage_billing:copilot`, `read:org` |
 | `gh-copilot` (enterprise metrics) | + `read:enterprise` |
+| `pagerduty` | PagerDuty API key (Token `token=<key>`) |
 | `jenkins` | Username + API token/password (BasicAuth) |
 
 ### Token Resolution Order
@@ -155,7 +156,7 @@ gh devlake configure connection test [--plugin <plugin>] [--id <id>]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin to test (`github`, `gh-copilot`, `jenkins`) |
+| `--plugin` | *(interactive)* | Plugin to test (`github`, `gh-copilot`, `gitlab`, `bitbucket`, `azuredevops_go`, `jenkins`, `jira`, `sonarqube`, `pagerduty`) |
 | `--id` | `0` | Connection ID to test |
 
 Both flags are required for non-interactive mode. If either is omitted, the CLI prompts interactively.
@@ -187,7 +188,7 @@ gh devlake configure connection update [--plugin <plugin>] [--id <id>] [update f
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin slug (`github`, `gh-copilot`, `jenkins`) |
+| `--plugin` | *(interactive)* | Plugin slug (`github`, `gh-copilot`, `gitlab`, `bitbucket`, `azuredevops_go`, `jenkins`, `jira`, `sonarqube`, `pagerduty`) |
 | `--id` | *(interactive)* | Connection ID to update |
 | `--token` | | New PAT for token rotation |
 | `--org` | | New organization slug |
@@ -229,7 +230,7 @@ gh devlake configure connection delete [--plugin <plugin>] [--id <id>]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin of the connection to delete |
+| `--plugin` | *(interactive)* | Plugin of the connection to delete (`github`, `gh-copilot`, `gitlab`, `bitbucket`, `azuredevops_go`, `jenkins`, `jira`, `sonarqube`, `pagerduty`) |
 | `--id` | *(interactive)* | ID of the connection to delete |
 | `--force` | `false` | Skip confirmation prompt |
 
