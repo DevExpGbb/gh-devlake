@@ -109,6 +109,10 @@ gh devlake configure scope add --plugin circleci --connection-id 4
 # PagerDuty services (interactive)
 gh devlake configure scope add --plugin pagerduty --connection-id 5
 
+# Azure DevOps repos (interactive project + repo picker)
+# Uses the saved connection's org and endpoint to discover projects and repos
+gh devlake configure scope add --plugin azure-devops --org my-azure-org
+
 # Interactive (omit all flags)
 gh devlake configure scope add
 ```
@@ -148,6 +152,13 @@ gh devlake configure scope add
 1. Lists PagerDuty services via the DevLake remote-scope API
 2. Prompts for one or more services to track
 3. Calls `PUT /plugins/pagerduty/connections/{id}/scopes` with the selected services
+
+### What It Does (Azure DevOps)
+
+1. Uses the saved Azure DevOps connection's org and endpoint to discover remote scopes
+2. Lists projects for that organization via the DevLake remote-scope API
+3. Lets you pick one or more repos within those projects to collect
+4. Calls `PUT /plugins/azuredevops_go/connections/{id}/scopes` with the selected repos
 
 ---
 
