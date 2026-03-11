@@ -32,12 +32,12 @@ gh devlake configure scope add [flags]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive or required)* | Plugin to configure (`github`, `gh-copilot`, `gitlab`, `bitbucket`, `azuredevops_go`, `jenkins`, `jira`, `sonarqube`, `pagerduty`) |
+| `--plugin` | *(interactive or required)* | Plugin to configure (`github`, `gitlab`, `bitbucket`, `gh-copilot`, `jenkins`, `azure-devops`, `sonarqube`, `pagerduty`) |
 | `--connection-id` | *(auto-detected)* | Override the connection ID to scope |
-| `--org` | *(required)* | GitHub organization slug |
+| `--org` | *(plugin-dependent)* | Org/workspace slug (`github`, `gitlab` group path, `bitbucket` workspace, `azure-devops` org). Required for plugins whose connection definition needs an org (for example, Azure DevOps) or when running non-interactively; optional in interactive mode for plugins that support workspace discovery (for example, Bitbucket). |
 | `--enterprise` | | Enterprise slug (enables enterprise-level Copilot metrics) |
-| `--repos` | | Comma-separated repos to add (`owner/repo,owner/repo2`) |
-| `--repos-file` | | Path to a file with repos (one `owner/repo` per line) |
+| `--repos` | | Comma-separated repos to add (`owner/repo` for GitHub, `group/project` for GitLab, `workspace/repo-slug` for Bitbucket) |
+| `--repos-file` | | Path to a file with repos (one per line: `owner/repo` for GitHub, `group/project` for GitLab, `workspace/repo-slug` for Bitbucket) |
 | `--jobs` | | Comma-separated Jenkins job full names |
 | `--deployment-pattern` | `(?i)deploy` | Regex matching CI/CD workflow names for deployments |
 | `--production-pattern` | `(?i)prod` | Regex matching environment names for production |
@@ -83,6 +83,9 @@ gh devlake configure scope add --plugin github --org my-org \
 # Interactive repo selection (omit --repos)
 gh devlake configure scope add --plugin github --org my-org
 
+# Bitbucket repos (interactive remote-scope picker)
+gh devlake configure scope add --plugin bitbucket --org my-workspace
+
 # Add Copilot org scope
 gh devlake configure scope add --plugin gh-copilot --org my-org
 
@@ -105,6 +108,12 @@ gh devlake configure scope add
 2. Fetches repo details via `gh api repos/<owner>/<repo>`
 3. Creates or reuses a DORA scope config (deployment/production patterns, incident label)
 4. Calls `PUT /plugins/github/connections/{id}/scopes` to add repos
+
+### What It Does (Bitbucket)
+
+1. Resolves workspaces and repos via the DevLake remote-scope API (interactive picker when `--repos` is omitted)
+2. Accepts repo slugs from `--repos` / `--repos-file` (`workspace/repo-slug`)
+3. Calls `PUT /plugins/bitbucket/connections/{id}/scopes` with `bitbucketId` = `workspace/repo-slug`
 
 ### What It Does (Copilot)
 
@@ -139,7 +148,7 @@ gh devlake configure scope list [--plugin <plugin>] [--connection-id <id>]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin to query (`github`, `gh-copilot`, `gitlab`, `bitbucket`, `azuredevops_go`, `jenkins`, `jira`, `sonarqube`, `pagerduty`) |
+| `--plugin` | *(interactive)* | Plugin to query (`github`, `gitlab`, `bitbucket`, `gh-copilot`, `jenkins`, `azure-devops`, `sonarqube`, `pagerduty`) |
 | `--connection-id` | *(interactive)* | Connection ID to list scopes for |
 
 **Flag mode:** both `--plugin` and `--connection-id` are required.
@@ -187,7 +196,7 @@ gh devlake configure scope delete [--plugin <plugin>] [--connection-id <id>] [--
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin of the connection (`github`, `gh-copilot`, `gitlab`, `bitbucket`, `azuredevops_go`, `jenkins`, `jira`, `sonarqube`, `pagerduty`) |
+| `--plugin` | *(interactive)* | Plugin of the connection (`github`, `gitlab`, `bitbucket`, `gh-copilot`, `jenkins`, `azure-devops`, `sonarqube`, `pagerduty`) |
 | `--connection-id` | *(interactive)* | Connection ID |
 | `--scope-id` | *(interactive)* | Scope ID to delete |
 | `--force` | `false` | Skip confirmation prompt |

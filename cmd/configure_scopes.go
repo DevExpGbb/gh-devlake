@@ -22,6 +22,7 @@ type ScopeOpts struct {
 	Repos         string
 	ReposFile     string
 	Jobs          string
+	Projects      string
 	ConnectionID  int
 	ProjectName   string
 	DeployPattern string
@@ -1088,7 +1089,7 @@ func browseBitbucketReposInteractively(client *devlake.Client, connID int, works
 		for nextToken != "" {
 			page, err := client.ListRemoteScopes("bitbucket", connID, "", nextToken)
 			if err != nil {
-				break
+				return nil, fmt.Errorf("listing Bitbucket workspaces (page token %s): %w", nextToken, err)
 			}
 			allWS = append(allWS, page.Children...)
 			nextToken = page.NextPageToken
@@ -1131,7 +1132,7 @@ func browseBitbucketReposInteractively(client *devlake.Client, connID int, works
 	for nextToken != "" {
 		page, err := client.ListRemoteScopes("bitbucket", connID, workspaceID, nextToken)
 		if err != nil {
-			break
+			return nil, fmt.Errorf("listing repositories in workspace %q (page token %s): %w", workspaceID, nextToken, err)
 		}
 		allChildren = append(allChildren, page.Children...)
 		nextToken = page.NextPageToken
@@ -1175,8 +1176,11 @@ func browseBitbucketReposInteractively(client *devlake.Client, connID int, works
 // parseBitbucketRepo extracts repository fields from a RemoteScopeChild's Data payload.
 func parseBitbucketRepo(child *devlake.RemoteScopeChild) *devlake.BitbucketRepoScope {
 	var r devlake.BitbucketRepoScope
-	if err := json.Unmarshal(child.Data, &r); err != nil {
-		return nil
+	if len(child.Data) > 0 {
+		if err := json.Unmarshal(child.Data, &r); err != nil {
+			// Treat missing/invalid payload as empty to fall back to child fields.
+			r = devlake.BitbucketRepoScope{}
+		}
 	}
 	if r.FullName == "" {
 		r.FullName = child.FullName
@@ -1340,6 +1344,7 @@ func scopeSonarQubeHandler(client *devlake.Client, connID int, org, enterprise s
 	// Extract projects from remote-scope response
 	var projectOptions []string
 	projectMap := make(map[string]*devlake.RemoteScopeChild)
+	projectByKey := make(map[string]*devlake.RemoteScopeChild)
 	for i := range allChildren {
 		child := &allChildren[i]
 		if child.Type == "scope" {
@@ -1350,6 +1355,7 @@ func scopeSonarQubeHandler(client *devlake.Client, connID int, org, enterprise s
 			label := fmt.Sprintf("%s (key: %s)", child.Name, child.ID)
 			projectOptions = append(projectOptions, label)
 			projectMap[label] = child
+			projectByKey[child.ID] = child
 		}
 	}
 
@@ -1357,18 +1363,49 @@ func scopeSonarQubeHandler(client *devlake.Client, connID int, org, enterprise s
 		return nil, fmt.Errorf("no SonarQube projects found for connection %d", connID)
 	}
 
-	fmt.Println()
-	selectedLabels := prompt.SelectMulti("Select SonarQube projects to track", projectOptions)
-	if len(selectedLabels) == 0 {
-		return nil, fmt.Errorf("at least one SonarQube project must be selected")
+	var selectedProjects []*devlake.RemoteScopeChild
+	if opts != nil && opts.Projects != "" {
+		var keys []string
+		seenKeys := make(map[string]bool)
+		for _, key := range strings.Split(opts.Projects, ",") {
+			key = strings.TrimSpace(key)
+			if key == "" || seenKeys[key] {
+				continue
+			}
+			seenKeys[key] = true
+			keys = append(keys, key)
+		}
+		if len(keys) == 0 {
+			return nil, fmt.Errorf("no SonarQube projects provided via --projects")
+		}
+		for _, key := range keys {
+			child, ok := projectByKey[key]
+			if !ok {
+				return nil, fmt.Errorf("project key %q not found on connection %d", key, connID)
+			}
+			selectedProjects = append(selectedProjects, child)
+		}
+		if !outputJSON {
+			fmt.Printf("   Projects from --projects: %s\n", strings.Join(keys, ", "))
+		}
+	} else {
+		fmt.Println()
+		selectedLabels := prompt.SelectMulti("Select SonarQube projects to track", projectOptions)
+		if len(selectedLabels) == 0 {
+			return nil, fmt.Errorf("at least one SonarQube project must be selected")
+		}
+		for _, label := range selectedLabels {
+			if child := projectMap[label]; child != nil {
+				selectedProjects = append(selectedProjects, child)
+			}
+		}
 	}
 
 	// Build scope data for PUT
 	fmt.Println("\n📝 Adding SonarQube project scopes...")
 	var scopeData []any
 	var blueprintScopes []devlake.BlueprintScope
-	for _, label := range selectedLabels {
-		child := projectMap[label]
+	for _, child := range selectedProjects {
 		scopeData = append(scopeData, devlake.SonarQubeProjectScope{
 			ConnectionID: connID,
 			ProjectKey:   child.ID,
@@ -1392,6 +1429,87 @@ func scopeSonarQubeHandler(client *devlake.Client, connID int, org, enterprise s
 
 	return &devlake.BlueprintConnection{
 		PluginName:   "sonarqube",
+		ConnectionID: connID,
+		Scopes:       blueprintScopes,
+	}, nil
+}
+
+// scopeArgoCDHandler is the ScopeHandler for the argocd plugin.
+func scopeArgoCDHandler(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error) {
+	fmt.Println("\n📋 Fetching ArgoCD applications...")
+
+	// Aggregate all pages of remote scopes
+	var allChildren []devlake.RemoteScopeChild
+	pageToken := ""
+	for {
+		remoteScopes, err := client.ListRemoteScopes("argocd", connID, "", pageToken)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list ArgoCD applications: %w", err)
+		}
+		allChildren = append(allChildren, remoteScopes.Children...)
+		pageToken = remoteScopes.NextPageToken
+		if pageToken == "" {
+			break
+		}
+	}
+
+	// Extract applications from remote-scope response
+	var appOptions []string
+	appMap := make(map[string]*devlake.RemoteScopeChild)
+	for i := range allChildren {
+		child := &allChildren[i]
+		if child.Type == "scope" {
+			// Skip applications without a valid name (child.ID)
+			if child.ID == "" {
+				continue
+			}
+			label := child.ID
+			if child.Name != "" {
+				label = fmt.Sprintf("%s (%s)", child.Name, child.ID)
+			}
+			appOptions = append(appOptions, label)
+			appMap[label] = child
+		}
+	}
+
+	if len(appOptions) == 0 {
+		return nil, fmt.Errorf("no ArgoCD applications found for connection %d", connID)
+	}
+
+	fmt.Println()
+	selectedLabels := prompt.SelectMulti("Select ArgoCD applications to track", appOptions)
+	if len(selectedLabels) == 0 {
+		return nil, fmt.Errorf("at least one ArgoCD application must be selected")
+	}
+
+	// Build scope data for PUT
+	fmt.Println("\n📝 Adding ArgoCD application scopes...")
+	var scopeData []any
+	var blueprintScopes []devlake.BlueprintScope
+	for _, label := range selectedLabels {
+		child := appMap[label]
+		scopeData = append(scopeData, devlake.ArgoCDAppScope{
+			ConnectionID: connID,
+			Name:         child.ID,
+		})
+		blueprintScopes = append(blueprintScopes, devlake.BlueprintScope{
+			ScopeID:   child.ID,
+			ScopeName: child.Name,
+		})
+	}
+
+	if len(scopeData) == 0 {
+		return nil, fmt.Errorf("no valid applications to add")
+	}
+
+	err := client.PutScopes("argocd", connID, &devlake.ScopeBatchRequest{Data: scopeData})
+	if err != nil {
+		return nil, fmt.Errorf("failed to add ArgoCD application scopes: %w", err)
+	}
+	fmt.Printf("   ✅ Added %d application scope(s)\n", len(scopeData))
+
+	return &devlake.BlueprintConnection{
+		PluginName:   "argocd",
 		ConnectionID: connID,
 		Scopes:       blueprintScopes,
 	}, nil

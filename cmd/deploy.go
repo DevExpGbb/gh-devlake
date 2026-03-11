@@ -50,4 +50,8 @@ func init() {
 	cleanupCmd := newCleanupCmd()
 	cleanupCmd.GroupID = "operate"
 	rootCmd.AddCommand(cleanupCmd)
+
+	startCmd := newStartCmd()
+	startCmd.GroupID = "operate"
+	rootCmd.AddCommand(startCmd)
 }

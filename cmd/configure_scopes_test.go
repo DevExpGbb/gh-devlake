@@ -2,8 +2,11 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -123,6 +126,85 @@ func TestAzureDevOpsScopePayload_KeepsExistingFields(t *testing.T) {
 	if payload["connectionId"] != 7 {
 		t.Fatalf("connectionId = %v, want 7", payload["connectionId"])
 	}
+}
+
+func TestParseBitbucketRepo(t *testing.T) {
+	t.Run("uses payload fields when present", func(t *testing.T) {
+		data, _ := json.Marshal(map[string]any{
+			"bitbucketId": "workspace/api",
+			"name":        "api",
+			"fullName":    "workspace/api",
+			"htmlUrl":     "https://bitbucket.org/workspace/api",
+			"cloneUrl":    "https://bitbucket.org/workspace/api.git",
+		})
+		child := devlake.RemoteScopeChild{
+			ID:       "ignored",
+			Name:     "api-child",
+			FullName: "workspace/api-child",
+			Data:     data,
+		}
+		repo := parseBitbucketRepo(&child)
+		if repo == nil {
+			t.Fatal("expected repo, got nil")
+		}
+		if repo.BitbucketID != "workspace/api" {
+			t.Fatalf("bitbucketId = %q, want %q", repo.BitbucketID, "workspace/api")
+		}
+		if repo.Name != "api" {
+			t.Fatalf("name = %q, want %q", repo.Name, "api")
+		}
+		if repo.FullName != "workspace/api" {
+			t.Fatalf("fullName = %q, want %q", repo.FullName, "workspace/api")
+		}
+		if repo.CloneURL != "https://bitbucket.org/workspace/api.git" {
+			t.Fatalf("cloneUrl = %q, want https://bitbucket.org/workspace/api.git", repo.CloneURL)
+		}
+		if repo.HTMLURL != "https://bitbucket.org/workspace/api" {
+			t.Fatalf("htmlUrl = %q, want https://bitbucket.org/workspace/api", repo.HTMLURL)
+		}
+	})
+
+	t.Run("falls back to child fields when payload is sparse", func(t *testing.T) {
+		child := devlake.RemoteScopeChild{
+			Name:     "frontend",
+			FullName: "team/frontend",
+			Data:     []byte(`{"bitbucketId":"","name":"","fullName":""}`),
+		}
+		repo := parseBitbucketRepo(&child)
+		if repo == nil {
+			t.Fatal("expected repo, got nil")
+		}
+		if repo.BitbucketID != "team/frontend" {
+			t.Fatalf("bitbucketId = %q, want %q", repo.BitbucketID, "team/frontend")
+		}
+		if repo.Name != "frontend" {
+			t.Fatalf("name = %q, want %q", repo.Name, "frontend")
+		}
+		if repo.FullName != "team/frontend" {
+			t.Fatalf("fullName = %q, want %q", repo.FullName, "team/frontend")
+		}
+	})
+
+	t.Run("handles missing data by using child fields", func(t *testing.T) {
+		child := devlake.RemoteScopeChild{
+			Name:     "ui",
+			FullName: "workspace/ui",
+			Data:     nil,
+		}
+		repo := parseBitbucketRepo(&child)
+		if repo == nil {
+			t.Fatal("expected repo, got nil")
+		}
+		if repo.BitbucketID != "workspace/ui" {
+			t.Fatalf("bitbucketId = %q, want %q", repo.BitbucketID, "workspace/ui")
+		}
+		if repo.Name != "ui" {
+			t.Fatalf("name = %q, want %q", repo.Name, "ui")
+		}
+		if repo.FullName != "workspace/ui" {
+			t.Fatalf("fullName = %q, want %q", repo.FullName, "workspace/ui")
+		}
+	})
 }
 
 func TestPagerDutyServiceFromChild_UsesData(t *testing.T) {
@@ -382,4 +464,118 @@ func TestResolveJenkinsJobs_WithJobsFlag(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestScopeSonarQubeHandler_ProjectsFlag(t *testing.T) {
+	origJSON := outputJSON
+	outputJSON = false
+	t.Cleanup(func() { outputJSON = origJSON })
+
+	t.Run("valid project keys put scopes", func(t *testing.T) {
+		var (
+			putCalls   int
+			captured   devlake.ScopeBatchRequest
+			remoteResp = devlake.RemoteScopeResponse{
+				Children: []devlake.RemoteScopeChild{
+					{Type: "scope", ID: "proj-a", Name: "Project A"},
+					{Type: "scope", ID: "proj-b", Name: "Project B"},
+				},
+			}
+		)
+
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case strings.HasPrefix(r.URL.Path, "/plugins/sonarqube/connections/123/remote-scopes"):
+				data, _ := json.Marshal(remoteResp)
+				_, _ = w.Write(data)
+			case r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/plugins/sonarqube/connections/123/scopes"):
+				putCalls++
+				if err := json.NewDecoder(r.Body).Decode(&captured); err != nil {
+					t.Fatalf("decoding scopes payload: %v", err)
+				}
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{}`))
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		t.Cleanup(srv.Close)
+
+		client := devlake.NewClient(srv.URL)
+		client.HTTPClient = srv.Client()
+
+		opts := &ScopeOpts{Projects: "proj-a, proj-b"}
+		bp, err := scopeSonarQubeHandler(client, 123, "", "", opts)
+		if err != nil {
+			t.Fatalf("scopeSonarQubeHandler returned error: %v", err)
+		}
+		if putCalls != 1 {
+			t.Fatalf("expected 1 PutScopes call, got %d", putCalls)
+		}
+		if len(captured.Data) != 2 {
+			t.Fatalf("expected 2 scopes in payload, got %d", len(captured.Data))
+		}
+
+		assertScope := func(idx int, expectKey, expectName string) {
+			item, ok := captured.Data[idx].(map[string]any)
+			if !ok {
+				t.Fatalf("scope %d type = %T, want map[string]any", idx, captured.Data[idx])
+			}
+			if got := item["projectKey"]; got != expectKey {
+				t.Errorf("scope %d projectKey = %v, want %s", idx, got, expectKey)
+			}
+			if got := item["name"]; got != expectName {
+				t.Errorf("scope %d name = %v, want %s", idx, got, expectName)
+			}
+			if got := item["connectionId"]; got != float64(123) { // JSON numbers decode as float64
+				t.Errorf("scope %d connectionId = %v, want 123", idx, got)
+			}
+		}
+		assertScope(0, "proj-a", "Project A")
+		assertScope(1, "proj-b", "Project B")
+
+		if bp == nil || bp.PluginName != "sonarqube" || bp.ConnectionID != 123 || len(bp.Scopes) != 2 {
+			t.Fatalf("unexpected blueprint connection: %+v", bp)
+		}
+	})
+
+	t.Run("invalid project key errors", func(t *testing.T) {
+		var (
+			putCalls   int
+			remoteResp = devlake.RemoteScopeResponse{
+				Children: []devlake.RemoteScopeChild{
+					{Type: "scope", ID: "proj-a", Name: "Project A"},
+				},
+			}
+		)
+
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case strings.HasPrefix(r.URL.Path, "/plugins/sonarqube/connections/456/remote-scopes"):
+				data, _ := json.Marshal(remoteResp)
+				_, _ = w.Write(data)
+			case r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/plugins/sonarqube/connections/456/scopes"):
+				putCalls++
+				w.WriteHeader(http.StatusOK)
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		t.Cleanup(srv.Close)
+
+		client := devlake.NewClient(srv.URL)
+		client.HTTPClient = srv.Client()
+
+		opts := &ScopeOpts{Projects: "missing"}
+		_, err := scopeSonarQubeHandler(client, 456, "", "", opts)
+		if err == nil {
+			t.Fatal("expected error for missing project key, got nil")
+		}
+		if !strings.Contains(err.Error(), `project key "missing" not found`) {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if putCalls != 0 {
+			t.Fatalf("expected no PutScopes calls on error, got %d", putCalls)
+		}
+	})
 }

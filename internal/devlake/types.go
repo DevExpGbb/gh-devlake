@@ -96,6 +96,12 @@ type PagerDutyServiceScope struct {
 	URL          string `json:"url,omitempty"`
 }
 
+// ArgoCDAppScope represents an ArgoCD application scope entry for PUT /scopes.
+type ArgoCDAppScope struct {
+	ConnectionID int    `json:"connectionId"`
+	Name         string `json:"name"`
+}
+
 // ScopeBatchRequest is the payload for PUT /scopes (batch upsert).
 type ScopeBatchRequest struct {
 	Data []any `json:"data"`

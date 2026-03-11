@@ -36,6 +36,9 @@ GitHub-specific flags:
 GitHub Copilot-specific flags:
   --enterprise         Enterprise slug (enables enterprise-level metrics)
 
+SonarQube-specific flags:
+  --projects           Comma-separated SonarQube project keys
+
 Example (GitHub):
   gh devlake configure scope add --plugin github --connection-id 1 --org my-org --repos org/repo1,org/repo2
 
@@ -52,6 +55,7 @@ Example (Copilot):
 	cmd.Flags().StringVar(&opts.Repos, "repos", "", "Comma-separated repos (owner/repo)")
 	cmd.Flags().StringVar(&opts.ReposFile, "repos-file", "", "Path to file with repos (one per line)")
 	cmd.Flags().StringVar(&opts.Jobs, "jobs", "", "Comma-separated Jenkins job full names")
+	cmd.Flags().StringVar(&opts.Projects, "projects", "", "Comma-separated SonarQube project keys")
 	cmd.Flags().IntVar(&opts.ConnectionID, "connection-id", 0, "Connection ID (auto-detected if omitted)")
 	cmd.Flags().StringVar(&opts.DeployPattern, "deployment-pattern", "(?i)deploy", "Regex to match deployment workflows")
 	cmd.Flags().StringVar(&opts.ProdPattern, "production-pattern", "(?i)prod", "Regex to match production environment")
@@ -82,6 +86,7 @@ func runScopeAdd(cmd *cobra.Command, args []string, opts *ScopeOpts) error {
 			cmd.Flags().Changed("repos") ||
 			cmd.Flags().Changed("repos-file") ||
 			cmd.Flags().Changed("jobs") ||
+			cmd.Flags().Changed("projects") ||
 			cmd.Flags().Changed("connection-id")
 		if flagMode {
 			slugs := availablePluginSlugs()
