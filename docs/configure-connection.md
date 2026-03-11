@@ -23,10 +23,10 @@ Aliases: `connections`
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--plugin` | *(interactive)* | Plugin to configure (`github`, `gh-copilot`, `jenkins`, `circleci`, `gitlab`, `bitbucket`, `azuredevops_go`, `jira`, `pagerduty`, `sonarqube`, `argocd`) |
-| `--org` | *(plugin-dependent)* | Organization/group/workspace slug (required for GitHub, GitLab, and Azure DevOps; optional for Copilot when `--enterprise` is provided) |
+| `--org` | *(plugin-dependent)* | Organization/group/workspace slug (required for GitHub, GitLab, and Azure DevOps; for Azure DevOps, use the organization segment from `https://dev.azure.com/<org>`; optional for Copilot when `--enterprise` is provided) |
 | `--enterprise` | | GitHub enterprise slug (Copilot only) |
 | `--name` | `Plugin - org` | Connection display name |
-| `--endpoint` | *(plugin default when available)* | API endpoint override (required for Jenkins, Azure DevOps, Jira, SonarQube, and ArgoCD because they have no default endpoint) |
+| `--endpoint` | *(plugin default when available)* | API endpoint override (required for Jenkins, Azure DevOps, Jira, SonarQube, and ArgoCD because they have no default endpoint; for Azure DevOps, usually `https://dev.azure.com/<org>`) |
 | `--proxy` | | HTTP proxy URL |
 | `--token` | | Plugin PAT or API token (highest priority source). For BasicAuth plugins (Jenkins, Bitbucket), this is the password/app token. |
 | `--username` | | Username for BasicAuth plugins (Jenkins, Bitbucket). Ignored for token-based plugins. |
@@ -61,6 +61,7 @@ For each plugin, the CLI resolves the PAT in this order (see [token-handling.md]
 1. `--token` flag
 2. `.devlake.env` file — checked for plugin-specific keys:
    - GitHub / Copilot: `GITHUB_PAT`, `GITHUB_TOKEN`, or `GH_TOKEN`
+   - Azure DevOps: `AZURE_DEVOPS_PAT` or `AZDO_PAT`
 3. Plugin-specific environment variable (same key names, from shell environment)
 4. Interactive masked prompt (terminal fallback)
 
@@ -117,6 +118,17 @@ gh devlake configure connection --plugin github --org my-org --proxy http://prox
 
 # BasicAuth plugin (e.g. Jenkins)
 gh devlake configure connection --plugin jenkins --username admin --token mypassword
+
+# Azure DevOps connection
+# --org is the organization segment from https://dev.azure.com/<org>
+# --endpoint should usually match: https://dev.azure.com/<org>
+gh devlake configure connection --plugin azuredevops_go --org my-azure-org \
+    --endpoint https://dev.azure.com/my-azure-org
+
+# Azure DevOps via alias, with PAT from AZDO_PAT or AZURE_DEVOPS_PAT
+export AZDO_PAT=my-pat
+gh devlake configure connection --plugin azure-devops --org my-azure-org \
+    --endpoint https://dev.azure.com/my-azure-org
 
 # Interactive (no --plugin — prompts for everything)
 gh devlake configure connection
