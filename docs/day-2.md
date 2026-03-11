@@ -28,6 +28,23 @@ gh devlake start --service config-ui
 gh devlake start --no-wait
 ```
 
+## Stopping Services
+
+To pause services without destroying containers, volumes, or state:
+
+```bash
+gh devlake stop
+```
+
+Runs `docker compose stop` for local deployments (preserves containers and data), or stops Azure Container Instances. See [stop.md](stop.md) for all flags.
+
+```bash
+# Stop only a specific service
+gh devlake stop --service grafana
+```
+
+Bring services back up with `gh devlake start`.
+
 ## Managing Connections
 
 ### List connections
@@ -99,6 +116,7 @@ Deletes the Azure resource group and all resources within it. See [cleanup.md](c
 
 - [status.md](status.md) — full output reference
 - [start.md](start.md) — restart stopped services
+- [stop.md](stop.md) — pause services without destroying data
 - [configure-connection.md](configure-connection.md) — connection CRUD
 - [configure-scope.md](configure-scope.md) — scope management
 - [cleanup.md](cleanup.md) — tear down
