@@ -13,11 +13,12 @@ permissions:
 engine:
   id: copilot
   model: gpt-4.1
+  args: ["--allow-paths", "README.md,docs/**"]
 tools:
   github:
     mode: remote
     toolsets: [default]
-  bash: true
+  bash: ["git", "cat", "grep", "find", "ls", "head", "tail", "wc"]
   edit:
 network:
   allowed:
@@ -44,6 +45,8 @@ Identify documentation files that have drifted from the current codebase and ope
 2. Filter to changes in `cmd/` and `internal/` (the Go source directories).
 3. Read the repository's `README.md`, `AGENTS.md`, and every file under `docs/`.
 
+> **Note:** `AGENTS.md` is read-only — the safe-outputs handler protects it from PR changes. Use it as a reference only.
+
 ## Step 2 — Identify Stale Documentation
 
 Compare the current code with the documentation. Look for:
@@ -63,7 +66,7 @@ Do **not** rewrite prose style or reformat sections that are already accurate.
 
 For every stale section you find:
 
-1. Edit the relevant documentation file (`README.md`, `AGENTS.md`, or the appropriate `docs/*.md`).
+1. Edit the relevant documentation file (`README.md` or the appropriate `docs/*.md`).
 2. Keep edits minimal and surgical — change only what is out of date.
 3. Preserve existing formatting, heading levels, and Markdown conventions.
 
@@ -80,6 +83,6 @@ If no documentation is stale, do **not** create a pull request. Instead, output 
 - The Command Reference table in `README.md` must list every user-facing command. Cross-check against `cmd/` constructors (`newXxxCmd()`).
 - The Supported Plugins table in `README.md` must match `connectionRegistry` entries in `cmd/connection_types.go`.
 - Flag documentation in `docs/` files must match the flags registered in each command's constructor.
-- `AGENTS.md` architecture section must match the actual directory tree under `internal/`.
+- `AGENTS.md` architecture section must match the actual directory tree under `internal/`. If it has drifted, note it in the PR body but do not edit `AGENTS.md` directly — it is a protected file.
 - Do not add new documentation files — only update existing ones.
 - Do not modify Go source code — this workflow is documentation-only.
