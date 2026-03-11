@@ -352,6 +352,9 @@ var connectionRegistry = []*ConnectionDef{
 		ScopeFunc:      scopeSonarQubeHandler,
 		ScopeIDField:   "projectKey",
 		HasRepoScopes:  false,
+		ScopeFlags: []FlagDef{
+			{Name: "projects", Description: "Comma-separated SonarQube project keys"},
+		},
 	},
 }
 
