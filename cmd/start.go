@@ -260,8 +260,8 @@ func runAzureStart() error {
 	}
 	fmt.Fprintln(prog, "   ✅ Logged in")
 
-	// ── Start MySQL ──
-	if state.Resources.MySQL != "" {
+	// ── Start MySQL (only when starting all services) ──
+	if startService == "" && state.Resources.MySQL != "" {
 		fmt.Fprintf(prog, "\n🐳 Starting MySQL server %q...\n", state.Resources.MySQL)
 		if err := azurepkg.MySQLStart(state.Resources.MySQL, state.ResourceGroup); err != nil {
 			fmt.Fprintf(prog, "   ⚠️  Could not start MySQL: %v\n", err)
