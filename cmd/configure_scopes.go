@@ -1088,7 +1088,7 @@ func browseBitbucketReposInteractively(client *devlake.Client, connID int, works
 		for nextToken != "" {
 			page, err := client.ListRemoteScopes("bitbucket", connID, "", nextToken)
 			if err != nil {
-				break
+				return nil, fmt.Errorf("listing Bitbucket workspaces (page token %s): %w", nextToken, err)
 			}
 			allWS = append(allWS, page.Children...)
 			nextToken = page.NextPageToken
@@ -1131,7 +1131,7 @@ func browseBitbucketReposInteractively(client *devlake.Client, connID int, works
 	for nextToken != "" {
 		page, err := client.ListRemoteScopes("bitbucket", connID, workspaceID, nextToken)
 		if err != nil {
-			break
+			return nil, fmt.Errorf("listing repositories in workspace %q (page token %s): %w", workspaceID, nextToken, err)
 		}
 		allChildren = append(allChildren, page.Children...)
 		nextToken = page.NextPageToken

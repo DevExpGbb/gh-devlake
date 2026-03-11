@@ -32,12 +32,12 @@ gh devlake configure scope add [flags]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive or required)* | Plugin to configure (`github`, `gh-copilot`, `jenkins`) |
+| `--plugin` | *(interactive or required)* | Plugin to configure (`github`, `gitlab`, `bitbucket`, `gh-copilot`, `jenkins`, `azure-devops`, `sonarqube`) |
 | `--connection-id` | *(auto-detected)* | Override the connection ID to scope |
-| `--org` | *(required)* | GitHub organization slug |
+| `--org` | *(required)* | Org/workspace slug (`github`, `gitlab` group path, `bitbucket` workspace, `azure-devops` org) |
 | `--enterprise` | | Enterprise slug (enables enterprise-level Copilot metrics) |
-| `--repos` | | Comma-separated repos to add (`owner/repo,owner/repo2`) |
-| `--repos-file` | | Path to a file with repos (one `owner/repo` per line) |
+| `--repos` | | Comma-separated repos to add (`owner/repo,owner/repo2`) for GitHub, GitLab, Bitbucket |
+| `--repos-file` | | Path to a file with repos (one `owner/repo` per line) for GitHub, GitLab, Bitbucket |
 | `--jobs` | | Comma-separated Jenkins job full names |
 | `--deployment-pattern` | `(?i)deploy` | Regex matching CI/CD workflow names for deployments |
 | `--production-pattern` | `(?i)prod` | Regex matching environment names for production |
@@ -83,6 +83,9 @@ gh devlake configure scope add --plugin github --org my-org \
 # Interactive repo selection (omit --repos)
 gh devlake configure scope add --plugin github --org my-org
 
+# Bitbucket repos (interactive remote-scope picker)
+gh devlake configure scope add --plugin bitbucket --org my-workspace
+
 # Add Copilot org scope
 gh devlake configure scope add --plugin gh-copilot --org my-org
 
@@ -105,6 +108,12 @@ gh devlake configure scope add
 2. Fetches repo details via `gh api repos/<owner>/<repo>`
 3. Creates or reuses a DORA scope config (deployment/production patterns, incident label)
 4. Calls `PUT /plugins/github/connections/{id}/scopes` to add repos
+
+### What It Does (Bitbucket)
+
+1. Resolves workspaces and repos via the DevLake remote-scope API (interactive picker when `--repos` is omitted)
+2. Accepts repo slugs from `--repos` / `--repos-file` (`workspace/repo-slug`)
+3. Calls `PUT /plugins/bitbucket/connections/{id}/scopes` with `bitbucketId` = `workspace/repo-slug`
 
 ### What It Does (Copilot)
 
