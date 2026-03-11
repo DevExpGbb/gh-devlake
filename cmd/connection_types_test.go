@@ -792,3 +792,68 @@ func TestConnectionRegistry_SonarQube(t *testing.T) {
 		}
 	}
 }
+
+// TestConnectionRegistry_ArgoCD verifies the ArgoCD plugin registry entry.
+func TestConnectionRegistry_ArgoCD(t *testing.T) {
+	def := FindConnectionDef("argocd")
+	if def == nil {
+		t.Fatal("argocd plugin not found in registry")
+	}
+
+	tests := []struct {
+		name string
+		got  interface{}
+		want interface{}
+	}{
+		{"Plugin", def.Plugin, "argocd"},
+		{"DisplayName", def.DisplayName, "ArgoCD"},
+		{"Available", def.Available, true},
+		{"Endpoint", def.Endpoint, ""},
+		{"SupportsTest", def.SupportsTest, true},
+		{"AuthMethod", def.AuthMethod, "AccessToken"},
+		{"ScopeIDField", def.ScopeIDField, "name"},
+		{"HasRepoScopes", def.HasRepoScopes, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.got != tt.want {
+				t.Errorf("%s: got %v, want %v", tt.name, tt.got, tt.want)
+			}
+		})
+	}
+
+	if def.ScopeFunc == nil {
+		t.Error("ScopeFunc should not be nil")
+	}
+
+	// ArgoCD uses auth tokens, not OAuth/PAT scopes
+	if len(def.RequiredScopes) != 0 {
+		t.Errorf("RequiredScopes should be empty for ArgoCD auth tokens, got %v", def.RequiredScopes)
+	}
+	if def.ScopeHint != "" {
+		t.Errorf("ScopeHint should be empty for ArgoCD auth tokens, got %q", def.ScopeHint)
+	}
+
+	expectedEnvVars := []string{"ARGOCD_TOKEN", "ARGOCD_AUTH_TOKEN"}
+	if len(def.EnvVarNames) != len(expectedEnvVars) {
+		t.Errorf("EnvVarNames length: got %d, want %d", len(def.EnvVarNames), len(expectedEnvVars))
+	} else {
+		for i, v := range expectedEnvVars {
+			if def.EnvVarNames[i] != v {
+				t.Errorf("EnvVarNames[%d]: got %q, want %q", i, def.EnvVarNames[i], v)
+			}
+		}
+	}
+
+	expectedEnvFileKeys := []string{"ARGOCD_TOKEN", "ARGOCD_AUTH_TOKEN"}
+	if len(def.EnvFileKeys) != len(expectedEnvFileKeys) {
+		t.Errorf("EnvFileKeys length: got %d, want %d", len(def.EnvFileKeys), len(expectedEnvFileKeys))
+	} else {
+		for i, v := range expectedEnvFileKeys {
+			if def.EnvFileKeys[i] != v {
+				t.Errorf("EnvFileKeys[%d]: got %q, want %q", i, def.EnvFileKeys[i], v)
+			}
+		}
+	}
+}

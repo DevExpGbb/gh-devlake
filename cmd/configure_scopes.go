@@ -1278,3 +1278,84 @@ func scopeSonarQubeHandler(client *devlake.Client, connID int, org, enterprise s
 		Scopes:       blueprintScopes,
 	}, nil
 }
+
+// scopeArgoCDHandler is the ScopeHandler for the argocd plugin.
+func scopeArgoCDHandler(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error) {
+	fmt.Println("\n📋 Fetching ArgoCD applications...")
+
+	// Aggregate all pages of remote scopes
+	var allChildren []devlake.RemoteScopeChild
+	pageToken := ""
+	for {
+		remoteScopes, err := client.ListRemoteScopes("argocd", connID, "", pageToken)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list ArgoCD applications: %w", err)
+		}
+		allChildren = append(allChildren, remoteScopes.Children...)
+		pageToken = remoteScopes.NextPageToken
+		if pageToken == "" {
+			break
+		}
+	}
+
+	// Extract applications from remote-scope response
+	var appOptions []string
+	appMap := make(map[string]*devlake.RemoteScopeChild)
+	for i := range allChildren {
+		child := &allChildren[i]
+		if child.Type == "scope" {
+			// Skip applications without a valid name (child.ID)
+			if child.ID == "" {
+				continue
+			}
+			label := child.ID
+			if child.Name != "" {
+				label = fmt.Sprintf("%s (%s)", child.Name, child.ID)
+			}
+			appOptions = append(appOptions, label)
+			appMap[label] = child
+		}
+	}
+
+	if len(appOptions) == 0 {
+		return nil, fmt.Errorf("no ArgoCD applications found for connection %d", connID)
+	}
+
+	fmt.Println()
+	selectedLabels := prompt.SelectMulti("Select ArgoCD applications to track", appOptions)
+	if len(selectedLabels) == 0 {
+		return nil, fmt.Errorf("at least one ArgoCD application must be selected")
+	}
+
+	// Build scope data for PUT
+	fmt.Println("\n📝 Adding ArgoCD application scopes...")
+	var scopeData []any
+	var blueprintScopes []devlake.BlueprintScope
+	for _, label := range selectedLabels {
+		child := appMap[label]
+		scopeData = append(scopeData, devlake.ArgoCDAppScope{
+			ConnectionID: connID,
+			Name:         child.ID,
+		})
+		blueprintScopes = append(blueprintScopes, devlake.BlueprintScope{
+			ScopeID:   child.ID,
+			ScopeName: child.Name,
+		})
+	}
+
+	if len(scopeData) == 0 {
+		return nil, fmt.Errorf("no valid applications to add")
+	}
+
+	err := client.PutScopes("argocd", connID, &devlake.ScopeBatchRequest{Data: scopeData})
+	if err != nil {
+		return nil, fmt.Errorf("failed to add ArgoCD application scopes: %w", err)
+	}
+	fmt.Printf("   ✅ Added %d application scope(s)\n", len(scopeData))
+
+	return &devlake.BlueprintConnection{
+		PluginName:   "argocd",
+		ConnectionID: connID,
+		Scopes:       blueprintScopes,
+	}, nil
+}
