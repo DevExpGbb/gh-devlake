@@ -97,6 +97,14 @@ type CircleCIProjectScope struct {
 	OrganizationID string `json:"organizationId"`
 }
 
+// PagerDutyServiceScope represents a PagerDuty service scope entry for PUT /scopes.
+type PagerDutyServiceScope struct {
+	ConnectionID int    `json:"connectionId"`
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	URL          string `json:"url,omitempty"`
+}
+
 // ArgoCDAppScope represents an ArgoCD application scope entry for PUT /scopes.
 type ArgoCDAppScope struct {
 	ConnectionID int    `json:"connectionId"`

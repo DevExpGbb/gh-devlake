@@ -1329,6 +1329,117 @@ func scopeCircleCIHandler(client *devlake.Client, connID int, org, enterprise st
 	}, nil
 }
 
+// scopePagerDutyHandler is the ScopeHandler for the pagerduty plugin.
+func scopePagerDutyHandler(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error) {
+	fmt.Println("\n🔍 Listing PagerDuty services...")
+	var (
+		allChildren []devlake.RemoteScopeChild
+		pageToken   string
+	)
+	for {
+		resp, err := client.ListRemoteScopes("pagerduty", connID, "", pageToken)
+		if err != nil {
+			return nil, fmt.Errorf("listing PagerDuty services: %w", err)
+		}
+		allChildren = append(allChildren, resp.Children...)
+		if resp.NextPageToken == "" {
+			break
+		}
+		pageToken = resp.NextPageToken
+	}
+
+	var (
+		serviceLabels  []string
+		serviceByLabel = make(map[string]*devlake.RemoteScopeChild)
+	)
+	for i := range allChildren {
+		child := &allChildren[i]
+		if child.Type != "scope" || child.ID == "" {
+			continue
+		}
+		label := child.Name
+		if label == "" {
+			label = child.FullName
+		}
+		if label == "" {
+			label = child.ID
+		}
+		if label != child.ID {
+			label = fmt.Sprintf("%s (ID: %s)", label, child.ID)
+		}
+		serviceLabels = append(serviceLabels, label)
+		serviceByLabel[label] = child
+	}
+
+	if len(serviceLabels) == 0 {
+		return nil, fmt.Errorf("no PagerDuty services found — verify your API key has access")
+	}
+
+	fmt.Println()
+	selected := prompt.SelectMulti("Select PagerDuty services to track", serviceLabels)
+	if len(selected) == 0 {
+		return nil, fmt.Errorf("at least one PagerDuty service must be selected")
+	}
+
+	fmt.Println("\n📝 Adding PagerDuty service scopes...")
+	var (
+		scopeData       []any
+		blueprintScopes []devlake.BlueprintScope
+	)
+	for _, label := range selected {
+		child := serviceByLabel[label]
+		scope := pagerDutyServiceFromChild(child, connID)
+		if scope.ID == "" || scope.Name == "" {
+			continue
+		}
+		scopeData = append(scopeData, scope)
+		blueprintScopes = append(blueprintScopes, devlake.BlueprintScope{
+			ScopeID:   scope.ID,
+			ScopeName: scope.Name,
+		})
+	}
+
+	if len(scopeData) == 0 {
+		return nil, fmt.Errorf("no valid PagerDuty services to add")
+	}
+
+	if err := client.PutScopes("pagerduty", connID, &devlake.ScopeBatchRequest{Data: scopeData}); err != nil {
+		return nil, fmt.Errorf("failed to add PagerDuty scopes: %w", err)
+	}
+	fmt.Printf("   ✅ Added %d service scope(s)\n", len(scopeData))
+
+	return &devlake.BlueprintConnection{
+		PluginName:   "pagerduty",
+		ConnectionID: connID,
+		Scopes:       blueprintScopes,
+	}, nil
+}
+
+// pagerDutyServiceFromChild builds a PagerDuty service scope from a remote-scope child.
+func pagerDutyServiceFromChild(child *devlake.RemoteScopeChild, connID int) devlake.PagerDutyServiceScope {
+	scope := devlake.PagerDutyServiceScope{ConnectionID: connID}
+	if child != nil && len(child.Data) > 0 {
+		if err := json.Unmarshal(child.Data, &scope); err != nil {
+			scope = devlake.PagerDutyServiceScope{ConnectionID: connID}
+		}
+	}
+	scope.ConnectionID = connID
+	if scope.ID == "" && child != nil {
+		scope.ID = child.ID
+	}
+	if scope.Name == "" && child != nil {
+		switch {
+		case child.Name != "":
+			scope.Name = child.Name
+		case child.FullName != "":
+			scope.Name = child.FullName
+		default:
+			scope.Name = child.ID
+		}
+	}
+	return scope
+}
+
 // scopeSonarQubeHandler is the ScopeHandler for the sonarqube plugin.
 func scopeSonarQubeHandler(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error) {
 	fmt.Println("\n📋 Fetching SonarQube projects...")

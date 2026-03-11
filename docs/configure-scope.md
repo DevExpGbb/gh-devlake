@@ -32,20 +32,23 @@ gh devlake configure scope add [flags]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive or required)* | Plugin to configure (`github`, `gitlab`, `bitbucket`, `gh-copilot`, `jenkins`, `azuredevops_go` / `azure-devops`, `jira`, `sonarqube`, `argocd`, `circleci`) |
+| `--plugin` | *(interactive or required)* | Plugin to configure (`github`, `gh-copilot`, `jenkins`, `circleci`, `gitlab`, `bitbucket`, `azuredevops_go`, `jira`, `pagerduty`, `sonarqube`, `argocd`) |
 | `--connection-id` | *(auto-detected)* | Override the connection ID to scope |
 | `--org` | *(plugin-dependent)* | Org/workspace slug (`github`, GitLab group path, Bitbucket workspace, Azure DevOps org). Required for plugins whose connection definition needs an org (for example, Azure DevOps) or when running non-interactively; optional in interactive mode for plugins that support workspace discovery (for example, Bitbucket). |
 | `--enterprise` | | Enterprise slug (enables enterprise-level Copilot metrics) |
 | `--repos` | | Comma-separated repos to add (`owner/repo` for GitHub, `group/project` for GitLab, `workspace/repo-slug` for Bitbucket) |
 | `--repos-file` | | Path to a file with repos (one per line: `owner/repo` for GitHub, `group/project` for GitLab, `workspace/repo-slug` for Bitbucket) |
 | `--jobs` | | Comma-separated Jenkins job full names |
+| `--projects` | | Comma-separated SonarQube project keys |
 | `--deployment-pattern` | `(?i)deploy` | Regex matching CI/CD workflow names for deployments |
 | `--production-pattern` | `(?i)prod` | Regex matching environment names for production |
 | `--incident-label` | `incident` | GitHub issue label that marks incidents |
 
-> **Org requirement:** `--org` is required for plugins that scope by organization/workspace (GitHub, Copilot, GitLab, Bitbucket, Azure DevOps). It is **not** required for CircleCI, Jenkins, Jira, SonarQube, or ArgoCD.
+> **Org requirement:** `--org` is required for plugins that scope by organization/workspace (GitHub, Copilot, GitLab, Bitbucket, Azure DevOps). It is **not** required for CircleCI, Jenkins, Jira, PagerDuty, SonarQube, or ArgoCD.
 
 > **Note:** `--plugin` is required when using any other flag. Without flags, the CLI enters interactive mode and prompts for everything.
+
+> **Alias:** `azure-devops` is accepted as an alias for `azuredevops_go`.
 
 ### Repo Resolution
 
@@ -103,6 +106,9 @@ gh devlake configure scope add --plugin jenkins --org my-org
 # CircleCI projects (interactive)
 gh devlake configure scope add --plugin circleci --connection-id 4
 
+# PagerDuty services (interactive)
+gh devlake configure scope add --plugin pagerduty --connection-id 5
+
 # Interactive (omit all flags)
 gh devlake configure scope add
 ```
@@ -137,6 +143,12 @@ gh devlake configure scope add
 2. Prompts for one or more projects to track
 3. Calls `PUT /plugins/circleci/connections/{id}/scopes` to add the selected projects
 
+### What It Does (PagerDuty)
+
+1. Lists PagerDuty services via the DevLake remote-scope API
+2. Prompts for one or more services to track
+3. Calls `PUT /plugins/pagerduty/connections/{id}/scopes` with the selected services
+
 ---
 
 ## configure scope list
@@ -153,7 +165,7 @@ gh devlake configure scope list [--plugin <plugin>] [--connection-id <id>]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin to query (`github`, `gh-copilot`, `jenkins`) |
+| `--plugin` | *(interactive)* | Plugin to query (`github`, `gh-copilot`, `jenkins`, `circleci`, `gitlab`, `bitbucket`, `azuredevops_go`, `jira`, `pagerduty`, `sonarqube`, `argocd`) |
 | `--connection-id` | *(interactive)* | Connection ID to list scopes for |
 
 **Flag mode:** both `--plugin` and `--connection-id` are required.
@@ -201,7 +213,7 @@ gh devlake configure scope delete [--plugin <plugin>] [--connection-id <id>] [--
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin of the connection (`github`, `gh-copilot`, `jenkins`) |
+| `--plugin` | *(interactive)* | Plugin of the connection (`github`, `gh-copilot`, `jenkins`, `circleci`, `gitlab`, `bitbucket`, `azuredevops_go`, `jira`, `pagerduty`, `sonarqube`, `argocd`) |
 | `--connection-id` | *(interactive)* | Connection ID |
 | `--scope-id` | *(interactive)* | Scope ID to delete |
 | `--force` | `false` | Skip confirmation prompt |

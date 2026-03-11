@@ -22,14 +22,14 @@ Aliases: `connections`
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin to configure (`github`, `gh-copilot`, `gitlab`, `bitbucket`, `azuredevops_go`, `jenkins`, `jira`, `sonarqube`, `circleci`) |
-| `--org` | *(required for Copilot)* | GitHub organization slug |
-| `--enterprise` | | GitHub enterprise slug (for enterprise-level Copilot metrics) |
+| `--plugin` | *(interactive)* | Plugin to configure (`github`, `gh-copilot`, `jenkins`, `circleci`, `gitlab`, `bitbucket`, `azuredevops_go`, `jira`, `pagerduty`, `sonarqube`, `argocd`) |
+| `--org` | *(plugin-dependent)* | Organization/group/workspace slug (required for GitHub, GitLab, and Azure DevOps; optional for Copilot when `--enterprise` is provided) |
+| `--enterprise` | | GitHub enterprise slug (Copilot only) |
 | `--name` | `Plugin - org` | Connection display name |
-| `--endpoint` | `https://api.github.com/` (GitHub/Copilot) | API endpoint (override for GitHub Enterprise Server; Jenkins has no default and must supply a URL) |
+| `--endpoint` | *(plugin default when available)* | API endpoint override (required for Jenkins, Azure DevOps, Jira, SonarQube, and ArgoCD because they have no default endpoint) |
 | `--proxy` | | HTTP proxy URL |
-| `--token` | | GitHub PAT (highest priority source). For BasicAuth plugins (Jenkins, Bitbucket, Jira), this is the password. |
-| `--username` | | Username for BasicAuth plugins (Jenkins, Bitbucket, Jira). Not used by GitHub or Copilot. |
+| `--token` | | Plugin PAT or API token (highest priority source). For BasicAuth plugins (Jenkins, Bitbucket), this is the password/app token. |
+| `--username` | | Username for BasicAuth plugins (Jenkins, Bitbucket). Ignored for token-based plugins. |
 | `--env-file` | `.devlake.env` | Path to env file containing PAT |
 | `--skip-cleanup` | `false` | Don't delete `.devlake.env` after setup |
 
@@ -40,13 +40,19 @@ Aliases: `connections`
 | `github` | `repo`, `read:org`, `read:user` |
 | `gh-copilot` | `manage_billing:copilot`, `read:org` |
 | `gh-copilot` (enterprise metrics) | + `read:enterprise` |
+| `jenkins` | Username + API token/password (BasicAuth) |
+| `circleci` | Personal API token (Circle-Token header) |
 | `gitlab` | `read_api`, `read_repository` |
 | `bitbucket` | App password (BasicAuth; no scopes) |
 | `azuredevops_go` | Azure DevOps PAT (no scopes) |
-| `jenkins` | Username + API token/password (BasicAuth) |
 | `jira` | API token (no scopes) |
+| `pagerduty` | API key (sent as `Token token=<key>`) |
 | `sonarqube` | API token (no scopes) |
-| `circleci` | Personal API token (Circle-Token header) |
+| `argocd` | Auth token (no scopes) |
+
+> **Alias:** `azure-devops` is accepted as an alias for `azuredevops_go`.
+
+> **Org requirement:** `--org` is required for GitHub, GitLab, and Azure DevOps connections. Copilot accepts either `--org`, `--enterprise`, or both. CircleCI, Bitbucket, Jenkins, Jira, PagerDuty, SonarQube, and ArgoCD do not require `--org` at connection-creation time.
 
 ### Token Resolution Order
 
@@ -96,6 +102,9 @@ gh devlake configure connection --plugin jenkins --endpoint https://jenkins.exam
 # CircleCI connection
 gh devlake configure connection --plugin circleci --name "CircleCI - backend"
 
+# PagerDuty connection
+gh devlake configure connection --plugin pagerduty --name "PagerDuty - oncall"
+
 # Enterprise Copilot metrics
 gh devlake configure connection --plugin gh-copilot --org my-org --enterprise my-enterprise
 
@@ -137,7 +146,7 @@ gh devlake configure connection list [--plugin <plugin>]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(all plugins)* | Filter output to one plugin (`github`, `gh-copilot`, `jenkins`) |
+| `--plugin` | *(all plugins)* | Filter output to one plugin (`github`, `gh-copilot`, `jenkins`, `circleci`, `gitlab`, `bitbucket`, `azuredevops_go`, `jira`, `pagerduty`, `sonarqube`, `argocd`) |
 
 ### Output
 
@@ -164,7 +173,7 @@ gh devlake configure connection test [--plugin <plugin>] [--id <id>]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin to test (`github`, `gh-copilot`, `jenkins`) |
+| `--plugin` | *(interactive)* | Plugin to test (`github`, `gh-copilot`, `jenkins`, `circleci`, `gitlab`, `bitbucket`, `azuredevops_go`, `jira`, `pagerduty`, `sonarqube`, `argocd`) |
 | `--id` | `0` | Connection ID to test |
 
 Both flags are required for non-interactive mode. If either is omitted, the CLI prompts interactively.
@@ -196,7 +205,7 @@ gh devlake configure connection update [--plugin <plugin>] [--id <id>] [update f
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin slug (`github`, `gh-copilot`, `jenkins`) |
+| `--plugin` | *(interactive)* | Plugin slug (`github`, `gh-copilot`, `jenkins`, `circleci`, `gitlab`, `bitbucket`, `azuredevops_go`, `jira`, `pagerduty`, `sonarqube`, `argocd`) |
 | `--id` | *(interactive)* | Connection ID to update |
 | `--token` | | New PAT for token rotation |
 | `--org` | | New organization slug |
@@ -238,7 +247,7 @@ gh devlake configure connection delete [--plugin <plugin>] [--id <id>]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin of the connection to delete |
+| `--plugin` | *(interactive)* | Plugin of the connection to delete (`github`, `gh-copilot`, `jenkins`, `circleci`, `gitlab`, `bitbucket`, `azuredevops_go`, `jira`, `pagerduty`, `sonarqube`, `argocd`) |
 | `--id` | *(interactive)* | ID of the connection to delete |
 | `--force` | `false` | Skip confirmation prompt |
 

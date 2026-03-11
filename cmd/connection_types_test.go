@@ -217,6 +217,58 @@ func TestJiraConnectionDef(t *testing.T) {
 	}
 }
 
+func TestConnectionRegistry_PagerDuty(t *testing.T) {
+	def := FindConnectionDef("pagerduty")
+	if def == nil {
+		t.Fatal("pagerduty plugin not found in registry")
+	}
+
+	tests := []struct {
+		name string
+		got  any
+		want any
+	}{
+		{"Plugin", def.Plugin, "pagerduty"},
+		{"DisplayName", def.DisplayName, "PagerDuty"},
+		{"Available", def.Available, true},
+		{"Endpoint", def.Endpoint, "https://api.pagerduty.com/"},
+		{"SupportsTest", def.SupportsTest, true},
+		{"ScopeIDField", def.ScopeIDField, "id"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.got != tt.want {
+				t.Errorf("%s: got %v, want %v", tt.name, tt.got, tt.want)
+			}
+		})
+	}
+
+	if def.ScopeFunc == nil {
+		t.Fatal("ScopeFunc should not be nil for PagerDuty")
+	}
+	if def.TokenPrompt != "PagerDuty API key" {
+		t.Errorf("TokenPrompt = %q, want %q", def.TokenPrompt, "PagerDuty API key")
+	}
+
+	expectedEnv := []string{"PAGERDUTY_TOKEN", "PAGERDUTY_API_KEY"}
+	if len(def.EnvVarNames) != len(expectedEnv) {
+		t.Fatalf("EnvVarNames length = %d, want %d", len(def.EnvVarNames), len(expectedEnv))
+	}
+	for i, v := range expectedEnv {
+		if def.EnvVarNames[i] != v {
+			t.Errorf("EnvVarNames[%d] = %q, want %q", i, def.EnvVarNames[i], v)
+		}
+	}
+	if len(def.EnvFileKeys) != len(expectedEnv) {
+		t.Fatalf("EnvFileKeys length = %d, want %d", len(def.EnvFileKeys), len(expectedEnv))
+	}
+	for i, v := range expectedEnv {
+		if def.EnvFileKeys[i] != v {
+			t.Errorf("EnvFileKeys[%d] = %q, want %q", i, def.EnvFileKeys[i], v)
+		}
+	}
+}
+
 // TestAzureDevOpsRegistryEntry verifies the Azure DevOps plugin registry entry.
 func TestAzureDevOpsRegistryEntry(t *testing.T) {
 	def := FindConnectionDef("azuredevops_go")
