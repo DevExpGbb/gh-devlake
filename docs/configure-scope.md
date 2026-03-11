@@ -32,9 +32,9 @@ gh devlake configure scope add [flags]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive or required)* | Plugin to configure (`github`, `gitlab`, `bitbucket`, `gh-copilot`, `jenkins`, `azure-devops`, `sonarqube`) |
+| `--plugin` | *(interactive or required)* | Plugin to configure (`github`, `gitlab`, `bitbucket`, `gh-copilot`, `jenkins`, `azuredevops_go` / `azure-devops`, `jira`, `sonarqube`, `argocd`, `circleci`) |
 | `--connection-id` | *(auto-detected)* | Override the connection ID to scope |
-| `--org` | *(plugin-dependent)* | Org/workspace slug (`github`, `gitlab` group path, `bitbucket` workspace, `azure-devops` org). Required for plugins whose connection definition needs an org (for example, Azure DevOps) or when running non-interactively; optional in interactive mode for plugins that support workspace discovery (for example, Bitbucket). |
+| `--org` | *(plugin-dependent)* | Org/workspace slug (`github`, GitLab group path, Bitbucket workspace, Azure DevOps org). Required for plugins whose connection definition needs an org (for example, Azure DevOps) or when running non-interactively; optional in interactive mode for plugins that support workspace discovery (for example, Bitbucket). |
 | `--enterprise` | | Enterprise slug (enables enterprise-level Copilot metrics) |
 | `--repos` | | Comma-separated repos to add (`owner/repo` for GitHub, `group/project` for GitLab, `workspace/repo-slug` for Bitbucket) |
 | `--repos-file` | | Path to a file with repos (one per line: `owner/repo` for GitHub, `group/project` for GitLab, `workspace/repo-slug` for Bitbucket) |
@@ -42,6 +42,8 @@ gh devlake configure scope add [flags]
 | `--deployment-pattern` | `(?i)deploy` | Regex matching CI/CD workflow names for deployments |
 | `--production-pattern` | `(?i)prod` | Regex matching environment names for production |
 | `--incident-label` | `incident` | GitHub issue label that marks incidents |
+
+> **Org requirement:** `--org` is required for plugins that scope by organization/workspace (GitHub, Copilot, GitLab, Bitbucket, Azure DevOps). It is **not** required for CircleCI, Jenkins, Jira, SonarQube, or ArgoCD.
 
 > **Note:** `--plugin` is required when using any other flag. Without flags, the CLI enters interactive mode and prompts for everything.
 
@@ -98,6 +100,9 @@ gh devlake configure scope add --plugin jenkins --org my-org --jobs "team/job1,t
 # Jenkins jobs (interactive remote-scope picker)
 gh devlake configure scope add --plugin jenkins --org my-org
 
+# CircleCI projects (interactive)
+gh devlake configure scope add --plugin circleci --connection-id 4
+
 # Interactive (omit all flags)
 gh devlake configure scope add
 ```
@@ -125,6 +130,12 @@ gh devlake configure scope add
 1. Lists Jenkins jobs via the remote-scope API (interactive picker)
 2. Uses `--jobs` when provided instead of prompting
 3. Calls `PUT /plugins/jenkins/connections/{id}/scopes` with the selected jobs
+
+### What It Does (CircleCI)
+
+1. Lists followed projects via the DevLake remote-scope API
+2. Prompts for one or more projects to track
+3. Calls `PUT /plugins/circleci/connections/{id}/scopes` to add the selected projects
 
 ---
 

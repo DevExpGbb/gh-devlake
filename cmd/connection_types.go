@@ -252,6 +252,18 @@ var connectionRegistry = []*ConnectionDef{
 		},
 	},
 	{
+		Plugin:       "circleci",
+		DisplayName:  "CircleCI",
+		Available:    true,
+		Endpoint:     "https://circleci.com/api/v2/",
+		SupportsTest: true,
+		TokenPrompt:  "CircleCI personal API token",
+		EnvVarNames:  []string{"CIRCLECI_TOKEN", "CIRCLE_TOKEN"},
+		EnvFileKeys:  []string{"CIRCLECI_TOKEN", "CIRCLE_TOKEN"},
+		ScopeFunc:    scopeCircleCIHandler,
+		ScopeIDField: "id",
+	},
+	{
 		Plugin:           "gitlab",
 		DisplayName:      "GitLab",
 		Available:        true,

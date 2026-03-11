@@ -1204,6 +1204,131 @@ func putBitbucketScopes(client *devlake.Client, connID int, repos []*devlake.Bit
 	return client.PutScopes("bitbucket", connID, &devlake.ScopeBatchRequest{Data: data})
 }
 
+func circleCIProjectFromChild(child devlake.RemoteScopeChild, connID int) devlake.CircleCIProjectScope {
+	var project devlake.CircleCIProjectScope
+	if len(child.Data) > 0 {
+		if err := json.Unmarshal(child.Data, &project); err != nil {
+			fmt.Printf("\n⚠️  Could not decode CircleCI project data for %s: %v\n", child.ID, err)
+		}
+	}
+	if project.ID == "" {
+		project.ID = child.ID
+	}
+	if project.Name == "" {
+		project.Name = child.Name
+	}
+	if project.Slug == "" {
+		project.Slug = child.FullName
+	}
+	project.ConnectionID = connID
+	return project
+}
+
+func circleCIProjectLabel(project devlake.CircleCIProjectScope) string {
+	switch {
+	case project.Name != "" && project.Slug != "" && project.Name != project.Slug:
+		return fmt.Sprintf("%s (slug: %s)", project.Name, project.Slug)
+	case project.Name != "":
+		return project.Name
+	case project.Slug != "":
+		return project.Slug
+	default:
+		return project.ID
+	}
+}
+
+func circleCIUniqueLabel(project devlake.CircleCIProjectScope, counts map[string]int) string {
+	base := circleCIProjectLabel(project)
+	if counts[base] > 1 && project.ID != "" {
+		return fmt.Sprintf("%s (ID: %s)", base, project.ID)
+	}
+	return base
+}
+
+// scopeCircleCIHandler is the ScopeHandler for the circleci plugin.
+func scopeCircleCIHandler(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error) {
+	fmt.Println("\n📋 Fetching CircleCI projects...")
+
+	var children []devlake.RemoteScopeChild
+	pageToken := ""
+	for {
+		resp, err := client.ListRemoteScopes("circleci", connID, "", pageToken)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list CircleCI projects: %w", err)
+		}
+		children = append(children, resp.Children...)
+		pageToken = resp.NextPageToken
+		if pageToken == "" {
+			break
+		}
+	}
+
+	projectOptions := make([]string, 0, len(children))
+	projectMap := make(map[string]devlake.CircleCIProjectScope)
+	labelCounts := make(map[string]int, len(children))
+	for _, child := range children {
+		if child.Type != "scope" || child.ID == "" {
+			continue
+		}
+		project := circleCIProjectFromChild(child, connID)
+		baseLabel := circleCIProjectLabel(project)
+		labelCounts[baseLabel]++
+	}
+
+	for _, child := range children {
+		if child.Type != "scope" || child.ID == "" {
+			continue
+		}
+		project := circleCIProjectFromChild(child, connID)
+		label := circleCIUniqueLabel(project, labelCounts)
+		projectOptions = append(projectOptions, label)
+		projectMap[label] = project
+	}
+
+	if len(projectOptions) == 0 {
+		return nil, fmt.Errorf("no CircleCI projects found for connection %d", connID)
+	}
+
+	fmt.Println()
+	selected := prompt.SelectMulti("Select CircleCI projects to track", projectOptions)
+	if len(selected) == 0 {
+		return nil, fmt.Errorf("at least one CircleCI project must be selected")
+	}
+
+	fmt.Println("\n📝 Adding CircleCI project scopes...")
+	var (
+		scopeData []any
+		bpScopes  []devlake.BlueprintScope
+	)
+	for _, label := range selected {
+		project := projectMap[label]
+		scopeData = append(scopeData, project)
+
+		scopeName := project.Name
+		if scopeName == "" {
+			scopeName = project.Slug
+		}
+		if scopeName == "" {
+			scopeName = project.ID
+		}
+		bpScopes = append(bpScopes, devlake.BlueprintScope{
+			ScopeID:   project.ID,
+			ScopeName: scopeName,
+		})
+	}
+
+	if err := client.PutScopes("circleci", connID, &devlake.ScopeBatchRequest{Data: scopeData}); err != nil {
+		return nil, fmt.Errorf("failed to add CircleCI project scopes: %w", err)
+	}
+	fmt.Printf("   ✅ Added %d project scope(s)\n", len(scopeData))
+
+	return &devlake.BlueprintConnection{
+		PluginName:   "circleci",
+		ConnectionID: connID,
+		Scopes:       bpScopes,
+	}, nil
+}
+
 // scopeSonarQubeHandler is the ScopeHandler for the sonarqube plugin.
 func scopeSonarQubeHandler(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error) {
 	fmt.Println("\n📋 Fetching SonarQube projects...")

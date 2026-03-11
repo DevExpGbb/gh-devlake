@@ -128,6 +128,114 @@ func TestAzureDevOpsScopePayload_KeepsExistingFields(t *testing.T) {
 	}
 }
 
+func TestCircleCIProjectFromChild(t *testing.T) {
+	raw := map[string]any{
+		"id":             "proj-1",
+		"name":           "api",
+		"slug":           "gh/org/api",
+		"organizationId": "org-1",
+	}
+	data, _ := json.Marshal(raw)
+	child := devlake.RemoteScopeChild{
+		ID:       "child-id",
+		Name:     "child-name",
+		FullName: "child/full",
+		Data:     data,
+	}
+	project := circleCIProjectFromChild(child, 9)
+
+	if project.ID != "proj-1" {
+		t.Fatalf("ID = %q, want proj-1", project.ID)
+	}
+	if project.Name != "api" {
+		t.Fatalf("Name = %q, want api", project.Name)
+	}
+	if project.Slug != "gh/org/api" {
+		t.Fatalf("Slug = %q, want gh/org/api", project.Slug)
+	}
+	if project.OrganizationID != "org-1" {
+		t.Fatalf("OrganizationID = %q, want org-1", project.OrganizationID)
+	}
+	if project.ConnectionID != 9 {
+		t.Fatalf("ConnectionID = %d, want 9", project.ConnectionID)
+	}
+}
+
+func TestCircleCIProjectFromChild_Fallbacks(t *testing.T) {
+	child := devlake.RemoteScopeChild{
+		ID:       "child-id",
+		Name:     "child-name",
+		FullName: "child/full",
+	}
+	project := circleCIProjectFromChild(child, 2)
+
+	if project.ID != "child-id" {
+		t.Fatalf("fallback ID = %q, want child-id", project.ID)
+	}
+	if project.Name != "child-name" {
+		t.Fatalf("fallback Name = %q, want child-name", project.Name)
+	}
+	if project.Slug != "child/full" {
+		t.Fatalf("fallback Slug = %q, want child/full", project.Slug)
+	}
+}
+
+func TestCircleCIProjectLabel(t *testing.T) {
+	tests := []struct {
+		name string
+		in   devlake.CircleCIProjectScope
+		want string
+	}{
+		{
+			name: "name and slug",
+			in:   devlake.CircleCIProjectScope{Name: "API", Slug: "gh/org/api"},
+			want: "API (slug: gh/org/api)",
+		},
+		{
+			name: "name only",
+			in:   devlake.CircleCIProjectScope{Name: "API"},
+			want: "API",
+		},
+		{
+			name: "slug only",
+			in:   devlake.CircleCIProjectScope{Slug: "gh/org/api"},
+			want: "gh/org/api",
+		},
+		{
+			name: "id fallback",
+			in:   devlake.CircleCIProjectScope{ID: "proj-1"},
+			want: "proj-1",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := circleCIProjectLabel(tt.in); got != tt.want {
+				t.Errorf("circleCIProjectLabel() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCircleCIUniqueLabel(t *testing.T) {
+	projectA := devlake.CircleCIProjectScope{ID: "a1", Name: "api", Slug: "gh/org/api"}
+	projectB := devlake.CircleCIProjectScope{ID: "b2", Name: "api", Slug: "gh/org/api"}
+	counts := map[string]int{
+		circleCIProjectLabel(projectA): 2,
+	}
+
+	labelA := circleCIUniqueLabel(projectA, counts)
+	labelB := circleCIUniqueLabel(projectB, counts)
+	if labelA == labelB {
+		t.Fatalf("expected unique labels, got identical %q", labelA)
+	}
+	if labelA == "api (slug: gh/org/api)" {
+		t.Fatalf("labelA should be disambiguated, got %q", labelA)
+	}
+	if labelB == "api (slug: gh/org/api)" {
+		t.Fatalf("labelB should be disambiguated, got %q", labelB)
+	}
+}
+
 func TestParseBitbucketRepo(t *testing.T) {
 	t.Run("uses payload fields when present", func(t *testing.T) {
 		data, _ := json.Marshal(map[string]any{
