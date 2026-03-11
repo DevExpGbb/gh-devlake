@@ -1228,6 +1228,9 @@ func scopePagerDutyHandler(client *devlake.Client, connID int, org, enterprise s
 		if child.Type != "scope" {
 			continue
 		}
+		if child.ID == "" {
+			continue
+		}
 		label := child.Name
 		if label == "" {
 			label = child.FullName
@@ -1293,8 +1296,12 @@ func scopePagerDutyHandler(client *devlake.Client, connID int, org, enterprise s
 func pagerDutyServiceFromChild(child *devlake.RemoteScopeChild, connID int) devlake.PagerDutyServiceScope {
 	scope := devlake.PagerDutyServiceScope{ConnectionID: connID}
 	if child != nil && len(child.Data) > 0 {
-		_ = json.Unmarshal(child.Data, &scope)
+		if err := json.Unmarshal(child.Data, &scope); err != nil {
+			scope = devlake.PagerDutyServiceScope{ConnectionID: connID}
+		}
 	}
+	// Enforce caller-provided connection ID even if the payload carried one.
+	scope.ConnectionID = connID
 	if scope.ID == "" && child != nil {
 		scope.ID = child.ID
 	}
