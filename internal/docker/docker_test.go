@@ -78,6 +78,44 @@ func TestComposeUp_CommandArgs(t *testing.T) {
 	}
 }
 
+func TestComposeStop_CommandArgs(t *testing.T) {
+	tests := []struct {
+		name     string
+		services []string
+		wantArgs []string
+	}{
+		{
+			name:     "no services (stop all)",
+			services: nil,
+			wantArgs: []string{"docker", "compose", "stop"},
+		},
+		{
+			name:     "single service",
+			services: []string{"grafana"},
+			wantArgs: []string{"docker", "compose", "stop", "grafana"},
+		},
+		{
+			name:     "multiple services",
+			services: []string{"devlake", "grafana"},
+			wantArgs: []string{"docker", "compose", "stop", "devlake", "grafana"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var captured []string
+			execCommand = fakeExecCommand(&captured)
+			t.Cleanup(func() { execCommand = exec.Command })
+
+			_ = ComposeStop(t.TempDir(), tt.services...)
+
+			if !reflect.DeepEqual(captured, tt.wantArgs) {
+				t.Errorf("args = %v, want %v", captured, tt.wantArgs)
+			}
+		})
+	}
+}
+
 func TestComposeDown_CommandArgs(t *testing.T) {
 	tests := []struct {
 		name          string

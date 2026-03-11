@@ -88,6 +88,15 @@ type SonarQubeProjectScope struct {
 	Name         string `json:"name"`
 }
 
+// CircleCIProjectScope represents a CircleCI project scope entry for PUT /scopes.
+type CircleCIProjectScope struct {
+	ConnectionID   int    `json:"connectionId"`
+	ID             string `json:"id"`
+	Slug           string `json:"slug"`
+	Name           string `json:"name"`
+	OrganizationID string `json:"organizationId"`
+}
+
 // PagerDutyServiceScope represents a PagerDuty service scope entry for PUT /scopes.
 type PagerDutyServiceScope struct {
 	ConnectionID int    `json:"connectionId"`

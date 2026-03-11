@@ -571,6 +571,7 @@ func TestNeedsTokenExpiry(t *testing.T) {
 		{"gh-copilot", true},
 		{"gitlab", false},
 		{"azuredevops_go", false},
+		{"circleci", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.plugin, func(t *testing.T) {
@@ -777,6 +778,45 @@ func TestConnectionRegistry_Jenkins(t *testing.T) {
 	}
 	if !foundJobs {
 		t.Errorf("jenkins ScopeFlags should include jobs flag")
+	}
+}
+
+func TestConnectionRegistry_CircleCI(t *testing.T) {
+	def := FindConnectionDef("circleci")
+	if def == nil {
+		t.Fatal("circleci connection def not found")
+	}
+	if !def.Available {
+		t.Errorf("circleci should be available")
+	}
+	if def.Endpoint != "https://circleci.com/api/v2/" {
+		t.Errorf("circleci Endpoint = %q, want https://circleci.com/api/v2/", def.Endpoint)
+	}
+	if !def.SupportsTest {
+		t.Errorf("circleci SupportsTest should be true")
+	}
+	if def.ScopeIDField != "id" {
+		t.Errorf("circleci ScopeIDField = %q, want %q", def.ScopeIDField, "id")
+	}
+	if def.ScopeFunc == nil {
+		t.Errorf("circleci ScopeFunc should be set")
+	}
+	wantEnvVars := []string{"CIRCLECI_TOKEN", "CIRCLE_TOKEN"}
+	if len(def.EnvVarNames) != len(wantEnvVars) {
+		t.Fatalf("circleci EnvVarNames length: got %d, want %d", len(def.EnvVarNames), len(wantEnvVars))
+	}
+	for i, v := range wantEnvVars {
+		if def.EnvVarNames[i] != v {
+			t.Errorf("circleci EnvVarNames[%d]: got %q, want %q", i, def.EnvVarNames[i], v)
+		}
+	}
+	if len(def.EnvFileKeys) != len(wantEnvVars) {
+		t.Fatalf("circleci EnvFileKeys length: got %d, want %d", len(def.EnvFileKeys), len(wantEnvVars))
+	}
+	for i, v := range wantEnvVars {
+		if def.EnvFileKeys[i] != v {
+			t.Errorf("circleci EnvFileKeys[%d]: got %q, want %q", i, def.EnvFileKeys[i], v)
+		}
 	}
 }
 

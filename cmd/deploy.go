@@ -54,4 +54,8 @@ func init() {
 	startCmd := newStartCmd()
 	startCmd.GroupID = "operate"
 	rootCmd.AddCommand(startCmd)
+
+	stopCmd := newStopCmd()
+	stopCmd.GroupID = "operate"
+	rootCmd.AddCommand(stopCmd)
 }
