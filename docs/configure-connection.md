@@ -22,7 +22,7 @@ Aliases: `connections`
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive)* | Plugin to configure (`github`, `gh-copilot`, `jenkins`) |
+| `--plugin` | *(interactive)* | Plugin to configure (`github`, `gh-copilot`, `gitlab`, `bitbucket`, `azuredevops_go`, `jenkins`, `jira`, `sonarqube`, `circleci`) |
 | `--org` | *(required for Copilot)* | GitHub organization slug |
 | `--enterprise` | | GitHub enterprise slug (for enterprise-level Copilot metrics) |
 | `--name` | `Plugin - org` | Connection display name |
@@ -40,7 +40,13 @@ Aliases: `connections`
 | `github` | `repo`, `read:org`, `read:user` |
 | `gh-copilot` | `manage_billing:copilot`, `read:org` |
 | `gh-copilot` (enterprise metrics) | + `read:enterprise` |
+| `gitlab` | `read_api`, `read_repository` |
+| `bitbucket` | App password (BasicAuth; no scopes) |
+| `azuredevops_go` | Azure DevOps PAT (no scopes) |
 | `jenkins` | Username + API token/password (BasicAuth) |
+| `jira` | API token (no scopes) |
+| `sonarqube` | API token (no scopes) |
+| `circleci` | Personal API token (Circle-Token header) |
 
 ### Token Resolution Order
 
@@ -86,6 +92,9 @@ gh devlake configure connection --plugin gh-copilot --org my-org
 
 # Jenkins connection (endpoint required)
 gh devlake configure connection --plugin jenkins --endpoint https://jenkins.example.com --username admin
+
+# CircleCI connection
+gh devlake configure connection --plugin circleci --name "CircleCI - backend"
 
 # Enterprise Copilot metrics
 gh devlake configure connection --plugin gh-copilot --org my-org --enterprise my-enterprise

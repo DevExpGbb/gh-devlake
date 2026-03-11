@@ -32,7 +32,7 @@ gh devlake configure scope add [flags]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--plugin` | *(interactive or required)* | Plugin to configure (`github`, `gh-copilot`, `jenkins`) |
+| `--plugin` | *(interactive or required)* | Plugin to configure (`github`, `gh-copilot`, `gitlab`, `bitbucket`, `azuredevops_go`, `jenkins`, `jira`, `sonarqube`, `circleci`) |
 | `--connection-id` | *(auto-detected)* | Override the connection ID to scope |
 | `--org` | *(required)* | GitHub organization slug |
 | `--enterprise` | | Enterprise slug (enables enterprise-level Copilot metrics) |
@@ -95,6 +95,9 @@ gh devlake configure scope add --plugin jenkins --org my-org --jobs "team/job1,t
 # Jenkins jobs (interactive remote-scope picker)
 gh devlake configure scope add --plugin jenkins --org my-org
 
+# CircleCI projects (interactive)
+gh devlake configure scope add --plugin circleci --connection-id 4
+
 # Interactive (omit all flags)
 gh devlake configure scope add
 ```
@@ -116,6 +119,12 @@ gh devlake configure scope add
 1. Lists Jenkins jobs via the remote-scope API (interactive picker)
 2. Uses `--jobs` when provided instead of prompting
 3. Calls `PUT /plugins/jenkins/connections/{id}/scopes` with the selected jobs
+
+### What It Does (CircleCI)
+
+1. Lists followed projects via the DevLake remote-scope API
+2. Prompts for one or more projects to track
+3. Calls `PUT /plugins/circleci/connections/{id}/scopes` to add the selected projects
 
 ---
 
