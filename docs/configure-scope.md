@@ -43,6 +43,8 @@ gh devlake configure scope add [flags]
 | `--production-pattern` | `(?i)prod` | Regex matching environment names for production |
 | `--incident-label` | `incident` | GitHub issue label that marks incidents |
 
+> **Org requirement:** `--org` is required for plugins that scope by organization/workspace (GitHub, Copilot, GitLab, Bitbucket, Azure DevOps). It is **not** required for CircleCI, Jenkins, Jira, or SonarQube.
+
 > **Note:** `--plugin` is required when using any other flag. Without flags, the CLI enters interactive mode and prompts for everything.
 
 ### Repo Resolution
