@@ -364,6 +364,27 @@ var connectionRegistry = []*ConnectionDef{
 		ScopeFunc:      scopeSonarQubeHandler,
 		ScopeIDField:   "projectKey",
 		HasRepoScopes:  false,
+		ScopeFlags: []FlagDef{
+			{Name: "projects", Description: "Comma-separated SonarQube project keys"},
+		},
+	},
+	{
+		Plugin:           "argocd",
+		DisplayName:      "ArgoCD",
+		Available:        true,
+		Endpoint:         "", // user must provide (e.g., https://argocd.example.com)
+		SupportsTest:     true,
+		AuthMethod:       "AccessToken",
+		RateLimitPerHour: 0, // uses default 4500
+		// ArgoCD uses auth tokens; permissions come from the user account.
+		RequiredScopes: []string{},
+		ScopeHint:      "",
+		TokenPrompt:    "ArgoCD auth token",
+		EnvVarNames:    []string{"ARGOCD_TOKEN", "ARGOCD_AUTH_TOKEN"},
+		EnvFileKeys:    []string{"ARGOCD_TOKEN", "ARGOCD_AUTH_TOKEN"},
+		ScopeFunc:      scopeArgoCDHandler,
+		ScopeIDField:   "name",
+		HasRepoScopes:  false,
 	},
 }
 

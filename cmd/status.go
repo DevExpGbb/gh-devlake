@@ -154,12 +154,19 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	if hasServices {
 		fmt.Println("\n  Services")
 		fmt.Println(sep)
+		hasUnhealthy := false
 		for _, svc := range svcs {
 			if svc.url == "" {
 				continue
 			}
 			icon := pingEndpoint(svc.url, svc.kind)
 			fmt.Printf("  %s  %s  %s\n", svc.label, icon, svc.url)
+			if icon == "❌" {
+				hasUnhealthy = true
+			}
+		}
+		if hasUnhealthy {
+			fmt.Println("\n  💡 Run 'gh devlake start' to bring services back up.")
 		}
 	}
 

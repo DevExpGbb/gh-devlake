@@ -10,6 +10,24 @@ gh devlake status
 
 Shows deployment info, service health (Backend / Grafana / Config UI), active connections, and project configuration. See [status.md](status.md) for full output reference.
 
+## Restarting Services
+
+If services are stopped, crashed, or exited (e.g. after a machine reboot):
+
+```bash
+gh devlake start
+```
+
+Runs `docker compose up -d` for local deployments, or starts stopped Azure Container Instances. See [start.md](start.md) for all flags.
+
+```bash
+# Start only a specific service
+gh devlake start --service config-ui
+
+# Start without waiting for health check
+gh devlake start --no-wait
+```
+
 ## Managing Connections
 
 ### List connections
@@ -80,6 +98,7 @@ Deletes the Azure resource group and all resources within it. See [cleanup.md](c
 ## Related
 
 - [status.md](status.md) — full output reference
+- [start.md](start.md) — restart stopped services
 - [configure-connection.md](configure-connection.md) — connection CRUD
 - [configure-scope.md](configure-scope.md) — scope management
 - [cleanup.md](cleanup.md) — tear down
