@@ -762,6 +762,17 @@ func TestConnectionRegistry_SonarQube(t *testing.T) {
 		t.Error("ScopeFunc should not be nil")
 	}
 
+	foundProjectsFlag := false
+	for _, f := range def.ScopeFlags {
+		if f.Name == "projects" {
+			foundProjectsFlag = true
+			break
+		}
+	}
+	if !foundProjectsFlag {
+		t.Errorf("ScopeFlags should include projects flag")
+	}
+
 	// SonarQube uses API tokens, not OAuth/PAT scopes
 	if len(def.RequiredScopes) != 0 {
 		t.Errorf("RequiredScopes should be empty for SonarQube API tokens, got %v", def.RequiredScopes)
