@@ -1175,8 +1175,11 @@ func browseBitbucketReposInteractively(client *devlake.Client, connID int, works
 // parseBitbucketRepo extracts repository fields from a RemoteScopeChild's Data payload.
 func parseBitbucketRepo(child *devlake.RemoteScopeChild) *devlake.BitbucketRepoScope {
 	var r devlake.BitbucketRepoScope
-	if err := json.Unmarshal(child.Data, &r); err != nil {
-		return nil
+	if len(child.Data) > 0 {
+		if err := json.Unmarshal(child.Data, &r); err != nil {
+			// Treat missing/invalid payload as empty to fall back to child fields.
+			r = devlake.BitbucketRepoScope{}
+		}
 	}
 	if r.FullName == "" {
 		r.FullName = child.FullName

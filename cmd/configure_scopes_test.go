@@ -181,6 +181,27 @@ func TestParseBitbucketRepo(t *testing.T) {
 			t.Fatalf("fullName = %q, want %q", repo.FullName, "team/frontend")
 		}
 	})
+
+	t.Run("handles missing data by using child fields", func(t *testing.T) {
+		child := devlake.RemoteScopeChild{
+			Name:     "ui",
+			FullName: "workspace/ui",
+			Data:     nil,
+		}
+		repo := parseBitbucketRepo(&child)
+		if repo == nil {
+			t.Fatal("expected repo, got nil")
+		}
+		if repo.BitbucketID != "workspace/ui" {
+			t.Fatalf("bitbucketId = %q, want %q", repo.BitbucketID, "workspace/ui")
+		}
+		if repo.Name != "ui" {
+			t.Fatalf("name = %q, want %q", repo.Name, "ui")
+		}
+		if repo.FullName != "workspace/ui" {
+			t.Fatalf("fullName = %q, want %q", repo.FullName, "workspace/ui")
+		}
+	})
 }
 
 func TestRunConfigureScopes_PluginFlag(t *testing.T) {

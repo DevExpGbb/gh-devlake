@@ -34,10 +34,10 @@ gh devlake configure scope add [flags]
 |------|---------|-------------|
 | `--plugin` | *(interactive or required)* | Plugin to configure (`github`, `gitlab`, `bitbucket`, `gh-copilot`, `jenkins`, `azure-devops`, `sonarqube`) |
 | `--connection-id` | *(auto-detected)* | Override the connection ID to scope |
-| `--org` | *(required)* | Org/workspace slug (`github`, `gitlab` group path, `bitbucket` workspace, `azure-devops` org) |
+| `--org` | *(plugin-dependent)* | Org/workspace slug (`github`, `gitlab` group path, `bitbucket` workspace, `azure-devops` org). Required for plugins whose connection definition needs an org (for example, Azure DevOps) or when running non-interactively; optional in interactive mode for plugins that support workspace discovery (for example, Bitbucket). |
 | `--enterprise` | | Enterprise slug (enables enterprise-level Copilot metrics) |
-| `--repos` | | Comma-separated repos to add (`owner/repo,owner/repo2`) for GitHub, GitLab, Bitbucket |
-| `--repos-file` | | Path to a file with repos (one `owner/repo` per line) for GitHub, GitLab, Bitbucket |
+| `--repos` | | Comma-separated repos to add (`owner/repo` for GitHub, `group/project` for GitLab, `workspace/repo-slug` for Bitbucket) |
+| `--repos-file` | | Path to a file with repos (one per line: `owner/repo` for GitHub, `group/project` for GitLab, `workspace/repo-slug` for Bitbucket) |
 | `--jobs` | | Comma-separated Jenkins job full names |
 | `--deployment-pattern` | `(?i)deploy` | Regex matching CI/CD workflow names for deployments |
 | `--production-pattern` | `(?i)prod` | Regex matching environment names for production |
