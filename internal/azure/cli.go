@@ -126,9 +126,19 @@ func MySQLStart(name, resourceGroup string) error {
 	return runAz("mysql", "flexible-server", "start", "--name", name, "--resource-group", resourceGroup, "--output", "none")
 }
 
+// MySQLStop stops a running MySQL flexible server.
+func MySQLStop(name, resourceGroup string) error {
+	return runAz("mysql", "flexible-server", "stop", "--name", name, "--resource-group", resourceGroup, "--output", "none")
+}
+
 // ContainerStart starts a stopped Azure Container Instance.
 func ContainerStart(name, resourceGroup string) error {
 	return runAz("container", "start", "--name", name, "--resource-group", resourceGroup)
+}
+
+// ContainerStop stops a running Azure Container Instance.
+func ContainerStop(name, resourceGroup string) error {
+	return runAz("container", "stop", "--name", name, "--resource-group", resourceGroup)
 }
 
 // MySQLState returns the current state of a MySQL flexible server.

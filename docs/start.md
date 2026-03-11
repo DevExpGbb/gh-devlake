@@ -108,6 +108,7 @@ gh devlake start
 
 ## Related
 
+- [stop.md](stop.md) — pause services (non-destructive counterpart to start)
 - [status.md](status.md) — check service health
 - [cleanup.md](cleanup.md) — tear down all resources
 - [deploy.md](deploy.md) — initial deployment

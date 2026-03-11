@@ -59,6 +59,21 @@ func ComposeDown(dir string, removeVolumes ...bool) error {
 	return nil
 }
 
+// ComposeStop runs docker compose stop in the specified directory.
+// This gracefully stops running containers without removing them or their volumes,
+// preserving state for a quick restart via ComposeUp.
+// If services are provided, only those services are stopped.
+func ComposeStop(dir string, services ...string) error {
+	args := []string{"compose", "stop"}
+	args = append(args, services...)
+	cmd := execCommand("docker", args...)
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("docker compose stop failed: %s\n%s", err, string(out))
+	}
+	return nil
+}
+
 // ComposeUp runs docker compose up -d in the specified directory.
 // If build is true, images are rebuilt from local Dockerfiles (--build).
 // If services are provided, only those services are started.
