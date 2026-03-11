@@ -125,6 +125,85 @@ func TestAzureDevOpsScopePayload_KeepsExistingFields(t *testing.T) {
 	}
 }
 
+func TestParseBitbucketRepo(t *testing.T) {
+	t.Run("uses payload fields when present", func(t *testing.T) {
+		data, _ := json.Marshal(map[string]any{
+			"bitbucketId": "workspace/api",
+			"name":        "api",
+			"fullName":    "workspace/api",
+			"htmlUrl":     "https://bitbucket.org/workspace/api",
+			"cloneUrl":    "https://bitbucket.org/workspace/api.git",
+		})
+		child := devlake.RemoteScopeChild{
+			ID:       "ignored",
+			Name:     "api-child",
+			FullName: "workspace/api-child",
+			Data:     data,
+		}
+		repo := parseBitbucketRepo(&child)
+		if repo == nil {
+			t.Fatal("expected repo, got nil")
+		}
+		if repo.BitbucketID != "workspace/api" {
+			t.Fatalf("bitbucketId = %q, want %q", repo.BitbucketID, "workspace/api")
+		}
+		if repo.Name != "api" {
+			t.Fatalf("name = %q, want %q", repo.Name, "api")
+		}
+		if repo.FullName != "workspace/api" {
+			t.Fatalf("fullName = %q, want %q", repo.FullName, "workspace/api")
+		}
+		if repo.CloneURL != "https://bitbucket.org/workspace/api.git" {
+			t.Fatalf("cloneUrl = %q, want https://bitbucket.org/workspace/api.git", repo.CloneURL)
+		}
+		if repo.HTMLURL != "https://bitbucket.org/workspace/api" {
+			t.Fatalf("htmlUrl = %q, want https://bitbucket.org/workspace/api", repo.HTMLURL)
+		}
+	})
+
+	t.Run("falls back to child fields when payload is sparse", func(t *testing.T) {
+		child := devlake.RemoteScopeChild{
+			Name:     "frontend",
+			FullName: "team/frontend",
+			Data:     []byte(`{"bitbucketId":"","name":"","fullName":""}`),
+		}
+		repo := parseBitbucketRepo(&child)
+		if repo == nil {
+			t.Fatal("expected repo, got nil")
+		}
+		if repo.BitbucketID != "team/frontend" {
+			t.Fatalf("bitbucketId = %q, want %q", repo.BitbucketID, "team/frontend")
+		}
+		if repo.Name != "frontend" {
+			t.Fatalf("name = %q, want %q", repo.Name, "frontend")
+		}
+		if repo.FullName != "team/frontend" {
+			t.Fatalf("fullName = %q, want %q", repo.FullName, "team/frontend")
+		}
+	})
+
+	t.Run("handles missing data by using child fields", func(t *testing.T) {
+		child := devlake.RemoteScopeChild{
+			Name:     "ui",
+			FullName: "workspace/ui",
+			Data:     nil,
+		}
+		repo := parseBitbucketRepo(&child)
+		if repo == nil {
+			t.Fatal("expected repo, got nil")
+		}
+		if repo.BitbucketID != "workspace/ui" {
+			t.Fatalf("bitbucketId = %q, want %q", repo.BitbucketID, "workspace/ui")
+		}
+		if repo.Name != "ui" {
+			t.Fatalf("name = %q, want %q", repo.Name, "ui")
+		}
+		if repo.FullName != "workspace/ui" {
+			t.Fatalf("fullName = %q, want %q", repo.FullName, "workspace/ui")
+		}
+	})
+}
+
 func TestRunConfigureScopes_PluginFlag(t *testing.T) {
 	makeCmd := func() (*cobra.Command, *ScopeOpts) {
 		opts := &ScopeOpts{}

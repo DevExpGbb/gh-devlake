@@ -1088,7 +1088,7 @@ func browseBitbucketReposInteractively(client *devlake.Client, connID int, works
 		for nextToken != "" {
 			page, err := client.ListRemoteScopes("bitbucket", connID, "", nextToken)
 			if err != nil {
-				break
+				return nil, fmt.Errorf("listing Bitbucket workspaces (page token %s): %w", nextToken, err)
 			}
 			allWS = append(allWS, page.Children...)
 			nextToken = page.NextPageToken
@@ -1131,7 +1131,7 @@ func browseBitbucketReposInteractively(client *devlake.Client, connID int, works
 	for nextToken != "" {
 		page, err := client.ListRemoteScopes("bitbucket", connID, workspaceID, nextToken)
 		if err != nil {
-			break
+			return nil, fmt.Errorf("listing repositories in workspace %q (page token %s): %w", workspaceID, nextToken, err)
 		}
 		allChildren = append(allChildren, page.Children...)
 		nextToken = page.NextPageToken
@@ -1175,8 +1175,11 @@ func browseBitbucketReposInteractively(client *devlake.Client, connID int, works
 // parseBitbucketRepo extracts repository fields from a RemoteScopeChild's Data payload.
 func parseBitbucketRepo(child *devlake.RemoteScopeChild) *devlake.BitbucketRepoScope {
 	var r devlake.BitbucketRepoScope
-	if err := json.Unmarshal(child.Data, &r); err != nil {
-		return nil
+	if len(child.Data) > 0 {
+		if err := json.Unmarshal(child.Data, &r); err != nil {
+			// Treat missing/invalid payload as empty to fall back to child fields.
+			r = devlake.BitbucketRepoScope{}
+		}
 	}
 	if r.FullName == "" {
 		r.FullName = child.FullName
