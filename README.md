@@ -227,6 +227,9 @@ See [Token Handling](docs/token-handling.md) for env key names and multi-plugin 
 | `gh devlake configure project list` | List all projects | [configure-project.md](docs/configure-project.md) |
 | `gh devlake configure project delete` | Delete a project | [configure-project.md](docs/configure-project.md) |
 | `gh devlake configure full` | Connections + scopes + project in one step | [configure-full.md](docs/configure-full.md) |
+| `gh devlake query pipelines` | Query recent pipeline runs | [query.md](docs/query.md) |
+| `gh devlake query dora` | Query DORA metrics (placeholder — requires API) | [query.md](docs/query.md) |
+| `gh devlake query copilot` | Query Copilot metrics (placeholder — requires API) | [query.md](docs/query.md) |
 | `gh devlake start` | Start stopped or exited DevLake services | [start.md](docs/start.md) |
 | `gh devlake stop` | Stop running services (preserves containers and data) | [stop.md](docs/stop.md) |
 | `gh devlake cleanup` | Tear down local or Azure resources | [cleanup.md](docs/cleanup.md) |

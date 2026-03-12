@@ -271,7 +271,14 @@ type BlueprintScope struct {
 // Pipeline represents a DevLake pipeline (returned from trigger or GET).
 type Pipeline struct {
 	ID            int    `json:"id"`
+	CreatedAt     string `json:"createdAt,omitempty"`
+	UpdatedAt     string `json:"updatedAt,omitempty"`
+	BeganAt       string `json:"beganAt,omitempty"`
+	FinishedAt    string `json:"finishedAt,omitempty"`
 	Status        string `json:"status"`
+	Message       string `json:"message,omitempty"`
 	FinishedTasks int    `json:"finishedTasks"`
 	TotalTasks    int    `json:"totalTasks"`
+	BlueprintID   int    `json:"blueprintId,omitempty"`
+	SkipOnFail    bool   `json:"skipOnFail,omitempty"`
 }
