@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/DevExpGBB/gh-devlake/internal/devlake"
+	"github.com/DevExpGBB/gh-devlake/internal/query"
 	"github.com/spf13/cobra"
 )
 
@@ -13,56 +15,60 @@ var (
 
 var queryCopilotCmd = &cobra.Command{
 	Use:   "copilot",
-	Short: "Query Copilot usage metrics (requires DevLake metrics API)",
+	Short: "Query Copilot usage metrics (limited by available API data)",
 	Long: `Query GitHub Copilot usage metrics for a project.
 
-NOTE: This command requires DevLake to expose a metrics API endpoint.
-Currently, Copilot metrics are stored in the gh-copilot plugin tables
-and visualized in Grafana dashboards, but not available via the REST API.
+NOTE: GitHub Copilot usage metrics (total seats, active users, acceptance rates,
+language breakdowns, editor usage) are stored in _tool_gh_copilot_* tables and
+visualized in Grafana dashboards, but DevLake does not expose a /metrics or
+/copilot API endpoint.
 
-To view Copilot metrics today, use the Grafana dashboards at your DevLake
-Grafana endpoint (shown in 'gh devlake status').
+This command returns available connection metadata and explains what additional
+API endpoints would be needed to retrieve Copilot metrics via CLI.
 
-Planned output format:
-{
-  "project": "my-team",
-  "timeframe": "30d",
-  "metrics": {
-    "totalSeats": 45,
-    "activeUsers": 38,
-    "acceptanceRate": 0.34,
-    "topLanguages": [
-      { "language": "TypeScript", "acceptances": 1200, "suggestions": 3500 }
-    ],
-    "topEditors": [
-      { "editor": "vscode", "users": 30 }
-    ]
-  }
-}`,
+Copilot metrics are currently available in Grafana dashboards at your DevLake
+Grafana endpoint (shown in 'gh devlake status').`,
 	RunE: runQueryCopilot,
 }
 
 func init() {
 	queryCopilotCmd.Flags().StringVar(&queryCopilotProject, "project", "", "Project name (required)")
 	queryCopilotCmd.Flags().StringVar(&queryCopilotTimeframe, "timeframe", "30d", "Time window for metrics (e.g., 7d, 30d, 90d)")
-	queryCopilotCmd.MarkFlagRequired("project")
 	queryCmd.AddCommand(queryCopilotCmd)
 }
 
 func runQueryCopilot(cmd *cobra.Command, args []string) error {
-	return fmt.Errorf(`Copilot metrics query is not yet implemented.
+	// Validate project flag
+	if queryCopilotProject == "" {
+		return fmt.Errorf("--project flag is required")
+	}
 
-DevLake does not currently expose a metrics API endpoint. Copilot metrics are
-stored in the gh-copilot plugin's database tables and visualized in Grafana
-dashboards, but not accessible via the REST API.
+	// Discover DevLake instance
+	disc, err := devlake.Discover(cfgURL)
+	if err != nil {
+		return fmt.Errorf("discovering DevLake: %w", err)
+	}
+	client := devlake.NewClient(disc.URL)
 
-To view Copilot metrics, visit your Grafana endpoint (shown in 'gh devlake status')
-and navigate to the Copilot dashboards.
+	// Get the query definition
+	queryDef, err := query.Get("copilot")
+	if err != nil {
+		return fmt.Errorf("getting copilot query: %w", err)
+	}
 
-Future implementation will require:
-  1. Upstream DevLake metrics API endpoint for Copilot plugin
-  2. OR direct database query support (requires DB credentials)
-  3. OR Grafana API integration to fetch dashboard data
+	// Build parameters
+	params := map[string]interface{}{
+		"project":   queryCopilotProject,
+		"timeframe": queryCopilotTimeframe,
+	}
 
-Track progress at: https://github.com/DevExpGBB/gh-devlake/issues`)
+	// Execute the query
+	engine := query.NewEngine(client)
+	result, err := engine.Execute(queryDef, params)
+	if err != nil {
+		return fmt.Errorf("executing copilot query: %w", err)
+	}
+
+	// Output result as JSON
+	return printJSON(result)
 }

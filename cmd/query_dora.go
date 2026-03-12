@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/DevExpGBB/gh-devlake/internal/devlake"
+	"github.com/DevExpGBB/gh-devlake/internal/query"
 	"github.com/spf13/cobra"
 )
 
@@ -13,50 +15,59 @@ var (
 
 var queryDoraCmd = &cobra.Command{
 	Use:   "dora",
-	Short: "Query DORA metrics (requires DevLake metrics API)",
+	Short: "Query DORA metrics (limited by available API data)",
 	Long: `Query DORA (DevOps Research and Assessment) metrics for a project.
 
-NOTE: This command requires DevLake to expose a metrics API endpoint.
-Currently, DORA metrics are calculated in Grafana dashboards but not
-available via the REST API. This is a placeholder for future enhancement.
+NOTE: Full DORA metric calculations (deployment frequency, lead time, change
+failure rate, MTTR) require SQL queries against DevLake's domain layer tables.
+DevLake does not expose database credentials or a metrics API endpoint.
 
-To view DORA metrics today, use the Grafana dashboards at your DevLake
-Grafana endpoint (shown in 'gh devlake status').
+This command returns project metadata and explains what additional API
+endpoints would be needed to compute DORA metrics via CLI.
 
-Planned output format:
-{
-  "project": "my-team",
-  "timeframe": "30d",
-  "metrics": {
-    "deploymentFrequency": { "value": 4.2, "unit": "per_week", "rating": "high" },
-    "leadTimeForChanges": { "value": 2.3, "unit": "hours", "rating": "elite" },
-    "changeFailureRate": { "value": 0.08, "unit": "ratio", "rating": "high" },
-    "meanTimeToRestore": { "value": 1.5, "unit": "hours", "rating": "elite" }
-  }
-}`,
+DORA metrics are currently available in Grafana dashboards at your DevLake
+Grafana endpoint (shown in 'gh devlake status').`,
 	RunE: runQueryDora,
 }
 
 func init() {
 	queryDoraCmd.Flags().StringVar(&queryDoraProject, "project", "", "Project name (required)")
 	queryDoraCmd.Flags().StringVar(&queryDoraTimeframe, "timeframe", "30d", "Time window for metrics (e.g., 7d, 30d, 90d)")
-	queryDoraCmd.MarkFlagRequired("project")
 	queryCmd.AddCommand(queryDoraCmd)
 }
 
 func runQueryDora(cmd *cobra.Command, args []string) error {
-	return fmt.Errorf(`DORA metrics query is not yet implemented.
+	// Validate project flag
+	if queryDoraProject == "" {
+		return fmt.Errorf("--project flag is required")
+	}
 
-DevLake does not currently expose a metrics API endpoint. DORA metrics are
-calculated in Grafana dashboards using SQL queries against the domain layer.
+	// Discover DevLake instance
+	disc, err := devlake.Discover(cfgURL)
+	if err != nil {
+		return fmt.Errorf("discovering DevLake: %w", err)
+	}
+	client := devlake.NewClient(disc.URL)
 
-To view DORA metrics, visit your Grafana endpoint (shown in 'gh devlake status')
-and navigate to the DORA dashboards.
+	// Get the query definition
+	queryDef, err := query.Get("dora")
+	if err != nil {
+		return fmt.Errorf("getting dora query: %w", err)
+	}
 
-Future implementation will require:
-  1. Upstream DevLake metrics API endpoint
-  2. OR direct database query support (requires DB credentials)
-  3. OR Grafana API integration to fetch dashboard data
+	// Build parameters
+	params := map[string]interface{}{
+		"project":   queryDoraProject,
+		"timeframe": queryDoraTimeframe,
+	}
 
-Track progress at: https://github.com/DevExpGBB/gh-devlake/issues`)
+	// Execute the query
+	engine := query.NewEngine(client)
+	result, err := engine.Execute(queryDef, params)
+	if err != nil {
+		return fmt.Errorf("executing dora query: %w", err)
+	}
+
+	// Output result as JSON
+	return printJSON(result)
 }
