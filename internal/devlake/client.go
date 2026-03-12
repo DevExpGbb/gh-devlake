@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 )
 
@@ -525,22 +524,22 @@ type PipelineListResponse struct {
 // blueprintID filters by blueprint (0 = no filter).
 // page and pageSize control pagination (0 = use defaults).
 func (c *Client) ListPipelines(status string, blueprintID, page, pageSize int) (*PipelineListResponse, error) {
-	path := "/pipelines?"
-	params := []string{}
+	path := "/pipelines"
+	q := url.Values{}
 	if status != "" {
-		params = append(params, "status="+status)
+		q.Set("status", status)
 	}
 	if blueprintID > 0 {
-		params = append(params, fmt.Sprintf("blueprint_id=%d", blueprintID))
+		q.Set("blueprint_id", fmt.Sprintf("%d", blueprintID))
 	}
 	if page > 0 {
-		params = append(params, fmt.Sprintf("page=%d", page))
+		q.Set("page", fmt.Sprintf("%d", page))
 	}
 	if pageSize > 0 {
-		params = append(params, fmt.Sprintf("pagesize=%d", pageSize))
+		q.Set("pagesize", fmt.Sprintf("%d", pageSize))
 	}
-	if len(params) > 0 {
-		path += strings.Join(params, "&")
+	if len(q) > 0 {
+		path += "?" + q.Encode()
 	}
 	return doGet[PipelineListResponse](c, path)
 }
