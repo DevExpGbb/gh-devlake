@@ -27,6 +27,11 @@ func (e *Engine) Execute(queryDef *QueryDef, params map[string]interface{}) (int
 		return nil, fmt.Errorf("query %q has no execute function", queryDef.Name)
 	}
 
+	// Initialize params if nil to avoid panics when applying defaults
+	if params == nil {
+		params = make(map[string]interface{})
+	}
+
 	// Apply defaults and validate parameters
 	for _, param := range queryDef.Params {
 		if _, ok := params[param.Name]; !ok {

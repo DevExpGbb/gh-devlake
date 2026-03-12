@@ -41,23 +41,31 @@ func init() {
 }
 
 func runQueryPipelines(cmd *cobra.Command, args []string) error {
+	// Validate format flag
+	if queryPipelinesFormat != "json" && queryPipelinesFormat != "table" {
+		return fmt.Errorf("invalid --format value %q: must be 'json' or 'table'", queryPipelinesFormat)
+	}
+
 	// Discover DevLake instance
-	var disc *devlake.DiscoveryResult
 	var client *devlake.Client
 	var err error
 
-	if !outputJSON && queryPipelinesFormat != "table" {
-		client, disc, err = discoverClient(cfgURL)
-		if err != nil {
-			return fmt.Errorf("discovering DevLake: %w", err)
-		}
-	} else {
-		// Quiet discovery for JSON/table output
-		disc, err = devlake.Discover(cfgURL)
+	// Use quiet discovery for JSON output, verbose for table
+	if outputJSON || queryPipelinesFormat == "json" {
+		// Quiet discovery for JSON output
+		disc, err := devlake.Discover(cfgURL)
 		if err != nil {
 			return fmt.Errorf("discovering DevLake: %w", err)
 		}
 		client = devlake.NewClient(disc.URL)
+	} else {
+		// Verbose discovery for table output
+		var disc *devlake.DiscoveryResult
+		client, disc, err = discoverClient(cfgURL)
+		if err != nil {
+			return fmt.Errorf("discovering DevLake: %w", err)
+		}
+		_ = disc // disc is used by discoverClient for output
 	}
 
 	// Get the query definition

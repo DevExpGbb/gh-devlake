@@ -50,12 +50,11 @@ func executeCopilotQuery(client *devlake.Client, params map[string]interface{}) 
 	// Check if gh-copilot plugin is configured
 	connections, err := client.ListConnections("gh-copilot")
 	if err != nil {
-		// Plugin might not be available
-		connections = []devlake.Connection{}
+		return nil, fmt.Errorf("listing gh-copilot connections: %w", err)
 	}
 
 	availableData := map[string]interface{}{
-		"projectName":           proj.Name,
+		"projectName":             proj.Name,
 		"copilotConnectionsFound": len(connections),
 	}
 
