@@ -83,20 +83,38 @@ Query DORA (DevOps Research and Assessment) metrics.
 gh devlake query dora --project <name> [flags]
 ```
 
-**Status:** 🚧 Not yet implemented
+**Status:** ⚠️ Partial implementation (limited by available API data)
 
-**Reason:** DevLake does not currently expose a metrics API endpoint. DORA metrics are calculated in Grafana dashboards using SQL queries against the domain layer tables, but these calculations are not available via the REST API.
+**What's available:**
+- Project metadata (name, description, blueprint info)
+- Clear explanation of limitations in the response
 
-**Workaround:** View DORA metrics in your Grafana dashboards:
+**What's not available:**
+Full DORA metric calculations (deployment frequency, lead time for changes, change failure rate, mean time to restore) require SQL queries against DevLake's domain layer tables. DevLake does not expose database credentials or a metrics API endpoint.
+
+**Current output (JSON):**
+
+```json
+{
+  "project": "my-team",
+  "timeframe": "30d",
+  "availableData": {
+    "project": { "name": "my-team", "blueprint": {...} }
+  },
+  "limitations": "Full DORA metrics require SQL against domain tables..."
+}
+```
+
+**Workaround for full metrics:** View DORA metrics in your Grafana dashboards:
 ```bash
 gh devlake status  # Shows Grafana URL
 ```
 
 Then navigate to the DORA dashboards in Grafana.
 
-**Future implementation requires:**
+**Full implementation requires:**
 1. Upstream DevLake metrics API endpoint
-2. OR direct database query support (requires DB credentials in state files)
+2. OR direct database query support (requires DB credentials)
 3. OR Grafana API integration to fetch dashboard data
 
 ---
@@ -109,20 +127,40 @@ Query GitHub Copilot usage metrics.
 gh devlake query copilot --project <name> [flags]
 ```
 
-**Status:** 🚧 Not yet implemented
+**Status:** ⚠️ Partial implementation (limited by available API data)
 
-**Reason:** DevLake does not currently expose a metrics API endpoint. Copilot metrics are stored in the `gh-copilot` plugin's database tables and visualized in Grafana dashboards, but not accessible via the REST API.
+**What's available:**
+- Project metadata (name, description, blueprint info)
+- GitHub Copilot connection information
+- Clear explanation of limitations in the response
 
-**Workaround:** View Copilot metrics in your Grafana dashboards:
+**What's not available:**
+Copilot usage metrics (total seats, active users, acceptance rates, language breakdowns, editor usage) are stored in `_tool_gh_copilot_*` database tables and visualized in Grafana dashboards, but DevLake does not expose a metrics API endpoint.
+
+**Current output (JSON):**
+
+```json
+{
+  "project": "my-team",
+  "timeframe": "30d",
+  "availableData": {
+    "project": { "name": "my-team", "blueprint": {...} },
+    "connections": [...]
+  },
+  "limitations": "Copilot metrics in _tool_gh_copilot_* tables require metrics API..."
+}
+```
+
+**Workaround for full metrics:** View Copilot metrics in your Grafana dashboards:
 ```bash
 gh devlake status  # Shows Grafana URL
 ```
 
 Then navigate to the Copilot dashboards in Grafana.
 
-**Future implementation requires:**
+**Full implementation requires:**
 1. Upstream DevLake metrics API endpoint for Copilot plugin
-2. OR direct database query support (requires DB credentials in state files)
+2. OR direct database query support (requires DB credentials)
 3. OR Grafana API integration to fetch dashboard data
 
 ---
@@ -136,12 +174,13 @@ These flags are inherited from the root command:
 
 ## Architecture Notes
 
-The `query` command is designed to be extensible:
+The `query` command uses the `internal/query/` package for extensible API-backed queries:
 
-- **Current:** The `pipelines` subcommand uses the existing `/pipelines` REST API endpoint
-- **Future:** The `dora` and `copilot` subcommands are placeholders awaiting upstream API support
+- **Pipelines:** Fully functional - queries the `/pipelines` REST API endpoint with filtering and formatting
+- **DORA:** Partial - returns project metadata from REST API; full metric calculations require SQL against domain tables
+- **Copilot:** Partial - returns project and connection metadata from REST API; usage metrics are in database tables not exposed via API
 
-When DevLake exposes metrics APIs, the existing command structure will remain the same — only the implementation will change from returning an error to fetching actual metrics.
+All queries use the query engine abstraction (`internal/query/engine.go`) with registered query definitions. When DevLake exposes metrics APIs in the future, only the query execution functions need to change - the command structure and engine remain the same.
 
 ## See Also
 
