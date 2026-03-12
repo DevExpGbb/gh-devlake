@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/DevExpGBB/gh-devlake/internal/devlake"
+	"github.com/DevExpGBB/gh-devlake/internal/query"
 	"github.com/spf13/cobra"
 )
 
@@ -39,18 +40,6 @@ func init() {
 	queryCmd.AddCommand(queryPipelinesCmd)
 }
 
-type pipelineQueryResult struct {
-	ID            int    `json:"id"`
-	Status        string `json:"status"`
-	BlueprintID   int    `json:"blueprintId,omitempty"`
-	CreatedAt     string `json:"createdAt,omitempty"`
-	BeganAt       string `json:"beganAt,omitempty"`
-	FinishedAt    string `json:"finishedAt,omitempty"`
-	FinishedTasks int    `json:"finishedTasks"`
-	TotalTasks    int    `json:"totalTasks"`
-	Message       string `json:"message,omitempty"`
-}
-
 func runQueryPipelines(cmd *cobra.Command, args []string) error {
 	// Discover DevLake instance
 	var disc *devlake.DiscoveryResult
@@ -71,66 +60,60 @@ func runQueryPipelines(cmd *cobra.Command, args []string) error {
 		client = devlake.NewClient(disc.URL)
 	}
 
-	// If --project is specified, resolve it to a blueprint ID
-	var blueprintID int
-	if queryPipelinesProject != "" {
-		proj, err := client.GetProject(queryPipelinesProject)
-		if err != nil {
-			return fmt.Errorf("getting project %q: %w", queryPipelinesProject, err)
-		}
-		if proj.Blueprint != nil {
-			blueprintID = proj.Blueprint.ID
-		} else {
-			return fmt.Errorf("project %q has no blueprint", queryPipelinesProject)
-		}
-	}
-
-	// Query pipelines
-	resp, err := client.ListPipelines(queryPipelinesStatus, blueprintID, 1, queryPipelinesLimit)
+	// Get the query definition
+	queryDef, err := query.Get("pipelines")
 	if err != nil {
-		return fmt.Errorf("listing pipelines: %w", err)
+		return fmt.Errorf("getting pipelines query: %w", err)
 	}
 
-	// Transform to output format
-	results := make([]pipelineQueryResult, len(resp.Pipelines))
-	for i, p := range resp.Pipelines {
-		results[i] = pipelineQueryResult{
-			ID:            p.ID,
-			Status:        p.Status,
-			BlueprintID:   p.BlueprintID,
-			CreatedAt:     p.CreatedAt,
-			BeganAt:       p.BeganAt,
-			FinishedAt:    p.FinishedAt,
-			FinishedTasks: p.FinishedTasks,
-			TotalTasks:    p.TotalTasks,
-			Message:       p.Message,
-		}
+	// Build parameters
+	params := map[string]interface{}{
+		"limit": queryPipelinesLimit,
+	}
+	if queryPipelinesProject != "" {
+		params["project"] = queryPipelinesProject
+	}
+	if queryPipelinesStatus != "" {
+		params["status"] = queryPipelinesStatus
+	}
+
+	// Execute the query
+	engine := query.NewEngine(client)
+	result, err := engine.Execute(queryDef, params)
+	if err != nil {
+		return fmt.Errorf("executing pipelines query: %w", err)
+	}
+
+	// Cast result to slice of PipelineResult
+	pipelines, ok := result.([]query.PipelineResult)
+	if !ok {
+		return fmt.Errorf("unexpected result type: %T", result)
 	}
 
 	// Output
 	if outputJSON || queryPipelinesFormat == "json" {
-		return printJSON(results)
+		return printJSON(pipelines)
 	}
 
 	// Table format
 	printBanner("DevLake — Pipeline Query")
-	if len(results) == 0 {
+	if len(pipelines) == 0 {
 		fmt.Println("\n  No pipelines found.")
 		return nil
 	}
 
-	fmt.Printf("\n  Found %d pipeline(s)\n", len(results))
+	fmt.Printf("\n  Found %d pipeline(s)\n", len(pipelines))
 	fmt.Println("  " + strings.Repeat("─", 80))
 	fmt.Printf("  %-6s  %-15s  %-10s  %-20s\n", "ID", "STATUS", "TASKS", "FINISHED AT")
 	fmt.Println("  " + strings.Repeat("─", 80))
-	for _, r := range results {
-		status := r.Status
-		tasks := fmt.Sprintf("%d/%d", r.FinishedTasks, r.TotalTasks)
-		finished := r.FinishedAt
+	for _, p := range pipelines {
+		status := p.Status
+		tasks := fmt.Sprintf("%d/%d", p.FinishedTasks, p.TotalTasks)
+		finished := p.FinishedAt
 		if finished == "" {
 			finished = "(running)"
 		}
-		fmt.Printf("  %-6d  %-15s  %-10s  %-20s\n", r.ID, status, tasks, finished)
+		fmt.Printf("  %-6d  %-15s  %-10s  %-20s\n", p.ID, status, tasks, finished)
 	}
 	fmt.Println()
 
