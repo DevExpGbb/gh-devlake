@@ -58,7 +58,12 @@ func executePipelinesQuery(client *devlake.Client, params map[string]interface{}
 	if l, ok := params["limit"].(int); ok {
 		limit = l
 	} else if l, ok := params["limit"].(string); ok {
-		fmt.Sscanf(l, "%d", &limit)
+		var parsedLimit int
+		n, err := fmt.Sscanf(l, "%d", &parsedLimit)
+		if err != nil || n != 1 {
+			return nil, fmt.Errorf("invalid limit value %q: must be a valid integer", l)
+		}
+		limit = parsedLimit
 	}
 
 	// Query pipelines via API
