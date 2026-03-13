@@ -77,20 +77,35 @@ Each command operates on one plugin at a time. Interactive mode prompts for plug
 
 When creating a new release:
 
-1. **Create the release** with `gh release create <tag> --repo DevExpGBB/gh-devlake --title "<title>" --notes "<notes>"`
+1. **Create the release** with `gh release create <tag> --repo DevExpGBB/gh-devlake --title "<title>" --notes "<notes>"` (or `--generate-notes` when appropriate).
 2. **Wait for the release workflow** — the `.github/workflows/release.yml` triggers on `v*` tag push and uses `cli/gh-extension-precompile@v2` to build cross-platform binaries. This takes ~60-90 seconds.
-3. **Verify assets were uploaded** — poll until all 12 platform binaries appear:
-   ```
-   gh release view <tag> --repo DevExpGBB/gh-devlake --json assets --jq '[.assets[].name] | length'
-   ```
-   Expected: 12 assets (darwin-amd64, darwin-arm64, freebsd-386, freebsd-amd64, freebsd-arm64, linux-386, linux-amd64, linux-arm, linux-arm64, windows-386.exe, windows-amd64.exe, windows-arm64.exe)
-4. **If assets are missing**, check the workflow run:
+3. **Verify the workflow finished successfully**:
    ```
    gh run list --repo DevExpGBB/gh-devlake --workflow release.yml --limit 1
+   gh run view <run-id> --repo DevExpGBB/gh-devlake --json status,conclusion,url
    ```
-   If failed, re-trigger by deleting and re-creating the tag, or manually re-run the workflow.
+4. **Verify assets were uploaded** — this is a separate required gate. Check both the count and the actual names:
+   ```
+   gh release view <tag> --repo DevExpGBB/gh-devlake --json assets --jq '.assets | length'
+   gh release view <tag> --repo DevExpGBB/gh-devlake --json assets --jq '.assets[].name'
+   ```
+   Expected count: **12** assets:
+   - `darwin-amd64`
+   - `darwin-arm64`
+   - `freebsd-386`
+   - `freebsd-amd64`
+   - `freebsd-arm64`
+   - `linux-386`
+   - `linux-amd64`
+   - `linux-arm`
+   - `linux-arm64`
+   - `windows-386.exe`
+   - `windows-amd64.exe`
+   - `windows-arm64.exe`
+5. **If the workflow succeeded but assets are missing**, keep polling the release first; do not declare success early.
+6. **If assets never appear or the workflow fails**, investigate the run and re-trigger by deleting and re-creating the tag, or manually re-run the workflow.
 
-> **Never mark a release as complete until all 12 assets are verified.**
+> **Never mark a release as complete after only creating the release or only seeing a green workflow. A release is complete only after the workflow succeeds and all 12 expected asset names are present on the GitHub release.**
 
 ## Key Design Decisions
 
