@@ -512,3 +512,34 @@ func (c *Client) TriggerMigration() error {
 	resp.Body.Close()
 	return nil
 }
+
+// PipelineListResponse is the response from GET /pipelines.
+type PipelineListResponse struct {
+	Pipelines []Pipeline `json:"pipelines"`
+	Count     int64      `json:"count"`
+}
+
+// ListPipelines returns pipelines with optional query parameters.
+// status can be empty, "TASK_CREATED", "TASK_RUNNING", "TASK_COMPLETED", "TASK_FAILED", etc.
+// blueprintID filters by blueprint (0 = no filter).
+// page and pageSize control pagination (0 = use defaults).
+func (c *Client) ListPipelines(status string, blueprintID, page, pageSize int) (*PipelineListResponse, error) {
+	path := "/pipelines"
+	q := url.Values{}
+	if status != "" {
+		q.Set("status", status)
+	}
+	if blueprintID > 0 {
+		q.Set("blueprint_id", fmt.Sprintf("%d", blueprintID))
+	}
+	if page > 0 {
+		q.Set("page", fmt.Sprintf("%d", page))
+	}
+	if pageSize > 0 {
+		q.Set("pagesize", fmt.Sprintf("%d", pageSize))
+	}
+	if len(q) > 0 {
+		path += "?" + q.Encode()
+	}
+	return doGet[PipelineListResponse](c, path)
+}
