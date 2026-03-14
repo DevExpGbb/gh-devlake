@@ -50,8 +50,6 @@ gh devlake init
 
 # Option 2: Step-by-step
 gh devlake deploy local --dir ./devlake
-cd devlake && docker compose up -d
-# wait ~2 minutes, then:
 gh devlake configure full
 ```
 
@@ -88,10 +86,9 @@ For a deeper explanation with diagrams, see [DevLake Concepts](docs/concepts.md)
 
 ```bash
 gh devlake deploy local --dir ./devlake
-cd devlake && docker compose up -d
 ```
 
-Downloads Docker Compose files, generates secrets, and prepares the stack. Give it ~2 minutes after `docker compose up`. See [docs/deploy.md](docs/deploy.md) for flags and details.
+Downloads Docker Compose files, generates secrets, starts the stack, and waits until DevLake is healthy. See [docs/deploy.md](docs/deploy.md) for flags and details.
 
 <details>
 <summary><strong>Deploying to Azure instead</strong></summary>
