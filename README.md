@@ -10,10 +10,7 @@ This CLI makes that setup fast and repeatable from the terminal (instead of clic
 
 > **Blog post:** [Beyond Copilot Dashboards: Measuring What AI Actually Changes](<!-- TODO: replace with actual blog URL -->) — why DORA + Copilot correlation matters and what this tool enables.
 
-> [!NOTE]
-> **GitHub Copilot plugin:** The Copilot metrics plugin is currently available in the [DevExpGBB/incubator-devlake](https://github.com/DevExpGBB/incubator-devlake) fork while the upstream PR ([apache/incubator-devlake#8728](https://github.com/apache/incubator-devlake/pull/8728)) is under review. The `deploy local` and `deploy azure` commands handle custom images automatically — no manual image builds needed. Once the PR merges, the official Apache images will include it.
-
-<!-- SCREENSHOT: Grafana DORA dashboard + Copilot Adoption dashboard side-by-side — the "payoff" -->
+<!-- SCREENSHOT:Grafana DORA dashboard + Copilot Adoption dashboard side-by-side — the "payoff" -->
 
 ---
 
