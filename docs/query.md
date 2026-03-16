@@ -144,7 +144,8 @@ Copilot usage metrics (total seats, active users, acceptance rates, language bre
   "project": "my-team",
   "timeframe": "30d",
   "availableData": {
-    "project": { "name": "my-team", "blueprint": {...} },
+    "projectName": "my-team",
+    "copilotConnectionsFound": 2,
     "connections": [...]
   },
   "limitations": "Copilot metrics in _tool_gh_copilot_* tables require metrics API..."
