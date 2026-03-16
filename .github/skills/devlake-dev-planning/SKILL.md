@@ -48,11 +48,18 @@ Semantic versioning: `MAJOR.MINOR.PATCH`
 - **MINOR** bumps for any new user-facing feature: new commands, new flags, new plugins — any additive capability.
 - **MAJOR (1.0)** — Reserved for production-ready stability declaration.
 
+> **Roadmap note:** the current post-`0.4.0` continuation plan is being tracked as a patch train (`0.4.1`, `0.4.2`, …) even where some releases include additive work. Treat the milestone map below as the source of truth for current release targeting.
+
 ### Milestone Plan
 
 - **0.3.x** — Current development line. CRUD subcommands, restructuring, and lifecycle commands.
-- **0.4.0** — Multi-tool expansion + plugin UX. GitLab (#13), Azure DevOps (#14), dynamic flag validation (#59).
-- **0.5.0** — AI-powered operations. Query engine (#62), Copilot SDK insights (#63), AI diagnose (#64), installable agent skill (#61).
+- **0.4.0** — Initial multi-tool expansion + plugin UX release. GitLab (#13), Azure DevOps (#14), dynamic flag validation (#59).
+- **0.4.1** — `gh devlake query` foundation (#62) + deterministic deploy recovery (#142).
+- **0.4.2** — Copilot SDK insights (#63) + Slack plugin support (#95).
+- **0.4.3** — `gh devlake diagnose` (#64) + installable agent skill (`#61`).
+- **0.4.4** — Preview agentic self-healing workflow (#143).
+- **0.4.5** — Amazon Q Developer plugin support (#94) + Poetry workaround cleanup tracking (#79, contingent on upstream fix).
+- **0.4.x** — Umbrella continuation line only; use the concrete `0.4.x` patch milestones above for issue targeting.
 
 > **Note:** Always query GitHub milestones for the latest status — this section is a snapshot.
 

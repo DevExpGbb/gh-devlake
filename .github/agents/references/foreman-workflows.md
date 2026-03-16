@@ -54,11 +54,12 @@ graph TB
     CA1 -.->|"reads"| INST
     CA2 -.->|"reads"| INST
 
-    %% Code review is primarily triggered by PR ready-for-review ruleset
+    %% Code review is explicitly requested after ready-for-review
     F -->|"mark ready for review"| PR1
     F -->|"mark ready for review"| PR2
-    PR1 -->|"ruleset assigns Code Review Agent"| CRA
-    PR2 -->|"ruleset assigns Code Review Agent"| CRA
+    F -->|"gh pr edit --add-reviewer @copilot"| CRA
+    CRA -->|"review comments"| PR1
+    CRA -->|"review comments"| PR2
     F -->|"github/request_copilot_review<br/>(fallback trigger)"| CRA
     CRA -->|"review comments"| PR1
     CRA -->|"review comments"| PR2
@@ -139,13 +140,14 @@ sequenceDiagram
     Note over Foreman,PRs: ═══ PHASE 3: CODE REVIEW LOOP (automatic) ═══
     loop Until no actionable comments remain
         Foreman->>PRs: Mark PRs ready for review
-        Foreman->>CodeReview: Request review (fallback if ruleset doesn't trigger)
+        Foreman->>CodeReview: `gh pr edit --add-reviewer "@copilot"`
         CodeReview-->>PRs: Review comments
         Foreman->>Foreman: Sleep 5 min, poll until reviews complete
         Foreman->>PRs: Collect + judge review comments
         alt Actionable comments found
             Foreman->>PRs: Post @copilot/@Claude/@Codex <fix>
             Foreman->>Foreman: Sleep 3 min, poll for new commits
+            Foreman->>CodeReview: Re-request fresh `@copilot` review after push
         else No actionable comments
             Note over Foreman: Exit review loop → Phase 4
         end

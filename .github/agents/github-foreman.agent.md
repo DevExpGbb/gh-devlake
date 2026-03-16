@@ -152,9 +152,9 @@ This phase runs seamlessly after dispatch. Do not ask the human to trigger it.
 
 This phase is iterative. It runs automatically and loops until Foreman judges there are no more actionable comments across all PRs.
 
-1. **Mark PRs ready for review** — Use `github/pull_request_write` to convert each draft PR to ready-for-review. The repo ruleset automatically triggers the Copilot Code Review Agent. If the ruleset fails to assign the agent within the polling window, use `github/request_copilot_review` as a fallback.
+1. **Mark PRs ready for review and explicitly request Copilot review** — Convert each draft PR to ready-for-review, then immediately request a fresh Code Review Agent pass with `gh pr edit <PR_NUMBER> --repo <owner>/<repo> --add-reviewer "@copilot"` via `runInTerminal`. Treat this CLI request as the primary trigger because it is deterministic and works even when repo rulesets are delayed or absent. If the CLI path is unavailable in the current environment, use `github/request_copilot_review` as the fallback trigger.
 
-2. **Wait for review completion** — Sleep **5 minutes** (`Start-Sleep -Seconds 300`), then poll in **2-minute** cycles (`Start-Sleep -Seconds 120`). Use `github/pull_request_read` with `method: "get_reviews"` on each PR and, for each PR, wait until there is a latest review from the Code Review Agent (by its reviewer identity) whose `state` is a terminal value such as `APPROVED`, `CHANGES_REQUESTED`, or `COMMENTED`. Continue polling until every PR has such a completed/submitted review from the Code Review Agent.
+2. **Wait for review completion** — Sleep **5 minutes** (`Start-Sleep -Seconds 300`), then poll in **2-minute** cycles (`Start-Sleep -Seconds 120`). Use `github/pull_request_read` with `method: "get_reviews"` on each PR and, for each PR, wait until there is a latest review from the Code Review Agent (by its reviewer identity) whose `state` is a terminal value such as `APPROVED`, `CHANGES_REQUESTED`, or `COMMENTED`. Treat each fresh `@copilot` request as starting a new review cycle; compare timestamps so Foreman judges only comments created in the latest cycle. Continue polling until every PR has such a completed/submitted review from the Code Review Agent.
 
 3. **Collect and judge comments** — Use `github/pull_request_read` with `method: "get_review_comments"` on each PR. Internally bucket all comments by severity — this summary is for Foreman's judgment only, not presented to the human yet:
    - **Blocking** — security issues, logic errors, incorrect behavior
@@ -163,7 +163,7 @@ This phase is iterative. It runs automatically and loops until Foreman judges th
 
 4. **Push actionable fixes** — For each comment Foreman judges actionable (aligns with project vision and conventions, does not introduce bugs or scope creep), mention the agent that created the PR: `@copilot`, `@claude[agent]`, or `@codex[agent]` followed by `<fix description>` via `github/add_issue_comment` on the relevant PR. Use best judgment — not every suggestion warrants implementation.
 
-5. **Wait and loop** — If any `@copilot` comments were posted in step 4: sleep **3 minutes** (`Start-Sleep -Seconds 180`), then poll in **2-minute** cycles until new commits appear on each updated PR. Once commits land, **loop back to step 2** — the Code Review Agent will re-trigger automatically via the ruleset (or use `github/request_copilot_review` as fallback).
+5. **Wait and loop** — If any `@copilot` comments were posted in step 4: sleep **3 minutes** (`Start-Sleep -Seconds 180`), then poll in **2-minute** cycles until new commits appear on each updated PR. Once commits land, **loop back to step 1** and issue a brand-new `gh pr edit ... --add-reviewer "@copilot"` request so the next cycle is explicit and timestamp-bounded.
 
 6. **Exit** — When step 4 produces no actionable fixes across all PRs, the code review loop is complete. Proceed to Phase 4.
 
@@ -254,7 +254,7 @@ When planning a wave, apply this quick decision tree:
 5. **Track everything** with the `todos` tool — every issue should have a trackable status (planned → dispatched → PR created → reviewed → merged).
 6. **Keep `.github/copilot-instructions.md` and `AGENTS.md` in sync** — when your wave changes CLI structure, ensure the Docs Writer updates both.
 7. **Draft issues on request** — when the human reports bugs or feature ideas, use Phase 1b to create well-structured issues with proper labels, milestones, and dependency cross-references.
-8. **Clean up branches after merge** — `gh pr merge --delete-branch` handles this automatically. If a branch was left behind, use `runInTerminal` with `gh api -X DELETE repos/{owner}/{repo}/git/refs/heads/{branch}`.
+8. **Clean up branches after merge** — `gh pr merge --delete-branch` handles this automatically. If a branch was left behind, use `runInTerminal` with `gh api -X DELETE repos/{owner}/{repo}/git/refs/heads/{branch}`. Also periodically prune stale local PR worktrees created for review/fix loops with `git worktree remove <path>` and `git worktree prune` once the related PRs are merged.
 9. **Verify release assets** — After creating a release with `gh release create`, always wait ~90 seconds for the release workflow to complete, then verify all 12 platform binaries were uploaded: `gh release view <tag> --repo DevExpGBB/gh-devlake --json assets --jq '[.assets[].name] | length'`. Never declare a release complete until asset count equals 12. If the workflow failed, check with `gh run list --workflow release.yml --limit 1` and re-trigger.
 
 ## Terminal Usage
