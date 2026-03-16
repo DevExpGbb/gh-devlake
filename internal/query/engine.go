@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/DevExpGBB/gh-devlake/internal/devlake"
 )
@@ -37,8 +38,11 @@ func (e *Engine) Execute(queryDef *QueryDef, params map[string]interface{}) (int
 		if _, ok := params[param.Name]; !ok {
 			// Parameter not provided
 			if param.Default != "" {
-				// Apply default value
-				params[param.Name] = param.Default
+				value, err := defaultValue(param)
+				if err != nil {
+					return nil, fmt.Errorf("parsing default for %q: %w", param.Name, err)
+				}
+				params[param.Name] = value
 			} else if param.Required {
 				// Required parameter missing with no default
 				return nil, fmt.Errorf("required parameter %q not provided", param.Name)
@@ -53,4 +57,15 @@ func (e *Engine) Execute(queryDef *QueryDef, params map[string]interface{}) (int
 // GetClient returns the underlying DevLake client.
 func (e *Engine) GetClient() *devlake.Client {
 	return e.client
+}
+
+func defaultValue(param QueryParam) (interface{}, error) {
+	switch param.Type {
+	case "", "string", "duration":
+		return param.Default, nil
+	case "int":
+		return strconv.Atoi(param.Default)
+	default:
+		return param.Default, nil
+	}
 }

@@ -20,6 +20,14 @@ var copilotQueryDef = &QueryDef{
 	Execute: executeCopilotQuery,
 }
 
+type CopilotConnectionSummary struct {
+	ID           int    `json:"id"`
+	Name         string `json:"name"`
+	Endpoint     string `json:"endpoint,omitempty"`
+	Organization string `json:"organization,omitempty"`
+	Enterprise   string `json:"enterprise,omitempty"`
+}
+
 // CopilotResult represents Copilot metrics that can be retrieved from available APIs.
 // NOTE: Copilot usage metrics (acceptance rates, language breakdowns) are stored in
 // _tool_gh_copilot_* tables but not exposed via REST API.
@@ -59,7 +67,7 @@ func executeCopilotQuery(client *devlake.Client, params map[string]interface{}) 
 	}
 
 	if len(connections) > 0 {
-		availableData["connections"] = connections
+		availableData["connections"] = summarizeCopilotConnections(connections)
 	}
 
 	result := CopilotResult{
@@ -74,4 +82,18 @@ func executeCopilotQuery(client *devlake.Client, params map[string]interface{}) 
 	}
 
 	return result, nil
+}
+
+func summarizeCopilotConnections(connections []devlake.Connection) []CopilotConnectionSummary {
+	result := make([]CopilotConnectionSummary, 0, len(connections))
+	for _, conn := range connections {
+		result = append(result, CopilotConnectionSummary{
+			ID:           conn.ID,
+			Name:         conn.Name,
+			Endpoint:     conn.Endpoint,
+			Organization: conn.Organization,
+			Enterprise:   conn.Enterprise,
+		})
+	}
+	return result
 }

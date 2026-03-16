@@ -10,6 +10,9 @@ func Register(def *QueryDef) {
 	if def == nil || def.Name == "" {
 		panic("cannot register nil or unnamed query")
 	}
+	if _, exists := registry[def.Name]; exists {
+		panic(fmt.Sprintf("query %q already registered", def.Name))
+	}
 	registry[def.Name] = def
 }
 

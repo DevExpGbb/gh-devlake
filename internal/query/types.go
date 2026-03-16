@@ -11,10 +11,10 @@ import (
 // Unlike the original SQL-based design, this uses HTTP API endpoints since
 // DevLake doesn't expose database credentials to external clients.
 type QueryDef struct {
-	Name        string            // e.g. "pipelines", "dora_metrics"
-	Description string            // human-readable description
-	Params      []QueryParam      // declared parameters with types and defaults
-	Execute     QueryExecuteFunc  // function that executes the query
+	Name        string           // e.g. "pipelines", "dora_metrics"
+	Description string           // human-readable description
+	Params      []QueryParam     // declared parameters with types and defaults
+	Execute     QueryExecuteFunc // function that executes the query
 }
 
 // QueryParam describes a parameter for a query.
@@ -31,6 +31,6 @@ type QueryExecuteFunc func(client *devlake.Client, params map[string]interface{}
 
 // QueryResult wraps the output of a query execution.
 type QueryResult struct {
-	Data   interface{}       // the actual result data
+	Data     interface{}       // the actual result data
 	Metadata map[string]string // optional metadata about the query
 }
