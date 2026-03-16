@@ -45,6 +45,9 @@ func runQueryPipelines(cmd *cobra.Command, args []string) error {
 	if queryPipelinesFormat != "json" && queryPipelinesFormat != "table" {
 		return fmt.Errorf("invalid --format value %q: must be 'json' or 'table'", queryPipelinesFormat)
 	}
+	if queryPipelinesLimit < 1 {
+		return fmt.Errorf("invalid --limit value %d: must be >= 1", queryPipelinesLimit)
+	}
 
 	// Discover DevLake instance
 	var client *devlake.Client

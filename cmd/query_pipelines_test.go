@@ -27,13 +27,40 @@ func TestQueryPipelines_InvalidFormat(t *testing.T) {
 }
 
 func TestQueryPipelines_JSONOutputNoBanner(t *testing.T) {
+	queryPipelinesProject = "my-team"
+	queryPipelinesStatus = "TASK_COMPLETED"
+	queryPipelinesLimit = 10
+	t.Cleanup(func() {
+		queryPipelinesProject = ""
+		queryPipelinesStatus = ""
+		queryPipelinesLimit = 20
+	})
+
 	// Mock DevLake API
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/ping" {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
+		if r.URL.Path == "/projects/my-team" {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(devlake.Project{
+				Name:      "my-team",
+				Blueprint: &devlake.Blueprint{ID: 7},
+			})
+			return
+		}
 		if r.URL.Path == "/pipelines" {
+			q := r.URL.Query()
+			if got := q.Get("blueprintId"); got != "7" {
+				t.Fatalf("expected blueprintId=7, got %q", got)
+			}
+			if got := q.Get("status"); got != "TASK_COMPLETED" {
+				t.Fatalf("expected status=TASK_COMPLETED, got %q", got)
+			}
+			if got := q.Get("pageSize"); got != "10" {
+				t.Fatalf("expected pageSize=10, got %q", got)
+			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(devlake.PipelineListResponse{
 				Pipelines: []devlake.Pipeline{
@@ -170,5 +197,19 @@ func TestQueryPipelines_GlobalJSONFlag(t *testing.T) {
 	var pipelines []query.PipelineResult
 	if err := json.Unmarshal([]byte(trimmed), &pipelines); err != nil {
 		t.Fatalf("output is not valid JSON: %v — got: %q", err, out)
+	}
+}
+
+func TestQueryPipelines_InvalidLimit(t *testing.T) {
+	origLimit := queryPipelinesLimit
+	queryPipelinesLimit = 0
+	t.Cleanup(func() { queryPipelinesLimit = origLimit })
+
+	err := runQueryPipelines(nil, nil)
+	if err == nil {
+		t.Fatal("expected error for invalid --limit, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid --limit value") {
+		t.Errorf("unexpected error message: %v", err)
 	}
 }
