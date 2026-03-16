@@ -16,10 +16,11 @@ var (
 	queryPipelinesFormat  string
 )
 
-var queryPipelinesCmd = &cobra.Command{
-	Use:   "pipelines",
-	Short: "Query recent pipeline runs",
-	Long: `Query recent pipeline runs for a project or across all projects.
+func newQueryPipelinesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "pipelines",
+		Short: "Query recent pipeline runs",
+		Long: `Query recent pipeline runs for a project or across all projects.
 
 Retrieves pipeline execution history with status, timing, and task completion
 information. Output is JSON by default; use --format table for human-readable display.
@@ -29,19 +30,16 @@ Examples:
   gh devlake query pipelines --project my-team
   gh devlake query pipelines --status TASK_COMPLETED --limit 10
   gh devlake query pipelines --format table`,
-	RunE: runQueryPipelines,
-}
-
-func init() {
-	queryPipelinesCmd.Flags().StringVar(&queryPipelinesProject, "project", "", "Filter by project name")
-	queryPipelinesCmd.Flags().StringVar(&queryPipelinesStatus, "status", "", "Filter by status (TASK_CREATED, TASK_RUNNING, TASK_COMPLETED, TASK_FAILED)")
-	queryPipelinesCmd.Flags().IntVar(&queryPipelinesLimit, "limit", 20, "Maximum number of pipelines to return")
-	queryPipelinesCmd.Flags().StringVar(&queryPipelinesFormat, "format", "json", "Output format (json or table)")
-	queryCmd.AddCommand(queryPipelinesCmd)
+		RunE: runQueryPipelines,
+	}
+	cmd.Flags().StringVar(&queryPipelinesProject, "project", "", "Filter by project name")
+	cmd.Flags().StringVar(&queryPipelinesStatus, "status", "", "Filter by status (TASK_CREATED, TASK_RUNNING, TASK_COMPLETED, TASK_FAILED)")
+	cmd.Flags().IntVar(&queryPipelinesLimit, "limit", 20, "Maximum number of pipelines to return")
+	cmd.Flags().StringVar(&queryPipelinesFormat, "format", "json", "Output format (json or table)")
+	return cmd
 }
 
 func runQueryPipelines(cmd *cobra.Command, args []string) error {
-	// Validate format flag
 	if queryPipelinesFormat != "json" && queryPipelinesFormat != "table" {
 		return fmt.Errorf("invalid --format value %q: must be 'json' or 'table'", queryPipelinesFormat)
 	}
@@ -49,35 +47,29 @@ func runQueryPipelines(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid --limit value %d: must be >= 1", queryPipelinesLimit)
 	}
 
-	// Discover DevLake instance
 	var client *devlake.Client
 	var err error
 
-	// Use quiet discovery for JSON output, verbose for table
 	if outputJSON || queryPipelinesFormat == "json" {
-		// Quiet discovery for JSON output
 		disc, err := devlake.Discover(cfgURL)
 		if err != nil {
 			return fmt.Errorf("discovering DevLake: %w", err)
 		}
 		client = devlake.NewClient(disc.URL)
 	} else {
-		// Verbose discovery for table output
 		var disc *devlake.DiscoveryResult
 		client, disc, err = discoverClient(cfgURL)
 		if err != nil {
 			return fmt.Errorf("discovering DevLake: %w", err)
 		}
-		_ = disc // disc is used by discoverClient for output
+		_ = disc
 	}
 
-	// Get the query definition
 	queryDef, err := query.Get("pipelines")
 	if err != nil {
 		return fmt.Errorf("getting pipelines query: %w", err)
 	}
 
-	// Build parameters
 	params := map[string]interface{}{
 		"limit": queryPipelinesLimit,
 	}
@@ -88,25 +80,21 @@ func runQueryPipelines(cmd *cobra.Command, args []string) error {
 		params["status"] = queryPipelinesStatus
 	}
 
-	// Execute the query
 	engine := query.NewEngine(client)
 	result, err := engine.Execute(queryDef, params)
 	if err != nil {
 		return fmt.Errorf("executing pipelines query: %w", err)
 	}
 
-	// Cast result to slice of PipelineResult
 	pipelines, ok := result.([]query.PipelineResult)
 	if !ok {
 		return fmt.Errorf("unexpected result type: %T", result)
 	}
 
-	// Output
 	if outputJSON || queryPipelinesFormat == "json" {
 		return printJSON(pipelines)
 	}
 
-	// Table format
 	printBanner("DevLake — Pipeline Query")
 	if len(pipelines) == 0 {
 		fmt.Println("\n  No pipelines found.")

@@ -52,14 +52,14 @@ func TestQueryPipelines_JSONOutputNoBanner(t *testing.T) {
 		}
 		if r.URL.Path == "/pipelines" {
 			q := r.URL.Query()
-			if got := q.Get("blueprintId"); got != "7" {
-				t.Fatalf("expected blueprintId=7, got %q", got)
+			if got := q.Get("blueprint_id"); got != "7" {
+				t.Fatalf("expected blueprint_id=7, got %q", got)
 			}
 			if got := q.Get("status"); got != "TASK_COMPLETED" {
 				t.Fatalf("expected status=TASK_COMPLETED, got %q", got)
 			}
-			if got := q.Get("pageSize"); got != "10" {
-				t.Fatalf("expected pageSize=10, got %q", got)
+			if got := q.Get("pagesize"); got != "10" {
+				t.Fatalf("expected pagesize=10, got %q", got)
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(devlake.PipelineListResponse{
