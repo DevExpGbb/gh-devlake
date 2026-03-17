@@ -145,6 +145,22 @@ services:
 `,
 			wantErr: true, // No changes made
 		},
+		{
+			name: "custom host port should not be rewritten",
+			input: `version: '3'
+services:
+  devlake:
+    ports:
+      - 18080:8080
+  grafana:
+    ports:
+      - 13002:3002
+  config-ui:
+    ports:
+      - 14000:4000
+`,
+			wantErr: true, // No matching ports to rewrite
+		},
 	}
 
 	for _, tt := range tests {

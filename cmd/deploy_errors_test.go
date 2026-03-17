@@ -61,6 +61,21 @@ func TestExtractPortFromError(t *testing.T) {
 			errStr:   "",
 			wantPort: "",
 		},
+		{
+			name:     "port 0 should be rejected",
+			errStr:   "Error response from daemon: Bind for 0.0.0.0:0 failed",
+			wantPort: "",
+		},
+		{
+			name:     "port 00000 should be rejected",
+			errStr:   "Error response from daemon: Bind for 0.0.0.0:00000 failed",
+			wantPort: "",
+		},
+		{
+			name:     "port 65536 should be rejected",
+			errStr:   "Error response from daemon: Bind for 0.0.0.0:65536 failed",
+			wantPort: "",
+		},
 	}
 
 	for _, tt := range tests {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -215,8 +216,10 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 		if !deployLocalQuiet {
 			printBanner("✅ DevLake is running!")
 			fmt.Printf("\n  Backend API: %s\n", backendURL)
-			fmt.Println("  Config UI:   http://localhost:4000")
-			fmt.Println("  Grafana:     http://localhost:3002 (admin/admin)")
+			// Infer companion URLs based on which backend port responded
+			grafanaURL, configUIURL := inferCompanionURLs(backendURL)
+			fmt.Printf("  Config UI:   %s\n", configUIURL)
+			fmt.Printf("  Grafana:     %s (admin/admin)\n", grafanaURL)
 			fmt.Println("\nTo stop/remove DevLake:")
 			fmt.Printf("  cd \"%s\" && gh devlake cleanup\n", absDir)
 		}
@@ -465,8 +468,7 @@ func startLocalContainers(dir string, build, allowPortFallback bool, services ..
 	}
 
 	// Bounded recovery: Try alternate port bundle once
-	fmt.Println()
-	fmt.Printf("🔧 Port conflict detected on default ports (8080/3002/4000)\n")
+	fmt.Println("\n🔧 Port conflict detected on default ports (8080/3002/4000)")
 	if deployErr.Port != "" {
 		fmt.Printf("   Port %s is in use", deployErr.Port)
 		if deployErr.Container != "" {
@@ -474,8 +476,7 @@ func startLocalContainers(dir string, build, allowPortFallback bool, services ..
 		}
 		fmt.Println()
 	}
-	fmt.Println()
-	fmt.Println("🔄 Retrying with alternate ports (8085/3004/4004)...")
+	fmt.Println("\n🔄 Retrying with alternate ports (8085/3004/4004)...")
 
 	// Rewrite port mappings in docker-compose.yml or docker-compose-dev.yml
 	composePath := filepath.Join(absDir, "docker-compose.yml")
@@ -530,6 +531,7 @@ func waitAndDetectBackendURL(dir string) (string, error) {
 
 // rewriteComposePorts rewrites the port mappings in a docker-compose.yml file
 // from the default bundle (8080/3002/4000) to the alternate bundle (8085/3004/4004).
+// Uses regex with proper boundaries to avoid rewriting custom ports like 18080:8080.
 func rewriteComposePorts(composePath string) error {
 	data, err := os.ReadFile(composePath)
 	if err != nil {
@@ -537,31 +539,26 @@ func rewriteComposePorts(composePath string) error {
 	}
 
 	content := string(data)
+	modified := content
 
-	// Port mapping patterns:
-	// - "8080:8080" -> "8085:8080" (external:internal)
-	// - "3002:3002" -> "3004:3002"
-	// - "4000:4000" -> "4004:4000"
-	portMappings := map[string]string{
-		"8080:8080": "8085:8080",
-		"- 8080:8080": "- 8085:8080",
-		"\"8080:8080\"": "\"8085:8080\"",
-		"'8080:8080'": "'8085:8080'",
-
-		"3002:3002": "3004:3002",
-		"- 3002:3002": "- 3004:3002",
-		"\"3002:3002\"": "\"3004:3002\"",
-		"'3002:3002'": "'3004:3002'",
-
-		"4000:4000": "4004:4000",
-		"- 4000:4000": "- 4004:4000",
-		"\"4000:4000\"": "\"4004:4000\"",
-		"'4000:4000'": "'4004:4000'",
+	// Port mapping patterns with regex boundaries
+	// Match: "- 8080:8080" or "- "8080:8080"" or "- '8080:8080'" at start of list item
+	// Avoid: "- 18080:8080" (custom host port that contains 8080)
+	portReplacements := []struct {
+		pattern     string
+		replacement string
+	}{
+		// Backend: 8080:8080 -> 8085:8080
+		{`(?m)(^\s*-\s*)["']?8080:8080["']?`, `${1}8085:8080`},
+		// Grafana: 3002:3002 -> 3004:3002
+		{`(?m)(^\s*-\s*)["']?3002:3002["']?`, `${1}3004:3002`},
+		// Config UI: 4000:4000 -> 4004:4000
+		{`(?m)(^\s*-\s*)["']?4000:4000["']?`, `${1}4004:4000`},
 	}
 
-	modified := content
-	for old, new := range portMappings {
-		modified = strings.ReplaceAll(modified, old, new)
+	for _, repl := range portReplacements {
+		re := regexp.MustCompile(repl.pattern)
+		modified = re.ReplaceAllString(modified, repl.replacement)
 	}
 
 	if modified == content {
@@ -573,4 +570,14 @@ func rewriteComposePorts(composePath string) error {
 	}
 
 	return nil
+}
+
+// inferCompanionURLs returns the Grafana and Config UI URLs based on the backend URL.
+// Backend on 8080 -> Grafana on 3002, Config UI on 4000
+// Backend on 8085 -> Grafana on 3004, Config UI on 4004
+func inferCompanionURLs(backendURL string) (grafanaURL, configUIURL string) {
+	if strings.Contains(backendURL, ":8085") {
+		return "http://localhost:3004", "http://localhost:4004"
+	}
+	return "http://localhost:3002", "http://localhost:4000"
 }

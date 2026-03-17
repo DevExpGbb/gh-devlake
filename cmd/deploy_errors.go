@@ -101,7 +101,10 @@ func extractPortFromError(errStr string) string {
 	if idx := strings.Index(lowerStr, "bind for 0.0.0.0:"); idx != -1 {
 		rest := errStr[idx+len("bind for 0.0.0.0:"):]
 		if end := strings.IndexAny(rest, " :\n"); end > 0 {
-			return rest[:end]
+			port := rest[:end]
+			if isValidPort(port) {
+				return port
+			}
 		}
 	}
 
@@ -109,7 +112,10 @@ func extractPortFromError(errStr string) string {
 	if idx := strings.Index(errStr, "0.0.0.0:"); idx != -1 {
 		rest := errStr[idx+len("0.0.0.0:"):]
 		if end := strings.IndexAny(rest, " ->\n"); end > 0 {
-			return rest[:end]
+			port := rest[:end]
+			if isValidPort(port) {
+				return port
+			}
 		}
 	}
 
@@ -121,14 +127,20 @@ func extractPortFromError(errStr string) string {
 			rest = rest[1:]
 		}
 		if end := strings.IndexAny(rest, " )\n"); end > 0 {
-			return rest[:end]
+			port := rest[:end]
+			if isValidPort(port) {
+				return port
+			}
 		}
 		// If no delimiter found, but there are digits, use them
 		if len(rest) > 0 {
 			for i, ch := range rest {
 				if ch < '0' || ch > '9' {
 					if i > 0 {
-						return rest[:i]
+						port := rest[:i]
+						if isValidPort(port) {
+							return port
+						}
 					}
 					break
 				}
@@ -186,14 +198,12 @@ func isValidPort(s string) bool {
 			return false
 		}
 	}
-	// Basic range check (ports are 1-65535)
-	if len(s) == 5 {
-		// Quick check: if > 65535, invalid
-		if s > "65535" {
-			return false
-		}
+	// Parse to int and validate range 1-65535
+	port := 0
+	for _, ch := range s {
+		port = port*10 + int(ch-'0')
 	}
-	return true
+	return port >= 1 && port <= 65535
 }
 
 // findPortOwner queries Docker to find which container is using the specified port.
@@ -249,11 +259,10 @@ func findPortOwner(port string) (string, string) {
 // printDockerPortConflictError prints a user-friendly error message for port conflicts
 // with actionable remediation steps.
 func printDockerPortConflictError(de *DeployError) {
-	fmt.Println()
 	if de.Port != "" {
-		fmt.Printf("❌ Port conflict detected: port %s is already in use.\n", de.Port)
+		fmt.Printf("\n❌ Port conflict detected: port %s is already in use.\n", de.Port)
 	} else {
-		fmt.Println("❌ Port conflict detected: a required port is already in use.")
+		fmt.Println("\n❌ Port conflict detected: a required port is already in use.")
 	}
 
 	if de.Container != "" {

@@ -18,6 +18,9 @@ gh devlake deploy local [flags]
 |------|---------|-------------|
 | `--dir` | `.` | Target directory for Docker Compose files |
 | `--version` | `latest` | DevLake release version (e.g., `v1.0.2`) |
+| `--source` | *(interactive if omitted)* | Image source: `official`, `fork`, or `custom` |
+| `--repo-url` | | Repository URL to clone (for `fork` source) |
+| `--start` | `true` | Start containers after setup |
 
 ### What It Does
 
@@ -70,8 +73,8 @@ docker compose up -d
 
 The CLI includes bounded recovery for common Docker errors:
 
-- **Port conflicts**: When deploying with official or fork images, the CLI detects port conflicts (patterns: `port is already allocated`, `ports are not available`, `address already in use`, `failed programming external connectivity`) and automatically retries with alternate ports (`8085/3004/4004`). Recovery is bounded to a single retry.
-- **Custom deployments**: Port conflicts in custom deployments require manual resolution — the CLI will identify the conflicting container and suggest remediation commands.
+- **Port conflicts**: When deploying with `--source official` or `--source fork`, the CLI detects port conflicts (patterns: `port is already allocated`, `bind for`, `ports are not available`, `address already in use`, `failed programming external connectivity`) and automatically retries with alternate ports (`8085/3004/4004`). Recovery is bounded to a single retry.
+- **Custom deployments**: Port conflicts in `--source custom` deployments require manual resolution — the CLI will identify the conflicting container and suggest remediation commands.
 - **State checkpointing**: Deployment state is saved early to enable cleanup even when deployment fails mid-flight.
 
 ---
