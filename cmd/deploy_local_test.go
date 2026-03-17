@@ -334,3 +334,12 @@ func TestDetectPortBundle_FileNotFound(t *testing.T) {
 		t.Errorf("detectPortBundle() for nonexistent file = %v, want %v (default)", got, portBundleDefault)
 	}
 }
+
+func TestExtractServicePorts_MissingFile(t *testing.T) {
+	// Should return empty map for non-existent file
+	ports := extractServicePorts("/nonexistent/docker-compose.yml", "devlake")
+	if len(ports) != 0 {
+		t.Errorf("extractServicePorts() for nonexistent file returned %v, want empty map", ports)
+	}
+}
+

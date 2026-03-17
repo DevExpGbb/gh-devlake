@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -216,8 +219,9 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 		if !deployLocalQuiet {
 			printBanner("✅ DevLake is running!")
 			fmt.Printf("\n  Backend API: %s\n", backendURL)
-			// Infer companion URLs based on which backend port responded
-			grafanaURL, configUIURL := inferCompanionURLs(backendURL)
+			// Infer companion URLs based on compose file ports
+			composePath := filepath.Join(absDir, "docker-compose.yml")
+			grafanaURL, configUIURL := inferCompanionURLs(backendURL, composePath)
 			fmt.Printf("  Config UI:   %s\n", configUIURL)
 			fmt.Printf("  Grafana:     %s (admin/admin)\n", grafanaURL)
 			fmt.Println("\nTo stop/remove DevLake:")
@@ -551,9 +555,23 @@ func startLocalContainers(dir string, build, allowPortFallback bool, services ..
 	return "", fmt.Errorf("unexpected port bundle detection result")
 }
 
-// waitAndDetectBackendURL polls both possible backend URLs and returns the responsive one.
+// waitAndDetectBackendURL polls the backend URL extracted from the compose file.
+// Falls back to probing both 8080 and 8085 if extraction fails.
 func waitAndDetectBackendURL(dir string) (string, error) {
-	backendURLCandidates := []string{"http://localhost:8080", "http://localhost:8085"}
+	composePath := filepath.Join(dir, "docker-compose.yml")
+
+	// Try to extract the actual backend port from the compose file
+	ports := extractServicePorts(composePath, "devlake")
+	var backendURLCandidates []string
+
+	if backendPort, ok := ports["devlake"]; ok {
+		// Use the extracted port
+		backendURLCandidates = []string{fmt.Sprintf("http://localhost:%d", backendPort)}
+	} else {
+		// Fall back to probing both default and alternate ports
+		backendURLCandidates = []string{"http://localhost:8080", "http://localhost:8085"}
+	}
+
 	fmt.Println("\n⏳ Waiting for DevLake to be ready...")
 	fmt.Println("   Giving MySQL time to initialize (this takes ~30s on first run)...")
 	time.Sleep(30 * time.Second)
@@ -576,8 +594,8 @@ const (
 
 // detectPortBundle analyzes a compose file to determine which port bundle it uses.
 // Returns:
-// - portBundleDefault if compose file has 8080:8080, 3002:3002, 4000:4000
-// - portBundleAlternate if compose file has 8085:8080, 3004:3002, 4004:4000
+// - portBundleDefault if compose file contains any of 8080:8080, 3002:3002, or 4000:4000
+// - portBundleAlternate if compose file contains any of 8085:8080, 3004:3002, or 4004:4000
 // - portBundleCustom if compose file has other custom host ports
 func detectPortBundle(composePath string) portBundle {
 	data, err := os.ReadFile(composePath)
@@ -665,12 +683,89 @@ func rewriteComposePorts(composePath string) error {
 	return nil
 }
 
-// inferCompanionURLs returns the Grafana and Config UI URLs based on the backend URL.
-// Backend on 8080 -> Grafana on 3002, Config UI on 4000
-// Backend on 8085 -> Grafana on 3004, Config UI on 4004
-func inferCompanionURLs(backendURL string) (grafanaURL, configUIURL string) {
-	if strings.Contains(backendURL, ":8085") {
-		return "http://localhost:3004", "http://localhost:4004"
+// extractServicePorts parses the docker-compose.yml file and extracts host ports for the specified services.
+// Returns a map of service name to host port (e.g., "devlake" -> 8080).
+// Returns empty map if parsing fails or service not found.
+func extractServicePorts(composePath string, serviceNames ...string) map[string]int {
+	result := make(map[string]int)
+
+	// Use docker compose config to parse the compose file reliably
+	cmd := exec.Command("docker", "compose", "-f", composePath, "config", "--format", "json")
+	output, err := cmd.Output()
+	if err != nil {
+		// Silently return empty map - caller will fall back to default behavior
+		return result
 	}
-	return "http://localhost:3002", "http://localhost:4000"
+
+	var config struct {
+		Services map[string]struct {
+			Ports []struct {
+				Published string `json:"published,omitempty"`
+				Target    int    `json:"target,omitempty"`
+			} `json:"ports,omitempty"`
+		} `json:"services"`
+	}
+
+	if err := json.Unmarshal(output, &config); err != nil {
+		return result
+	}
+
+	// Extract host ports for requested services
+	for _, serviceName := range serviceNames {
+		service, exists := config.Services[serviceName]
+		if !exists {
+			continue
+		}
+
+		// Find the first published port mapping
+		for _, port := range service.Ports {
+			if port.Published != "" {
+				// Published can be a port number as string
+				if hostPort, err := strconv.Atoi(port.Published); err == nil {
+					result[serviceName] = hostPort
+					break
+				}
+			}
+		}
+	}
+
+	return result
+}
+
+// inferCompanionURLs extracts and returns the actual Grafana and Config UI URLs from the compose file.
+// Falls back to inferring from backend URL if extraction fails.
+func inferCompanionURLs(backendURL string, composePath string) (grafanaURL, configUIURL string) {
+	// Try to extract actual ports from compose file
+	ports := extractServicePorts(composePath, "grafana", "config-ui")
+
+	if grafanaPort, ok := ports["grafana"]; ok {
+		grafanaURL = fmt.Sprintf("http://localhost:%d", grafanaPort)
+	}
+	if configUIPort, ok := ports["config-ui"]; ok {
+		configUIURL = fmt.Sprintf("http://localhost:%d", configUIPort)
+	}
+
+	// If extraction succeeded for both, return
+	if grafanaURL != "" && configUIURL != "" {
+		return grafanaURL, configUIURL
+	}
+
+	// Fall back to inference from backend URL
+	if strings.Contains(backendURL, ":8085") {
+		if grafanaURL == "" {
+			grafanaURL = "http://localhost:3004"
+		}
+		if configUIURL == "" {
+			configUIURL = "http://localhost:4004"
+		}
+	} else {
+		if grafanaURL == "" {
+			grafanaURL = "http://localhost:3002"
+		}
+		if configUIURL == "" {
+			configUIURL = "http://localhost:4000"
+		}
+	}
+
+	return grafanaURL, configUIURL
 }

@@ -4,7 +4,7 @@ Deploy DevLake locally via Docker Compose or to Azure via Bicep.
 
 ## deploy local
 
-Downloads the official Apache DevLake Docker Compose files, generates an `ENCRYPTION_SECRET`, and starts DevLake containers (by default).
+Sets up DevLake Docker Compose files and starts containers (by default). Supports official Apache releases, forked repositories, or custom compose configurations.
 
 ### Usage
 
@@ -24,11 +24,25 @@ gh devlake deploy local [flags]
 
 ### What It Does
 
+Depending on `--source`:
+
+**official** (default):
 1. Fetches the latest release tag from GitHub (or uses `--version`)
 2. Downloads `docker-compose.yml` and `env.example` from the Apache DevLake release
 3. Renames `env.example` → `.env`
 4. Generates and injects a cryptographic `ENCRYPTION_SECRET` into `.env`
 5. Checks that Docker is available
+
+**fork**:
+1. Clones the repository specified by `--repo-url`
+2. Builds DevLake images from source
+3. Generates `.env` with `ENCRYPTION_SECRET`
+4. Checks that Docker is available
+
+**custom**:
+1. Uses the existing `docker-compose.yml` in the target directory
+2. Generates or updates `.env` with `ENCRYPTION_SECRET` if needed
+3. Checks that Docker is available
 
 ### After Running
 
