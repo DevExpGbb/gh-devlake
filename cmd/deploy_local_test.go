@@ -224,9 +224,9 @@ func TestRewriteComposePorts_FileNotFound(t *testing.T) {
 
 func TestDetectPortBundle(t *testing.T) {
 	tests := []struct {
-		name   string
-		input  string
-		want   portBundle
+		name  string
+		input string
+		want  portBundle
 	}{
 		{
 			name: "default port bundle",
@@ -343,3 +343,60 @@ func TestExtractServicePorts_MissingFile(t *testing.T) {
 	}
 }
 
+func TestNewDeployLocalCmd(t *testing.T) {
+	cmd := newDeployLocalCmd()
+
+	if cmd.Use != "local" {
+		t.Errorf("expected Use 'local', got %q", cmd.Use)
+	}
+	if cmd.Short != "Deploy DevLake locally via Docker Compose" {
+		t.Errorf("unexpected Short: %q", cmd.Short)
+	}
+	if !strings.Contains(cmd.Long, "alternate ports (8085/3004/4004)") {
+		t.Errorf("expected Long help to mention alternate port fallback, got: %q", cmd.Long)
+	}
+
+	for _, flag := range []string{"dir", "version", "source", "repo-url", "start"} {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("expected --%s flag to be registered", flag)
+		}
+	}
+
+	if got := cmd.Flags().Lookup("start").DefValue; got != "true" {
+		t.Errorf("expected --start default true, got %q", got)
+	}
+}
+
+func TestInferCompanionURLs_FallbackFromBackendURL(t *testing.T) {
+	tests := []struct {
+		name         string
+		backendURL   string
+		wantGrafana  string
+		wantConfigUI string
+	}{
+		{
+			name:         "default bundle",
+			backendURL:   "http://localhost:8080",
+			wantGrafana:  "http://localhost:3002",
+			wantConfigUI: "http://localhost:4000",
+		},
+		{
+			name:         "alternate bundle",
+			backendURL:   "http://localhost:8085",
+			wantGrafana:  "http://localhost:3004",
+			wantConfigUI: "http://localhost:4004",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			grafanaURL, configUIURL := inferCompanionURLs(tt.backendURL, "/nonexistent/docker-compose.yml")
+			if grafanaURL != tt.wantGrafana {
+				t.Errorf("grafanaURL = %q, want %q", grafanaURL, tt.wantGrafana)
+			}
+			if configUIURL != tt.wantConfigUI {
+				t.Errorf("configUIURL = %q, want %q", configUIURL, tt.wantConfigUI)
+			}
+		})
+	}
+}

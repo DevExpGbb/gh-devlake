@@ -56,13 +56,13 @@ gh devlake deploy local --dir ./devlake
 gh devlake configure full
 ```
 
-After setup, open Grafana at **http://localhost:3002** (admin / admin). DORA and Copilot dashboards will populate after the first sync completes.
+After setup, open the URL bundle printed by `gh devlake deploy local`. Local deploys normally use `8080/4000/3002`, and automatically fall back once to `8085/4004/3004` when the default ports are already in use. DORA and Copilot dashboards will populate after the first sync completes.
 
 | Service | URL |
 |---------|-----|
-| Grafana | http://localhost:3002 (admin/admin) |
-| Config UI | http://localhost:4000 |
-| Backend API | http://localhost:8080 |
+| Grafana | http://localhost:3002 or http://localhost:3004 (admin/admin) |
+| Config UI | http://localhost:4000 or http://localhost:4004 |
+| Backend API | http://localhost:8080 or http://localhost:8085 |
 
 ---
 

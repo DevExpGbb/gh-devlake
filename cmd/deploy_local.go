@@ -48,6 +48,11 @@ Image source (interactive prompt or flags):
   fork      Clone a DevLake repo and build images from source
   custom    Use your own docker-compose.yml already in the target directory
 
+For official and fork deployments, if the default local port bundle
+(8080/3002/4000) is already in use, the CLI automatically retries once with
+alternate ports (8085/3004/4004). Custom deployments require manual port
+conflict resolution.
+
 Example:
   gh devlake deploy local
   gh devlake deploy local --version v1.0.2 --dir ./devlake
@@ -587,9 +592,9 @@ func waitAndDetectBackendURL(dir string) (string, error) {
 type portBundle int
 
 const (
-	portBundleDefault  portBundle = iota // 8080/3002/4000
-	portBundleAlternate                  // 8085/3004/4004
-	portBundleCustom                     // Other custom ports
+	portBundleDefault   portBundle = iota // 8080/3002/4000
+	portBundleAlternate                   // 8085/3004/4004
+	portBundleCustom                      // Other custom ports
 )
 
 // detectPortBundle analyzes a compose file to determine which port bundle it uses.

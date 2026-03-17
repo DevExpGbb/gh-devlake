@@ -37,11 +37,11 @@ The CLI finds the DevLake API endpoint using this priority:
 |----------|--------|
 | 1 | `--url` flag (explicit) |
 | 2 | State file in the current directory (`.devlake-azure.json` → `.devlake-local.json`) |
-| 3 | Well-known local ports (`http://localhost:8080`) |
+| 3 | Well-known local ports (`http://localhost:8080` or `http://localhost:8085`) |
 
 ## Location
 
-State files are written to the **current working directory** when the command runs. Run your commands from the same directory (typically the one where you ran `deploy local` or `deploy azure`), or use `--url` to bypass state-based discovery.
+State files are written to the **current working directory** when the command runs. Run your commands from the same directory (typically the one where you ran `deploy local` or `deploy azure`), or use `--url` to bypass state-based discovery when DevLake is instead reachable on the well-known local endpoints (`http://localhost:8080` or `http://localhost:8085`).
 
 ## Cleanup
 
