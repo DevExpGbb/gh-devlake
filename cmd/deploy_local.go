@@ -497,7 +497,7 @@ func startLocalContainers(dir string, build, allowPortFallback bool, services ..
 				header += fmt.Sprintf(" by container: %s", deployErr.Container)
 			}
 		}
-		nextSteps := "\n   The alternate port bundle is already in use.\n   Free ports 8085/3004/4004, then retry deployment."
+		nextSteps := "   The alternate port bundle is already in use.\n   Free ports 8085/3004/4004, then retry deployment."
 		printDockerPortConflictError(deployErr, header, nextSteps)
 		return "", fmt.Errorf("port conflict on alternate ports: %w", err)
 
@@ -511,7 +511,7 @@ func startLocalContainers(dir string, build, allowPortFallback bool, services ..
 				header += fmt.Sprintf(" by container: %s", deployErr.Container)
 			}
 		}
-		nextSteps := "\n   Edit your docker-compose.yml to use different host ports, or stop the conflicting container."
+		nextSteps := "   Edit your docker-compose.yml to use different host ports, or stop the conflicting container."
 		printDockerPortConflictError(deployErr, header, nextSteps)
 		return "", fmt.Errorf("port conflict on custom ports: %w", err)
 
@@ -544,7 +544,7 @@ func startLocalContainers(dir string, build, allowPortFallback bool, services ..
 			if retryErr != nil && retryErr.Class == ErrorClassDockerPortConflict {
 				// Build header that indicates both bundles failed
 				header := "\n❌ Alternate ports are also in use."
-				nextSteps := "\n   Both default (8080/3002/4000) and alternate (8085/3004/4004) port bundles are occupied.\n   Free at least one bundle, then retry deployment."
+				nextSteps := "   Both default (8080/3002/4000) and alternate (8085/3004/4004) port bundles are occupied.\n   Free at least one bundle, then retry deployment."
 				printDockerPortConflictError(retryErr, header, nextSteps)
 			} else {
 				fmt.Println("\n💡 To clean up partial artifacts:")
@@ -640,7 +640,7 @@ func detectPortBundle(composePath string) portBundle {
 }
 
 // composeFileHasDefaultPorts checks if a compose file contains the default port bundle (8080/3002/4000).
-// Returns true if any of the default ports are found, false if the file is already on alternate ports.
+// Returns true only for the default bundle, and false for alternate or other custom port mappings.
 func composeFileHasDefaultPorts(composePath string) bool {
 	return detectPortBundle(composePath) == portBundleDefault
 }
