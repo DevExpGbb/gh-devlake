@@ -221,3 +221,116 @@ func TestRewriteComposePorts_FileNotFound(t *testing.T) {
 		t.Errorf("rewriteComposePorts() error = %v, want error about reading compose file", err)
 	}
 }
+
+func TestDetectPortBundle(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		want   portBundle
+	}{
+		{
+			name: "default port bundle",
+			input: `version: '3'
+services:
+  devlake:
+    ports:
+      - 8080:8080
+  grafana:
+    ports:
+      - 3002:3002
+  config-ui:
+    ports:
+      - 4000:4000
+`,
+			want: portBundleDefault,
+		},
+		{
+			name: "alternate port bundle",
+			input: `version: '3'
+services:
+  devlake:
+    ports:
+      - 8085:8080
+  grafana:
+    ports:
+      - 3004:3002
+  config-ui:
+    ports:
+      - 4004:4000
+`,
+			want: portBundleAlternate,
+		},
+		{
+			name: "custom port bundle",
+			input: `version: '3'
+services:
+  devlake:
+    ports:
+      - 18080:8080
+  grafana:
+    ports:
+      - 13002:3002
+  config-ui:
+    ports:
+      - 14000:4000
+`,
+			want: portBundleCustom,
+		},
+		{
+			name: "mixed custom and unrelated ports",
+			input: `version: '3'
+services:
+  mysql:
+    ports:
+      - 3306:3306
+  devlake:
+    ports:
+      - 9090:8080
+`,
+			want: portBundleCustom,
+		},
+		{
+			name: "partial default bundle (has at least one default port)",
+			input: `version: '3'
+services:
+  devlake:
+    ports:
+      - 8080:8080
+`,
+			want: portBundleDefault,
+		},
+		{
+			name: "partial alternate bundle (has at least one alternate port)",
+			input: `version: '3'
+services:
+  devlake:
+    ports:
+      - 8085:8080
+`,
+			want: portBundleAlternate,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temp file
+			tmpDir := t.TempDir()
+			composePath := filepath.Join(tmpDir, "docker-compose.yml")
+			if err := os.WriteFile(composePath, []byte(tt.input), 0644); err != nil {
+				t.Fatalf("Failed to write test compose file: %v", err)
+			}
+
+			got := detectPortBundle(composePath)
+			if got != tt.want {
+				t.Errorf("detectPortBundle() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDetectPortBundle_FileNotFound(t *testing.T) {
+	got := detectPortBundle("/nonexistent/path/docker-compose.yml")
+	if got != portBundleDefault {
+		t.Errorf("detectPortBundle() for nonexistent file = %v, want %v (default)", got, portBundleDefault)
+	}
+}

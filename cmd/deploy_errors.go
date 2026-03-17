@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -96,15 +97,12 @@ func classifyDockerComposeError(err error) *DeployError {
 // - "bind: address already in use (listening on [::]:8080)"
 // - "failed programming external connectivity on endpoint devlake (8080/tcp)"
 func extractPortFromError(errStr string) string {
-	// Pattern 1: "Bind for 0.0.0.0:PORT" (case-insensitive)
-	lowerStr := strings.ToLower(errStr)
-	if idx := strings.Index(lowerStr, "bind for 0.0.0.0:"); idx != -1 {
-		rest := errStr[idx+len("bind for 0.0.0.0:"):]
-		if end := strings.IndexAny(rest, " :\n"); end > 0 {
-			port := rest[:end]
-			if isValidPort(port) {
-				return port
-			}
+	// Pattern 1: "Bind for 0.0.0.0:PORT" (case-insensitive using regexp)
+	re := regexp.MustCompile(`(?i)bind for 0\.0\.0\.0:(\d+)`)
+	if matches := re.FindStringSubmatch(errStr); len(matches) > 1 {
+		port := matches[1]
+		if isValidPort(port) {
+			return port
 		}
 	}
 

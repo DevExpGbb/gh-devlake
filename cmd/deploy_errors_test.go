@@ -76,6 +76,16 @@ func TestExtractPortFromError(t *testing.T) {
 			errStr:   "Error response from daemon: Bind for 0.0.0.0:65536 failed",
 			wantPort: "",
 		},
+		{
+			name:     "case insensitive bind for with uppercase",
+			errStr:   "Error response from daemon: BIND FOR 0.0.0.0:8080 failed",
+			wantPort: "8080",
+		},
+		{
+			name:     "non-ASCII characters before match",
+			errStr:   "エラー: Bind for 0.0.0.0:8080 failed: port is already allocated",
+			wantPort: "8080",
+		},
 	}
 
 	for _, tt := range tests {
