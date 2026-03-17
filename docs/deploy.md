@@ -32,12 +32,14 @@ gh devlake deploy local [flags]
 
 ### After Running
 
+By default (`--start=true`), containers start automatically and you can access the endpoints immediately (wait ~2–3 minutes for all services to initialize).
+
+To stage files without starting containers, use `--start=false`, then run:
+
 ```bash
 cd <dir>
 docker compose up -d
 ```
-
-Wait ~2–3 minutes for all services to start.
 
 ### Service Endpoints (local)
 
@@ -58,15 +60,14 @@ gh devlake deploy local
 # Deploy a specific version to ./devlake
 gh devlake deploy local --version v1.0.2 --dir ./devlake
 
-# Then start the services
-cd devlake
-docker compose up -d
+# Stage files without starting containers
+gh devlake deploy local --start=false
 ```
 
 ### Notes
 
 - If `.env` already exists in the target directory, it is backed up to `.env.bak` before being replaced.
-- `docker compose up` is NOT run automatically — this lets you inspect or customize `.env` first.
+- By default (`--start=true`), containers are started automatically. Use `--start=false` to stage files without starting containers.
 - To tear down: `gh devlake cleanup --local` or `docker compose down` from the target directory.
 
 #### Deployment Resilience
@@ -75,7 +76,6 @@ The CLI includes bounded recovery for common Docker errors:
 
 - **Port conflicts**: When deploying with `--source official` or `--source fork`, the CLI detects port conflicts (patterns: `port is already allocated`, `bind for`, `ports are not available`, `address already in use`, `failed programming external connectivity`) and automatically retries with alternate ports (`8085/3004/4004`). Recovery is bounded to a single retry.
 - **Custom deployments**: Port conflicts in `--source custom` deployments require manual resolution — the CLI will identify the conflicting container and suggest remediation commands.
-- **State checkpointing**: Deployment state is saved early to enable cleanup even when deployment fails mid-flight.
 
 ---
 

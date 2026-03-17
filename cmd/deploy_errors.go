@@ -269,18 +269,18 @@ func printDockerPortConflictError(de *DeployError) {
 		fmt.Printf("   Container holding the port: %s\n", de.Container)
 
 		if de.ComposeFile != "" {
-			fmt.Println("\n   Stop it with:")
+			fmt.Println("   Stop it with:")
 			fmt.Printf("   docker compose -f \"%s\" down\n", de.ComposeFile)
 		} else {
-			fmt.Println("\n   Stop it with:")
+			fmt.Println("   Stop it with:")
 			fmt.Printf("   docker stop %s\n", de.Container)
 		}
 	} else if de.Port != "" {
-		fmt.Println("\n   Find what's using it:")
+		fmt.Println("   Find what's using it:")
 		fmt.Println("   docker ps --format \"table {{.Names}}\\t{{.Ports}}\"")
 	}
 
-	fmt.Println("\n   Then re-run:")
+	fmt.Println("   Then re-run:")
 	fmt.Println("   gh devlake deploy local")
 	fmt.Println("\n💡 To clean up partial artifacts:")
 	fmt.Println("   gh devlake cleanup --local --force")

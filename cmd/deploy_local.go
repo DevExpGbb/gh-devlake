@@ -486,8 +486,8 @@ func startLocalContainers(dir string, build, allowPortFallback bool, services ..
 			fmt.Println()
 		}
 		printDockerPortConflictError(deployErr)
-		fmt.Println("\n   Both default (8080/3002/4000) and alternate (8085/3004/4004) port bundles are occupied.")
-		fmt.Println("   Free at least one bundle, then retry deployment.")
+		fmt.Println("\n   The alternate port bundle is already in use.")
+		fmt.Println("   Free ports 8085/3004/4004, then retry deployment.")
 		return "", fmt.Errorf("port conflict on alternate ports")
 	}
 
@@ -511,7 +511,7 @@ func startLocalContainers(dir string, build, allowPortFallback bool, services ..
 	fmt.Println("   ✅ Ports updated in compose file")
 
 	// Attempt 2: Retry with alternate ports
-	fmt.Println("\n   Starting containers with alternate ports...")
+	fmt.Println("   Starting containers with alternate ports...")
 	err = dockerpkg.ComposeUp(absDir, build, services...)
 	if err != nil {
 		// Second attempt failed - classify again
@@ -551,7 +551,7 @@ func waitAndDetectBackendURL(dir string) (string, error) {
 func composeFileHasDefaultPorts(composePath string) bool {
 	data, err := os.ReadFile(composePath)
 	if err != nil {
-		return false // Assume default if we can't read
+		return true // Assume default if we can't read - let rewriteComposePorts surface the I/O error
 	}
 
 	content := string(data)
