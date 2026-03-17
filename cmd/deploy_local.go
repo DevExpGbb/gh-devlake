@@ -225,7 +225,7 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 			printBanner("✅ DevLake is running!")
 			fmt.Printf("\n  Backend API: %s\n", backendURL)
 			// Infer companion URLs based on compose file ports
-			composePath := filepath.Join(absDir, "docker-compose.yml")
+			composePath := findComposeFile(absDir)
 			grafanaURL, configUIURL := inferCompanionURLs(backendURL, composePath)
 			fmt.Printf("  Config UI:   %s\n", configUIURL)
 			fmt.Printf("  Grafana:     %s (admin/admin)\n", grafanaURL)
@@ -478,10 +478,7 @@ func startLocalContainers(dir string, build, allowPortFallback bool, services ..
 
 	// Bounded recovery: Try alternate port bundle once
 	// Find compose file
-	composePath := filepath.Join(absDir, "docker-compose.yml")
-	if _, err := os.Stat(composePath); os.IsNotExist(err) {
-		composePath = filepath.Join(absDir, "docker-compose-dev.yml")
-	}
+	composePath := findComposeFile(absDir)
 
 	// Detect which port bundle the compose file is using
 	bundle := detectPortBundle(composePath)
@@ -560,10 +557,20 @@ func startLocalContainers(dir string, build, allowPortFallback bool, services ..
 	return "", fmt.Errorf("unexpected port bundle detection result")
 }
 
+// findComposeFile returns the path to the active docker compose file in the given directory.
+// Checks for docker-compose.yml first, then docker-compose-dev.yml.
+func findComposeFile(dir string) string {
+	composePath := filepath.Join(dir, "docker-compose.yml")
+	if _, err := os.Stat(composePath); err == nil {
+		return composePath
+	}
+	return filepath.Join(dir, "docker-compose-dev.yml")
+}
+
 // waitAndDetectBackendURL polls the backend URL extracted from the compose file.
 // Falls back to probing both 8080 and 8085 if extraction fails.
 func waitAndDetectBackendURL(dir string) (string, error) {
-	composePath := filepath.Join(dir, "docker-compose.yml")
+	composePath := findComposeFile(dir)
 
 	// Try to extract the actual backend port from the compose file
 	ports := extractServicePorts(composePath, "devlake")

@@ -32,17 +32,20 @@ Depending on `--source`:
 3. Renames `env.example` → `.env`
 4. Generates and injects a cryptographic `ENCRYPTION_SECRET` into `.env`
 5. Checks that Docker is available
+6. Starts containers (unless `--start=false`)
 
 **fork**:
 1. Clones the repository specified by `--repo-url`
 2. Builds DevLake images from source
 3. Generates `.env` with `ENCRYPTION_SECRET`
 4. Checks that Docker is available
+5. Starts containers (unless `--start=false`)
 
 **custom**:
-1. Uses the existing `docker-compose.yml` in the target directory
+1. Uses the existing `docker-compose.yml` (or `docker-compose-dev.yml`) in the target directory
 2. Generates or updates `.env` with `ENCRYPTION_SECRET` if needed
 3. Checks that Docker is available
+4. Starts containers (unless `--start=false`)
 
 ### After Running
 
@@ -81,7 +84,6 @@ gh devlake deploy local --start=false
 ### Notes
 
 - If `.env` already exists in the target directory, it is backed up to `.env.bak` before being replaced.
-- By default (`--start=true`), containers are started automatically. Use `--start=false` to stage files without starting containers.
 - To tear down: `gh devlake cleanup --local` or `docker compose down` from the target directory.
 
 #### Deployment Resilience
