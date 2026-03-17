@@ -468,6 +468,30 @@ func startLocalContainers(dir string, build, allowPortFallback bool, services ..
 	}
 
 	// Bounded recovery: Try alternate port bundle once
+	// Find compose file
+	composePath := filepath.Join(absDir, "docker-compose.yml")
+	if _, err := os.Stat(composePath); os.IsNotExist(err) {
+		composePath = filepath.Join(absDir, "docker-compose-dev.yml")
+	}
+
+	// Check if compose file is already on alternate ports
+	if !composeFileHasDefaultPorts(composePath) {
+		// Compose file is already on alternate ports (8085/3004/4004)
+		fmt.Println("\n❌ Port conflict detected on alternate ports (8085/3004/4004)")
+		if deployErr.Port != "" {
+			fmt.Printf("   Port %s is in use", deployErr.Port)
+			if deployErr.Container != "" {
+				fmt.Printf(" by container: %s", deployErr.Container)
+			}
+			fmt.Println()
+		}
+		printDockerPortConflictError(deployErr)
+		fmt.Println("\n   Both default (8080/3002/4000) and alternate (8085/3004/4004) port bundles are occupied.")
+		fmt.Println("   Free at least one bundle, then retry deployment.")
+		return "", fmt.Errorf("port conflict on alternate ports")
+	}
+
+	// Compose file has default ports - try rewriting to alternate bundle
 	fmt.Println("\n🔧 Port conflict detected on default ports (8080/3002/4000)")
 	if deployErr.Port != "" {
 		fmt.Printf("   Port %s is in use", deployErr.Port)
@@ -477,12 +501,6 @@ func startLocalContainers(dir string, build, allowPortFallback bool, services ..
 		fmt.Println()
 	}
 	fmt.Println("\n🔄 Retrying with alternate ports (8085/3004/4004)...")
-
-	// Rewrite port mappings in docker-compose.yml or docker-compose-dev.yml
-	composePath := filepath.Join(absDir, "docker-compose.yml")
-	if _, err := os.Stat(composePath); os.IsNotExist(err) {
-		composePath = filepath.Join(absDir, "docker-compose-dev.yml")
-	}
 
 	if err := rewriteComposePorts(composePath); err != nil {
 		fmt.Printf("   ⚠️  Could not rewrite ports: %v\n", err)
@@ -499,8 +517,7 @@ func startLocalContainers(dir string, build, allowPortFallback bool, services ..
 		// Second attempt failed - classify again
 		retryErr := classifyDockerComposeError(err)
 		if retryErr != nil && retryErr.Class == ErrorClassDockerPortConflict {
-			fmt.Println()
-			fmt.Println("❌ Alternate ports are also in use.")
+			fmt.Println("\n❌ Alternate ports are also in use.")
 			printDockerPortConflictError(retryErr)
 			fmt.Println("\n   Both default (8080/3002/4000) and alternate (8085/3004/4004) port bundles are occupied.")
 			fmt.Println("   Free at least one bundle, then retry deployment.")
@@ -529,6 +546,30 @@ func waitAndDetectBackendURL(dir string) (string, error) {
 	return backendURL, nil
 }
 
+// composeFileHasDefaultPorts checks if a compose file contains the default port bundle (8080/3002/4000).
+// Returns true if any of the default ports are found, false if the file is already on alternate ports.
+func composeFileHasDefaultPorts(composePath string) bool {
+	data, err := os.ReadFile(composePath)
+	if err != nil {
+		return false // Assume default if we can't read
+	}
+
+	content := string(data)
+	// Check if any default port mapping is present
+	defaultPatterns := []string{
+		`8080:8080`,
+		`3002:3002`,
+		`4000:4000`,
+	}
+
+	for _, pattern := range defaultPatterns {
+		if strings.Contains(content, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
 // rewriteComposePorts rewrites the port mappings in a docker-compose.yml file
 // from the default bundle (8080/3002/4000) to the alternate bundle (8085/3004/4004).
 // Uses regex with proper boundaries to avoid rewriting custom ports like 18080:8080.
@@ -542,7 +583,7 @@ func rewriteComposePorts(composePath string) error {
 	modified := content
 
 	// Port mapping patterns with regex boundaries
-	// Match: "- 8080:8080" or "- "8080:8080"" or "- '8080:8080'" at start of list item
+	// Match: "- 8080:8080" or "- "8080:8080" or "- '8080:8080'" at start of list item
 	// Avoid: "- 18080:8080" (custom host port that contains 8080)
 	portReplacements := []struct {
 		pattern     string
