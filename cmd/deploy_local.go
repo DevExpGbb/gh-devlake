@@ -467,8 +467,8 @@ func startLocalContainers(dir string, build, allowPortFallback bool, services ..
 	// Port conflict detected
 	if !allowPortFallback {
 		// Custom deployments don't get auto-fallback - print friendly error
-		printDockerPortConflictError(deployErr)
-		return "", fmt.Errorf("port conflict — stop the conflicting container and retry")
+		printDockerPortConflictError(deployErr, "", "")
+		return "", fmt.Errorf("port conflict — stop the conflicting container and retry: %w", err)
 	}
 
 	// Bounded recovery: Try alternate port bundle once
@@ -484,31 +484,31 @@ func startLocalContainers(dir string, build, allowPortFallback bool, services ..
 	switch bundle {
 	case portBundleAlternate:
 		// Compose file is already on alternate ports - can't fallback further
-		fmt.Println("\n❌ Port conflict detected on alternate ports (8085/3004/4004)")
+		// Build custom header with port/container info
+		header := "\n❌ Port conflict detected on alternate ports (8085/3004/4004)"
 		if deployErr.Port != "" {
-			fmt.Printf("   Port %s is in use", deployErr.Port)
+			header += fmt.Sprintf("\n   Port %s is in use", deployErr.Port)
 			if deployErr.Container != "" {
-				fmt.Printf(" by container: %s", deployErr.Container)
+				header += fmt.Sprintf(" by container: %s", deployErr.Container)
 			}
-			fmt.Println()
 		}
-		printDockerPortConflictError(deployErr)
-		fmt.Println("\n   The alternate port bundle is already in use.")
-		fmt.Println("   Free ports 8085/3004/4004, then retry deployment.")
-		return "", fmt.Errorf("port conflict on alternate ports")
+		nextSteps := "\n   The alternate port bundle is already in use.\n   Free ports 8085/3004/4004, then retry deployment."
+		printDockerPortConflictError(deployErr, header, nextSteps)
+		return "", fmt.Errorf("port conflict on alternate ports: %w", err)
 
 	case portBundleCustom:
 		// Custom ports - don't attempt automatic rewrite
-		fmt.Println("\n❌ Port conflict detected on custom ports")
+		// Build custom header with port/container info
+		header := "\n❌ Port conflict detected on custom ports"
 		if deployErr.Port != "" {
-			fmt.Printf("   Port %s is in use", deployErr.Port)
+			header += fmt.Sprintf("\n   Port %s is in use", deployErr.Port)
 			if deployErr.Container != "" {
-				fmt.Printf(" by container: %s", deployErr.Container)
+				header += fmt.Sprintf(" by container: %s", deployErr.Container)
 			}
-			fmt.Println()
 		}
-		printDockerPortConflictError(deployErr)
-		return "", fmt.Errorf("port conflict on custom ports")
+		nextSteps := "\n   Edit your docker-compose.yml to use different host ports, or stop the conflicting container."
+		printDockerPortConflictError(deployErr, header, nextSteps)
+		return "", fmt.Errorf("port conflict on custom ports: %w", err)
 
 	case portBundleDefault:
 		// Compose file has default ports - try rewriting to alternate bundle
@@ -524,7 +524,7 @@ func startLocalContainers(dir string, build, allowPortFallback bool, services ..
 
 		if err := rewriteComposePorts(composePath); err != nil {
 			fmt.Printf("   ⚠️  Could not rewrite ports: %v\n", err)
-			printDockerPortConflictError(deployErr)
+			printDockerPortConflictError(deployErr, "", "")
 			return "", fmt.Errorf("port conflict and failed to apply alternate ports: %w", err)
 		}
 
@@ -537,10 +537,10 @@ func startLocalContainers(dir string, build, allowPortFallback bool, services ..
 			// Second attempt failed - classify again
 			retryErr := classifyDockerComposeError(err)
 			if retryErr != nil && retryErr.Class == ErrorClassDockerPortConflict {
-				fmt.Println("\n❌ Alternate ports are also in use.")
-				printDockerPortConflictError(retryErr)
-				fmt.Println("\n   Both default (8080/3002/4000) and alternate (8085/3004/4004) port bundles are occupied.")
-				fmt.Println("   Free at least one bundle, then retry deployment.")
+				// Build header that indicates both bundles failed
+				header := "\n❌ Alternate ports are also in use."
+				nextSteps := "\n   Both default (8080/3002/4000) and alternate (8085/3004/4004) port bundles are occupied.\n   Free at least one bundle, then retry deployment."
+				printDockerPortConflictError(retryErr, header, nextSteps)
 			} else {
 				fmt.Println("\n💡 To clean up partial artifacts:")
 				fmt.Println("   gh devlake cleanup --local --force")

@@ -256,13 +256,21 @@ func findPortOwner(port string) (string, string) {
 
 // printDockerPortConflictError prints a user-friendly error message for port conflicts
 // with actionable remediation steps.
-func printDockerPortConflictError(de *DeployError) {
-	if de.Port != "" {
-		fmt.Printf("\n❌ Port conflict detected: port %s is already in use.\n", de.Port)
+// If customHeader is provided, it replaces the default "Port conflict detected" header.
+// If nextSteps is provided, it replaces the default "Then re-run: gh devlake deploy local" text.
+func printDockerPortConflictError(de *DeployError, customHeader string, nextSteps string) {
+	// Print header
+	if customHeader != "" {
+		fmt.Println(customHeader)
 	} else {
-		fmt.Println("\n❌ Port conflict detected: a required port is already in use.")
+		if de.Port != "" {
+			fmt.Printf("\n❌ Port conflict detected: port %s is already in use.\n", de.Port)
+		} else {
+			fmt.Println("\n❌ Port conflict detected: a required port is already in use.")
+		}
 	}
 
+	// Print container info and stop commands
 	if de.Container != "" {
 		fmt.Printf("   Container holding the port: %s\n", de.Container)
 
@@ -278,8 +286,14 @@ func printDockerPortConflictError(de *DeployError) {
 		fmt.Println("   docker ps --format \"table {{.Names}}\\t{{.Ports}}\"")
 	}
 
-	fmt.Println("   Then re-run:")
-	fmt.Println("   gh devlake deploy local")
+	// Print next steps
+	if nextSteps != "" {
+		fmt.Println(nextSteps)
+	} else {
+		fmt.Println("   Then re-run:")
+		fmt.Println("   gh devlake deploy local")
+	}
+
 	fmt.Println("\n💡 To clean up partial artifacts:")
 	fmt.Println("   gh devlake cleanup --local --force")
 }
