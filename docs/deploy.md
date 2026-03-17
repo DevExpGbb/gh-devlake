@@ -4,7 +4,7 @@ Deploy DevLake locally via Docker Compose or to Azure via Bicep.
 
 ## deploy local
 
-Downloads the official Apache DevLake Docker Compose files, generates an `ENCRYPTION_SECRET`, and prepares the directory for `docker compose up`.
+Downloads the official Apache DevLake Docker Compose files, generates an `ENCRYPTION_SECRET`, and starts DevLake containers (by default).
 
 ### Usage
 
