@@ -144,7 +144,9 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 	fmt.Println("\n🔑 Checking Azure CLI login...")
 	acct, err := azure.CheckLogin()
 	if err != nil {
-		fmt.Println("   Not logged in. Running az login...")
+		// Bounded recovery: Auto-login (single attempt)
+		fmt.Println("   ❌ Not logged in")
+		fmt.Println("\n🔧 Recovery: Running az login...")
 		if loginErr := azure.Login(); loginErr != nil {
 			return fmt.Errorf("az login failed: %w", loginErr)
 		}
@@ -152,6 +154,7 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("still not logged in after az login: %w", err)
 		}
+		fmt.Println("   ✅ Recovery successful")
 	}
 	fmt.Printf("   Logged in as: %s\n", acct.User.Name)
 
@@ -240,9 +243,12 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 	fmt.Println("\n🗄️  Checking MySQL state...")
 	state, err := azure.MySQLState(mysqlName, azureRG)
 	if err == nil && state == "Stopped" {
-		fmt.Println("   MySQL is stopped. Starting...")
+		// Bounded recovery: Start stopped MySQL (single attempt)
+		fmt.Println("   ❌ MySQL is stopped")
+		fmt.Println("\n🔧 Recovery: Starting MySQL...")
 		if err := azure.MySQLStart(mysqlName, azureRG); err != nil {
 			fmt.Printf("   ⚠️  Could not start MySQL: %v\n", err)
+			fmt.Println("   Continuing deployment — MySQL may start later")
 		} else {
 			fmt.Println("   Waiting 30s for MySQL...")
 			time.Sleep(30 * time.Second)
@@ -258,11 +264,14 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 	kvName := fmt.Sprintf("%skv%s", azureBaseName, suffix)
 	found, _ := azure.CheckSoftDeletedKeyVault(kvName)
 	if found {
-		fmt.Printf("\n🔑 Key Vault %q found in soft-deleted state, purging...\n", kvName)
+		// Bounded recovery: Purge soft-deleted Key Vault (single attempt)
+		fmt.Printf("\n🔑 Key Vault conflict detected\n")
+		fmt.Printf("   Key Vault %q is in soft-deleted state\n", kvName)
+		fmt.Println("\n🔧 Recovery: Purging soft-deleted Key Vault...")
 		if err := azure.PurgeKeyVault(kvName, azureLocation); err != nil {
 			return fmt.Errorf("failed to purge soft-deleted Key Vault %q: %w\nManual fix: az keyvault purge --name %s --location %s", kvName, err, kvName, azureLocation)
 		}
-		fmt.Println("   ✅ Key Vault purged")
+		fmt.Println("   ✅ Key Vault purged — deployment can proceed")
 	}
 
 	// ── Deploy infrastructure ──

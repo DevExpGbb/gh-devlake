@@ -40,9 +40,11 @@ Wait ~2–3 minutes for all services to start.
 
 | Service | URL | Default Credentials |
 |---------|-----|---------------------|
-| Backend API | http://localhost:8080 | — |
-| Config UI | http://localhost:4000 | — |
-| Grafana | http://localhost:3002 | admin / admin |
+| Backend API | http://localhost:8080 or http://localhost:8085 | — |
+| Config UI | http://localhost:4000 or http://localhost:4004 | — |
+| Grafana | http://localhost:3002 or http://localhost:3004 | admin / admin |
+
+**Port Fallback**: When deploying with `--source official` or `--source fork`, the CLI automatically recovers from port conflicts by retrying with alternate ports (`8085/3004/4004`). Custom deployments require manual port conflict resolution.
 
 ### Examples
 
@@ -63,6 +65,14 @@ docker compose up -d
 - If `.env` already exists in the target directory, it is backed up to `.env.bak` before being replaced.
 - `docker compose up` is NOT run automatically — this lets you inspect or customize `.env` first.
 - To tear down: `gh devlake cleanup --local` or `docker compose down` from the target directory.
+
+#### Deployment Resilience
+
+The CLI includes bounded recovery for common Docker errors:
+
+- **Port conflicts**: When deploying with official or fork images, the CLI detects port conflicts (patterns: `port is already allocated`, `ports are not available`, `address already in use`, `failed programming external connectivity`) and automatically retries with alternate ports (`8085/3004/4004`). Recovery is bounded to a single retry.
+- **Custom deployments**: Port conflicts in custom deployments require manual resolution — the CLI will identify the conflicting container and suggest remediation commands.
+- **State checkpointing**: Deployment state is saved early to enable cleanup even when deployment fails mid-flight.
 
 ---
 
@@ -89,13 +99,15 @@ gh devlake deploy azure [flags]
 
 ### What It Does
 
-1. Checks Azure CLI login (runs `az login` if needed)
+1. Checks Azure CLI login (runs `az login` if needed — **bounded recovery**)
 2. Creates the resource group (saves partial state immediately for safe cleanup)
 3. Generates MySQL password and encryption secret via Key Vault
 4. Optionally builds Docker images and pushes to Azure Container Registry (when `--official` is not set)
-5. Deploys infrastructure via Bicep templates (Container Instances + MySQL + Key Vault)
-6. Waits for the backend to respond, then triggers DB migration
-7. Saves `.devlake-azure.json` state file with endpoints, resource names, and subscription info
+5. Checks for stopped MySQL servers and starts them (**bounded recovery**)
+6. Checks for soft-deleted Key Vaults and purges them before deployment (**bounded recovery**)
+7. Deploys infrastructure via Bicep templates (Container Instances + MySQL + Key Vault)
+8. Waits for the backend to respond, then triggers DB migration
+9. Saves `.devlake-azure.json` state file with endpoints, resource names, and subscription info
 
 ### Cost Estimate
 
@@ -127,6 +139,17 @@ gh devlake deploy azure
 - A partial state file is written immediately after the Resource Group is created. This ensures `gh devlake cleanup --azure` can clean up even if the Bicep deployment fails mid-flight.
 - Service endpoints are printed at the end of a successful deployment and saved to `.devlake-azure.json`.
 - The Bicep templates are embedded in the binary — no external template files needed.
+
+#### Azure Deployment Resilience
+
+The CLI includes bounded recovery for known Azure failure modes:
+
+- **Missing authentication**: Automatically runs `az login` when not logged in (single attempt).
+- **Stopped MySQL servers**: Detects stopped MySQL Flexible Servers and starts them before deployment (single attempt, non-fatal).
+- **Soft-deleted Key Vaults**: Detects and purges soft-deleted Key Vaults that conflict with the deployment (single attempt).
+- **State checkpointing**: Partial state file is written immediately after Resource Group creation to enable cleanup even when deployment fails mid-flight.
+
+All recovery actions are bounded to a single retry and report clear detection → repair → outcome messages.
 
 ### Tear Down
 
