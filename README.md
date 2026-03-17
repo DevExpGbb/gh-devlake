@@ -10,6 +10,9 @@ This CLI makes that setup fast and repeatable from the terminal (instead of clic
 
 > **Blog post:** [Beyond Copilot Dashboards: Measuring What AI Actually Changes](<!-- TODO: replace with actual blog URL -->) — why DORA + Copilot correlation matters and what this tool enables.
 
+> [!NOTE]
+> **GitHub Copilot plugin:** The Copilot metrics plugin is currently available in the [DevExpGBB/incubator-devlake](https://github.com/DevExpGBB/incubator-devlake) fork while the upstream PR ([apache/incubator-devlake#8728](https://github.com/apache/incubator-devlake/pull/8728)) is under review. The `deploy local` and `deploy azure` commands handle custom images automatically — no manual image builds needed. Once the PR merges, the official Apache images will include it.
+
 <!-- SCREENSHOT:Grafana DORA dashboard + Copilot Adoption dashboard side-by-side — the "payoff" -->
 
 ---
@@ -221,6 +224,9 @@ See [Token Handling](docs/token-handling.md) for env key names and multi-plugin 
 | `gh devlake configure project list` | List all projects | [configure-project.md](docs/configure-project.md) |
 | `gh devlake configure project delete` | Delete a project | [configure-project.md](docs/configure-project.md) |
 | `gh devlake configure full` | Connections + scopes + project in one step | [configure-full.md](docs/configure-full.md) |
+| `gh devlake query pipelines` | Query recent pipeline runs | [query.md](docs/query.md) |
+| `gh devlake query dora` | Query DORA metadata now; full metrics remain API/DB limited | [query.md](docs/query.md) |
+| `gh devlake query copilot` | Query Copilot metadata now; full metrics remain API/DB limited | [query.md](docs/query.md) |
 | `gh devlake start` | Start stopped or exited DevLake services | [start.md](docs/start.md) |
 | `gh devlake stop` | Stop running services (preserves containers and data) | [stop.md](docs/stop.md) |
 | `gh devlake cleanup` | Tear down local or Azure resources | [cleanup.md](docs/cleanup.md) |
