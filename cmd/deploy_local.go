@@ -466,7 +466,7 @@ func startLocalContainers(dir string, build, allowPortFallback bool, services ..
 		// Not a port conflict or unknown error - print general cleanup and fail
 		fmt.Println("\n💡 To clean up partial artifacts:")
 		fmt.Println("   gh devlake cleanup --local --force")
-		return "", err
+		return "", fmt.Errorf("docker compose up failed: %w", err)
 	}
 
 	// Port conflict detected

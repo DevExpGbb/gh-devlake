@@ -59,7 +59,7 @@ gh devlake status [--url <url>]
 | ⚠️ (code) | Unexpected HTTP status |
 | ❌ | Connection refused or timeout |
 
-Grafana is checked at `/api/health`. Backend and Config UI are checked at their root URL. When auto-discovery lands on `http://localhost:8080`, companion URLs infer to `http://localhost:3002` and `http://localhost:4000`. When it lands on `http://localhost:8085`, companion URLs infer to `http://localhost:3004` and `http://localhost:4004`.
+Backend is checked at `/ping`, Grafana at `/api/health`, and Config UI at its root URL. When auto-discovery lands on `http://localhost:8080`, companion URLs infer to `http://localhost:3002` and `http://localhost:4000`. When it lands on `http://localhost:8085`, companion URLs infer to `http://localhost:3004` and `http://localhost:4004`.
 
 **Connections** — loaded from the state file. Shows plugin name, connection ID, display name, and org.
 
