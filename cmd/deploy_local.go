@@ -646,12 +646,6 @@ func detectPortBundle(composePath string) portBundle {
 	return portBundleCustom
 }
 
-// composeFileHasDefaultPorts checks if a compose file contains the default port bundle (8080/3002/4000).
-// Returns true only for the default bundle, and false for alternate or other custom port mappings.
-func composeFileHasDefaultPorts(composePath string) bool {
-	return detectPortBundle(composePath) == portBundleDefault
-}
-
 // rewriteComposePorts rewrites the port mappings in a docker-compose.yml file
 // from the default bundle (8080/3002/4000) to the alternate bundle (8085/3004/4004).
 // Uses regex with proper boundaries to avoid rewriting custom ports like 18080:8080.
