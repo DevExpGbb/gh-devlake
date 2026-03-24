@@ -106,6 +106,11 @@ func inferLocalCompanionURLs(backendURL string) (grafanaURL, configUIURL string)
 	return "", ""
 }
 
+// PingURL checks if a DevLake backend is reachable at the given URL.
+func PingURL(baseURL string) error {
+	return pingURL(baseURL)
+}
+
 func pingURL(baseURL string) error {
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get(baseURL + "/ping")

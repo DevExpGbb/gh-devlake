@@ -71,6 +71,23 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// ── Check for existing deployment ──
+	if existingState, resumeAction := detectExistingLocalDeployment(deployLocalDir); existingState != nil {
+		switch resumeAction {
+		case "abort":
+			return nil
+		case "restart":
+			fmt.Println("\n🧹 Cleaning up existing deployment...")
+			if err := cleanupLocalQuiet(deployLocalDir); err != nil {
+				fmt.Printf("   ⚠️  Cleanup encountered issues: %v\n", err)
+				fmt.Println("   Continuing with deployment...")
+			}
+		case "resume":
+			// Continue with the deployment - existing artifacts will be reused
+			fmt.Println("\n   Continuing with existing deployment artifacts...")
+		}
+	}
+
 	// ── Interactive image-source prompt (when no explicit flag set) ──
 	if deployLocalSource == "" {
 		imageChoices := []string{
@@ -177,9 +194,12 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 	fmt.Println("\n🐳 Checking Docker...")
 	if err := dockerpkg.CheckAvailable(); err != nil {
 		fmt.Println("   ❌ Docker not found or not running")
-		fmt.Println("   Install Docker Desktop: https://docs.docker.com/get-docker")
-		fmt.Println("   Start Docker Desktop, then re-run: gh devlake deploy local")
-		return fmt.Errorf("Docker is not available — start Docker Desktop and retry")
+		fmt.Println("\n💡 Recovery steps:")
+		fmt.Println("   1. Install Docker Desktop: https://docs.docker.com/get-docker")
+		fmt.Println("   2. Start Docker Desktop and wait for it to fully initialize")
+		fmt.Println("   3. Verify Docker is running: docker ps")
+		fmt.Println("   4. Re-run this command: gh devlake deploy local")
+		return fmt.Errorf("Docker is not available — follow recovery steps above")
 	}
 	fmt.Println("   ✅ Docker found")
 
@@ -518,7 +538,7 @@ func startLocalContainers(dir string, build bool, services ...string) (string, e
 				fmt.Println("   docker ps --format \"table {{.Names}}\\t{{.Ports}}\"")
 			}
 			fmt.Println("\n   Then re-run:")
-			fmt.Println("   gh devlake init")
+			fmt.Println("   gh devlake deploy local")
 			fmt.Println("\n💡 To clean up partial artifacts:")
 			fmt.Println("   gh devlake cleanup --local --force")
 			return "", fmt.Errorf("port conflict — stop the conflicting container and retry")
@@ -536,7 +556,119 @@ func startLocalContainers(dir string, build bool, services ...string) (string, e
 
 	backendURL, err := waitForReadyAny(backendURLCandidates, 36, 10*time.Second)
 	if err != nil {
-		return "", fmt.Errorf("DevLake not ready after 6 minutes — check: docker compose logs devlake: %w", err)
+		fmt.Println("\n❌ DevLake not ready after 6 minutes")
+		fmt.Println("\n💡 Troubleshooting steps:")
+		fmt.Printf("   1. Check container logs: docker compose -f \"%s/docker-compose.yml\" logs devlake\n", absDir)
+		fmt.Println("   2. Verify all containers are running: docker compose ps")
+		fmt.Println("   3. Check MySQL initialization: docker compose logs mysql")
+		fmt.Println("   4. If containers keep restarting, check: docker compose logs")
+		fmt.Println("\n   Common issues:")
+		fmt.Println("   • MySQL takes longer on first run (database initialization)")
+		fmt.Println("   • Insufficient Docker resources (increase memory in Docker Desktop settings)")
+		fmt.Println("   • Port conflicts (check docker compose logs for 'address already in use')")
+		return "", fmt.Errorf("DevLake not ready — check logs for details")
 	}
 	return backendURL, nil
+}
+
+// detectExistingLocalDeployment checks for existing deployment artifacts and prompts for action.
+// Returns the existing state (if found) and the user's choice: "resume", "restart", or "abort".
+func detectExistingLocalDeployment(dir string) (*devlake.State, string) {
+	if deployLocalQuiet {
+		// When called from init wizard, don't prompt
+		return nil, ""
+	}
+
+	absDir, _ := filepath.Abs(dir)
+	stateFile := filepath.Join(absDir, ".devlake-local.json")
+
+	// Check for state file
+	state, err := devlake.LoadState(stateFile)
+	if err != nil || state == nil {
+		// No state file or failed to load - check for docker-compose.yml + .env
+		composePath := filepath.Join(absDir, "docker-compose.yml")
+		devComposePath := filepath.Join(absDir, "docker-compose-dev.yml")
+		envPath := filepath.Join(absDir, ".env")
+
+		hasCompose := false
+		if _, err := os.Stat(composePath); err == nil {
+			hasCompose = true
+		} else if _, err := os.Stat(devComposePath); err == nil {
+			hasCompose = true
+		}
+
+		hasEnv := false
+		if _, err := os.Stat(envPath); err == nil {
+			hasEnv = true
+		}
+
+		// If we have artifacts but no state file, it might be a partial deployment
+		if hasCompose || hasEnv {
+			fmt.Println("\n📋 Found existing deployment artifacts:")
+			if hasCompose {
+				fmt.Println("   • docker-compose.yml")
+			}
+			if hasEnv {
+				fmt.Println("   • .env file")
+			}
+		} else {
+			// No artifacts found - proceed normally
+			return nil, ""
+		}
+	} else {
+		// State file exists - check if deployment is running
+		fmt.Println("\n📋 Found existing deployment:")
+		fmt.Printf("   Deployed: %s\n", state.DeployedAt)
+		if state.Endpoints.Backend != "" {
+			fmt.Printf("   Backend:  %s\n", state.Endpoints.Backend)
+
+			// Check if backend is still running
+			if err := devlake.PingURL(state.Endpoints.Backend); err == nil {
+				fmt.Println("   Status:   ✅ Running")
+			} else {
+				fmt.Println("   Status:   ⚠️  Not responding (may be stopped)")
+			}
+		}
+	}
+
+	fmt.Println()
+	choices := []string{
+		"resume  - Continue with existing artifacts (recommended for recovery)",
+		"restart - Clean up and start fresh",
+		"abort   - Exit without making changes",
+	}
+	choice := prompt.Select("What would you like to do?", choices)
+	if choice == "" {
+		return state, "abort"
+	}
+
+	action := strings.SplitN(choice, " ", 2)[0]
+	return state, action
+}
+
+// cleanupLocalQuiet performs cleanup of local deployment without prompts (used for restart).
+func cleanupLocalQuiet(dir string) error {
+	absDir, _ := filepath.Abs(dir)
+
+	// Stop containers if compose file exists
+	composePath := filepath.Join(absDir, "docker-compose.yml")
+	devComposePath := filepath.Join(absDir, "docker-compose-dev.yml")
+
+	if _, err := os.Stat(composePath); err == nil {
+		if err := dockerpkg.ComposeDown(absDir); err != nil {
+			return fmt.Errorf("docker compose down failed: %w", err)
+		}
+	} else if _, err := os.Stat(devComposePath); err == nil {
+		if err := dockerpkg.ComposeDown(absDir); err != nil {
+			return fmt.Errorf("docker compose down failed: %w", err)
+		}
+	}
+
+	// Remove state file
+	stateFile := filepath.Join(absDir, ".devlake-local.json")
+	if _, err := os.Stat(stateFile); err == nil {
+		os.Remove(stateFile)
+	}
+
+	return nil
 }
