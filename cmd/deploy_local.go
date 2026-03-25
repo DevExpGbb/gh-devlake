@@ -508,7 +508,7 @@ func startLocalContainers(dir string, build, allowPortFallback bool, services ..
 				header += fmt.Sprintf(" by container: %s", deployErr.Container)
 			}
 		}
-		nextSteps := "   Edit your docker-compose.yml to use different host ports, or stop the conflicting container."
+		nextSteps := "   Edit your compose file to use different host ports, or stop the conflicting container."
 		printDockerPortConflictError(deployErr, header, nextSteps)
 		return "", fmt.Errorf("port conflict on custom ports: %w", err)
 

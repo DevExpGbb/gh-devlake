@@ -42,10 +42,12 @@ Depending on `--source`:
 5. Starts containers (unless `--start=false`)
 
 **custom**:
-1. Uses the existing `docker-compose.yml` (or `docker-compose-dev.yml`) in the target directory
+1. Uses the existing `docker-compose.yml` in the target directory
 2. Generates or updates `.env` with `ENCRYPTION_SECRET` if needed
 3. Checks that Docker is available
 4. Starts containers (unless `--start=false`)
+
+   **Note**: The compose file must be named `docker-compose.yml`. If you only have `docker-compose-dev.yml`, either rename it or start containers manually with `docker compose -f docker-compose-dev.yml up -d`.
 
 ### After Running
 
