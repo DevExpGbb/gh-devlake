@@ -239,10 +239,11 @@ func waitForMigration(baseURL string, maxAttempts int, interval time.Duration) e
 		fmt.Printf("   Migrating... (%d/%d%s)\n", attempt, maxAttempts, statusSuffix)
 		time.Sleep(interval)
 	}
+	statusSuffix := ""
 	if lastStatus != 0 {
-		return fmt.Errorf("migration did not complete after %d attempts (last status %d)", maxAttempts, lastStatus)
+		statusSuffix = fmt.Sprintf(" (last status %d)", lastStatus)
 	}
-	return fmt.Errorf("migration did not complete after %d attempts", maxAttempts)
+	return fmt.Errorf("migration did not complete after %d attempts%s", maxAttempts, statusSuffix)
 }
 
 func triggerAndWaitForMigration(baseURL string) error {
