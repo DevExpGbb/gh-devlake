@@ -507,9 +507,12 @@ func (c *Client) SearchRemoteScopes(plugin string, connID int, search string, pa
 func (c *Client) TriggerMigration() error {
 	resp, err := c.HTTPClient.Get(c.BaseURL + "/proceed-db-migration")
 	if err != nil {
-		return err
+		return fmt.Errorf("triggering migration: %w", err)
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("triggering migration: DevLake returned status %d", resp.StatusCode)
+	}
 	return nil
 }
 

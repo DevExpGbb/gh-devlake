@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DevExpGBB/gh-devlake/internal/devlake"
 	dockerpkg "github.com/DevExpGBB/gh-devlake/internal/docker"
 	"github.com/DevExpGBB/gh-devlake/internal/download"
 	"github.com/DevExpGBB/gh-devlake/internal/gitclone"
@@ -196,17 +195,10 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 		}
 		cfgURL = backendURL
 
-		fmt.Println("\n🔄 Triggering database migration...")
-		migClient := devlake.NewClient(backendURL)
-		if err := migClient.TriggerMigration(); err != nil {
-			fmt.Printf("   ⚠️  Migration may need manual trigger: %v\n", err)
-		} else {
-			fmt.Println("   ✅ Migration triggered")
-			fmt.Println("\n⏳ Waiting for migration to complete...")
-			if err := waitForMigration(backendURL, 60, 5*time.Second); err != nil {
-				fmt.Printf("   ⚠️  %v\n", err)
-				fmt.Println("   Migration may still be running — proceeding anyway")
-			}
+		if err := triggerAndWaitForMigration(backendURL); err != nil {
+			fmt.Printf("   ⚠️  %v\n", err)
+			fmt.Printf("   Trigger migration manually if needed: GET %s/proceed-db-migration\n", backendURL)
+			fmt.Println("   Migration may still be running — proceeding anyway")
 		}
 
 		if !deployLocalQuiet {

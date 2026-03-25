@@ -909,6 +909,53 @@ func TestHealth(t *testing.T) {
 	}
 }
 
+func TestTriggerMigration(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		wantErr    bool
+	}{
+		{
+			name:       "success",
+			statusCode: http.StatusOK,
+		},
+		{
+			name:       "no content",
+			statusCode: http.StatusNoContent,
+		},
+		{
+			name:       "server error",
+			statusCode: http.StatusServiceUnavailable,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/proceed-db-migration" {
+					t.Errorf("path = %s, want /proceed-db-migration", r.URL.Path)
+				}
+				w.WriteHeader(tt.statusCode)
+			}))
+			defer srv.Close()
+
+			client := NewClient(srv.URL)
+			err := client.TriggerMigration()
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
 // TestTestSavedConnection tests the TestSavedConnection method.
 func TestTestSavedConnection(t *testing.T) {
 	tests := []struct {

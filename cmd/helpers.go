@@ -221,19 +221,64 @@ func waitForReadyAny(baseURLs []string, maxAttempts int, interval time.Duration)
 // During migration the API returns 428 (Precondition Required).
 func waitForMigration(baseURL string, maxAttempts int, interval time.Duration) error {
 	httpClient := &http.Client{Timeout: 5 * time.Second}
+	lastStatus := 0
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		resp, err := httpClient.Get(baseURL + "/ping")
 		if err == nil {
+			lastStatus = resp.StatusCode
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				fmt.Println("   ✅ Migration complete!")
 				return nil
 			}
 		}
-		fmt.Printf("   Migrating... (%d/%d)\n", attempt, maxAttempts)
+		if lastStatus != 0 {
+			fmt.Printf("   Migrating... (%d/%d, status=%d)\n", attempt, maxAttempts, lastStatus)
+		} else {
+			fmt.Printf("   Migrating... (%d/%d)\n", attempt, maxAttempts)
+		}
 		time.Sleep(interval)
 	}
+	if lastStatus != 0 {
+		return fmt.Errorf("migration did not complete after %d attempts (last status %d)", maxAttempts, lastStatus)
+	}
 	return fmt.Errorf("migration did not complete after %d attempts", maxAttempts)
+}
+
+func triggerAndWaitForMigration(baseURL string) error {
+	return triggerAndWaitForMigrationWithClient(baseURL, devlake.NewClient(baseURL), 3, 10*time.Second, 60, 5*time.Second)
+}
+
+func triggerAndWaitForMigrationWithClient(baseURL string, migClient *devlake.Client, triggerAttempts int, triggerInterval time.Duration, waitAttempts int, waitInterval time.Duration) error {
+	fmt.Println("\n🔄 Triggering database migration...")
+
+	var lastErr error
+	for attempt := 1; attempt <= triggerAttempts; attempt++ {
+		if err := migClient.TriggerMigration(); err == nil {
+			fmt.Println("   ✅ Migration triggered")
+			lastErr = nil
+			break
+		} else {
+			lastErr = err
+			fmt.Printf("   ⚠️  Trigger attempt %d/%d did not complete cleanly: %v\n", attempt, triggerAttempts, err)
+			if attempt < triggerAttempts {
+				fmt.Println("   DevLake may still be starting or migration may already be running — retrying...")
+				time.Sleep(triggerInterval)
+			}
+		}
+	}
+
+	fmt.Println("\n⏳ Waiting for migration to complete...")
+	if lastErr != nil {
+		fmt.Println("   Continuing to monitor migration status anyway...")
+	}
+	if err := waitForMigration(baseURL, waitAttempts, waitInterval); err != nil {
+		if lastErr != nil {
+			return fmt.Errorf("migration trigger did not complete cleanly: %w; %w", lastErr, err)
+		}
+		return err
+	}
+	return nil
 }
 
 // ── Scope orchestration ─────────────────────────────────────────
