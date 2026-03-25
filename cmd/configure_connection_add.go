@@ -78,6 +78,9 @@ func init() {
 func runAddConnection(cmd *cobra.Command, args []string) error {
 	printBanner("DevLake — Configure Connection")
 
+	// Flag mode = --plugin was provided → skip optional prompts.
+	isInteractive := connPlugin == ""
+
 	// ── Select plugin ──
 	def, err := selectPlugin(connPlugin)
 	if err != nil {
@@ -88,7 +91,7 @@ func runAddConnection(cmd *cobra.Command, args []string) error {
 	warnIrrelevantFlags(cmd, def, collectAllConnectionFlagDefs())
 	// In interactive mode (no --plugin), also show contextual help for
 	// the selected plugin's applicable flags.
-	if connPlugin == "" {
+	if isInteractive {
 		printContextualFlagHelp(def, def.ConnectionFlags, "Connection")
 		fmt.Println()
 	}
@@ -96,6 +99,9 @@ func runAddConnection(cmd *cobra.Command, args []string) error {
 	// ── Prompt for org if needed ──
 	org := connOrg
 	if def.NeedsOrg && org == "" {
+		if !isInteractive {
+			return fmt.Errorf("--org is required for %s", def.DisplayName)
+		}
 		orgPrompt := def.OrgPrompt
 		if orgPrompt == "" {
 			orgPrompt = "Organization slug"
@@ -108,7 +114,8 @@ func runAddConnection(cmd *cobra.Command, args []string) error {
 
 	// Prompt for org optionally for plugins that don't require it,
 	// so it gets saved to state for downstream commands (e.g. scopes).
-	if !def.NeedsOrg && org == "" {
+	// Only in interactive mode — flag mode skips optional prompts.
+	if !def.NeedsOrg && org == "" && isInteractive {
 		org = prompt.ReadLine("Organization slug (optional, press Enter to skip)")
 	}
 
@@ -148,11 +155,14 @@ func runAddConnection(cmd *cobra.Command, args []string) error {
 	if def.NeedsUsername {
 		username := resolveUsername(def, connUsername, connEnvFile)
 		if username == "" {
+			if !isInteractive {
+				return fmt.Errorf("--username is required for %s", def.DisplayName)
+			}
 			return fmt.Errorf("username is required for %s (provide it via --username or at the prompt)", def.DisplayName)
 		}
 		params.Username = username
 	}
-	result, err := buildAndCreateConnection(client, def, params, org, true)
+	result, err := buildAndCreateConnection(client, def, params, org, isInteractive)
 	if err != nil {
 		return err
 	}

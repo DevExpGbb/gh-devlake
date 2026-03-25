@@ -15,6 +15,7 @@ import (
 // ProjectOpts holds options for the project command.
 type ProjectOpts struct {
 	ProjectName string
+	Connections string // "plugin:connID,plugin:connID" for flag-driven mode
 	TimeAfter   string
 	Cron        string
 	SkipSync    bool
