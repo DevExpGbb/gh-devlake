@@ -515,9 +515,9 @@ func (c *Client) TriggerMigration() error {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		bodyText := strings.TrimSpace(string(body))
 		if bodyText != "" {
-			return fmt.Errorf("triggering migration: DevLake returned status %d: %s", resp.StatusCode, bodyText)
+			return fmt.Errorf("DevLake returned status %d: %s", resp.StatusCode, bodyText)
 		}
-		return fmt.Errorf("triggering migration: DevLake returned status %d", resp.StatusCode)
+		return fmt.Errorf("DevLake returned status %d", resp.StatusCode)
 	}
 	return nil
 }
