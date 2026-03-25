@@ -72,7 +72,8 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 	}
 
 	// ── Check for existing deployment ──
-	if existingState, resumeAction := detectExistingLocalDeployment(deployLocalDir); existingState != nil {
+	_, resumeAction := detectExistingLocalDeployment(deployLocalDir)
+	if resumeAction != "" {
 		switch resumeAction {
 		case "abort":
 			return nil
@@ -591,10 +592,13 @@ func detectExistingLocalDeployment(dir string) (*devlake.State, string) {
 		envPath := filepath.Join(absDir, ".env")
 
 		hasCompose := false
+		composeFileName := ""
 		if _, err := os.Stat(composePath); err == nil {
 			hasCompose = true
+			composeFileName = "docker-compose.yml"
 		} else if _, err := os.Stat(devComposePath); err == nil {
 			hasCompose = true
+			composeFileName = "docker-compose-dev.yml"
 		}
 
 		hasEnv := false
@@ -606,7 +610,7 @@ func detectExistingLocalDeployment(dir string) (*devlake.State, string) {
 		if hasCompose || hasEnv {
 			fmt.Println("\n📋 Found existing deployment artifacts:")
 			if hasCompose {
-				fmt.Println("   • docker-compose.yml")
+				fmt.Printf("   • %s\n", composeFileName)
 			}
 			if hasEnv {
 				fmt.Println("   • .env file")
@@ -659,8 +663,12 @@ func cleanupLocalQuiet(dir string) error {
 			return fmt.Errorf("docker compose down failed: %w", err)
 		}
 	} else if _, err := os.Stat(devComposePath); err == nil {
-		if err := dockerpkg.ComposeDown(absDir); err != nil {
-			return fmt.Errorf("docker compose down failed: %w", err)
+		// For docker-compose-dev.yml, we need to run docker compose explicitly
+		// since ComposeDown expects docker-compose.yml by default
+		cmd := exec.Command("docker", "compose", "-f", devComposePath, "down", "--rmi", "local")
+		cmd.Dir = absDir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("docker compose down failed: %s\n%s", err, string(out))
 		}
 	}
 

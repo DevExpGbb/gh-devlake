@@ -80,12 +80,8 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 		case "abort":
 			return nil
 		case "restart":
-			fmt.Println("\n🧹 Cleaning up existing Azure deployment...")
+			fmt.Println("\n🧹 To restart, you need to clean up the existing deployment first")
 			fmt.Println("   Note: This will delete all Azure resources in the resource group")
-			if !prompt.Confirm("Proceed with cleanup?") {
-				return nil
-			}
-			// User should run cleanup manually - we don't want to auto-delete Azure resources
 			fmt.Println("\n   Please run: gh devlake cleanup --azure")
 			fmt.Println("   Then re-run: gh devlake deploy azure")
 			return nil
@@ -196,7 +192,7 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 	fmt.Println("   ✅ Resource Group created")
 
 	// ── Write early checkpoint — ensures cleanup works even if deployment fails ──
-	savePartialAzureState(azureRG, azureLocation)
+	savePartialAzureState(deployAzureDir, azureRG, azureLocation)
 
 	// ── Generate secrets ──
 	fmt.Println("\n🔐 Generating secrets...")
@@ -468,8 +464,9 @@ func conditionalACR() any {
 // Resource Group is created so that cleanup --azure always has a breadcrumb,
 // even when the deployment fails mid-flight (e.g. Docker build errors).
 // The full state write at the end of a successful deployment overwrites this.
-func savePartialAzureState(rg, region string) {
-	stateFile := ".devlake-azure.json"
+func savePartialAzureState(dir, rg, region string) {
+	absDir, _ := filepath.Abs(dir)
+	stateFile := filepath.Join(absDir, ".devlake-azure.json")
 	partial := map[string]any{
 		"deployedAt":    time.Now().Format(time.RFC3339),
 		"resourceGroup": rg,
