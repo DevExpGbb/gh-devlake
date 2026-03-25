@@ -493,7 +493,10 @@ func detectExistingAzureDeployment(dir string) (map[string]any, string) {
 	// Check for state file
 	data, err := os.ReadFile(stateFile)
 	if err != nil {
-		// No state file found - proceed normally
+		if !os.IsNotExist(err) {
+			fmt.Printf("\n⚠️  Could not read Azure state file %s: %v\n", stateFile, err)
+		}
+		// No state file found or unreadable - proceed without state
 		return nil, ""
 	}
 

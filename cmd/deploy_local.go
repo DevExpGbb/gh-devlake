@@ -200,7 +200,7 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 		fmt.Println("   2. Start Docker Desktop and wait for it to fully initialize")
 		fmt.Println("   3. Verify Docker is running: docker ps")
 		fmt.Println("   4. Re-run this command: gh devlake deploy local")
-		return fmt.Errorf("Docker is not available — follow recovery steps above")
+		return fmt.Errorf("Docker is not available — follow recovery steps above: %w", err)
 	}
 	fmt.Println("   ✅ Docker found")
 
@@ -542,7 +542,7 @@ func startLocalContainers(dir string, build bool, services ...string) (string, e
 			fmt.Println("   gh devlake deploy local")
 			fmt.Println("\n💡 To clean up partial artifacts:")
 			fmt.Println("   gh devlake cleanup --local --force")
-			return "", fmt.Errorf("port conflict — stop the conflicting container and retry")
+			return "", fmt.Errorf("port conflict — stop the conflicting container and retry: %w", err)
 		}
 		fmt.Println("\n💡 To clean up partial artifacts:")
 		fmt.Println("   gh devlake cleanup --local --force")
@@ -559,15 +559,25 @@ func startLocalContainers(dir string, build bool, services ...string) (string, e
 	if err != nil {
 		fmt.Println("\n❌ DevLake not ready after 6 minutes")
 		fmt.Println("\n💡 Troubleshooting steps:")
-		fmt.Printf("   1. Check container logs: docker compose -f \"%s/docker-compose.yml\" logs devlake\n", absDir)
-		fmt.Println("   2. Verify all containers are running: docker compose ps")
-		fmt.Println("   3. Check MySQL initialization: docker compose logs mysql")
-		fmt.Println("   4. If containers keep restarting, check: docker compose logs")
+
+		// Detect which compose file exists
+		composeFile := "docker-compose.yml"
+		if _, statErr := os.Stat(filepath.Join(absDir, "docker-compose.yml")); os.IsNotExist(statErr) {
+			if _, statErr := os.Stat(filepath.Join(absDir, "docker-compose-dev.yml")); statErr == nil {
+				composeFile = "docker-compose-dev.yml"
+			}
+		}
+		composePath := filepath.Join(absDir, composeFile)
+
+		fmt.Printf("   1. Check container logs: docker compose -f \"%s\" logs devlake\n", composePath)
+		fmt.Printf("   2. Verify all containers are running: docker compose -f \"%s\" ps\n", composePath)
+		fmt.Printf("   3. Check MySQL initialization: docker compose -f \"%s\" logs mysql\n", composePath)
+		fmt.Printf("   4. If containers keep restarting, check: docker compose -f \"%s\" logs\n", composePath)
 		fmt.Println("\n   Common issues:")
 		fmt.Println("   • MySQL takes longer on first run (database initialization)")
 		fmt.Println("   • Insufficient Docker resources (increase memory in Docker Desktop settings)")
 		fmt.Println("   • Port conflicts (check docker compose logs for 'address already in use')")
-		return "", fmt.Errorf("DevLake not ready — check logs for details")
+		return "", fmt.Errorf("DevLake not ready — check logs for details: %w", err)
 	}
 	return backendURL, nil
 }
@@ -585,6 +595,9 @@ func detectExistingLocalDeployment(dir string) (*devlake.State, string) {
 
 	// Check for state file
 	state, err := devlake.LoadState(stateFile)
+	if err != nil && !os.IsNotExist(err) {
+		fmt.Printf("\n⚠️  Unable to read local deployment state from %s: %v\n", stateFile, err)
+	}
 	if err != nil || state == nil {
 		// No state file or failed to load - check for docker-compose.yml + .env
 		composePath := filepath.Join(absDir, "docker-compose.yml")
@@ -675,7 +688,9 @@ func cleanupLocalQuiet(dir string) error {
 	// Remove state file
 	stateFile := filepath.Join(absDir, ".devlake-local.json")
 	if _, err := os.Stat(stateFile); err == nil {
-		os.Remove(stateFile)
+		if err := os.Remove(stateFile); err != nil {
+			fmt.Printf("\n⚠️  Failed to remove local state file %s: %v\n", stateFile, err)
+		}
 	}
 
 	return nil
