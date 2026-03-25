@@ -255,16 +255,16 @@ func triggerAndWaitForMigrationWithClient(baseURL string, devlakeClient *devlake
 
 	var lastErr error
 	for attempt := 1; attempt <= triggerAttempts; attempt++ {
-		if err := devlakeClient.TriggerMigration(); err == nil {
+		err := devlakeClient.TriggerMigration()
+		if err == nil {
 			fmt.Println("   ✅ Migration triggered")
 			break
-		} else {
-			lastErr = err
-			fmt.Printf("   ⚠️  Trigger attempt %d/%d failed: %v\n", attempt, triggerAttempts, err)
-			if attempt < triggerAttempts {
-				fmt.Println("   DevLake may still be starting or migration may already be running — retrying...")
-				time.Sleep(triggerInterval)
-			}
+		}
+		lastErr = err
+		fmt.Printf("   ⚠️  Trigger attempt %d/%d failed: %v\n", attempt, triggerAttempts, err)
+		if attempt < triggerAttempts {
+			fmt.Println("   DevLake may still be starting or migration may already be running — retrying...")
+			time.Sleep(triggerInterval)
 		}
 	}
 
