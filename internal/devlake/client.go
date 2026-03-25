@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -511,6 +512,11 @@ func (c *Client) TriggerMigration() error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		bodyText := strings.TrimSpace(string(body))
+		if bodyText != "" {
+			return fmt.Errorf("triggering migration: DevLake returned status %d: %s", resp.StatusCode, bodyText)
+		}
 		return fmt.Errorf("triggering migration: DevLake returned status %d", resp.StatusCode)
 	}
 	return nil

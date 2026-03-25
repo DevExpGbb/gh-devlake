@@ -232,11 +232,11 @@ func waitForMigration(baseURL string, maxAttempts int, interval time.Duration) e
 				return nil
 			}
 		}
+		statusSuffix := ""
 		if lastStatus != 0 {
-			fmt.Printf("   Migrating... (%d/%d, status=%d)\n", attempt, maxAttempts, lastStatus)
-		} else {
-			fmt.Printf("   Migrating... (%d/%d)\n", attempt, maxAttempts)
+			statusSuffix = fmt.Sprintf(", status=%d", lastStatus)
 		}
+		fmt.Printf("   Migrating... (%d/%d%s)\n", attempt, maxAttempts, statusSuffix)
 		time.Sleep(interval)
 	}
 	if lastStatus != 0 {
@@ -249,18 +249,18 @@ func triggerAndWaitForMigration(baseURL string) error {
 	return triggerAndWaitForMigrationWithClient(baseURL, devlake.NewClient(baseURL), 3, 10*time.Second, 60, 5*time.Second)
 }
 
-func triggerAndWaitForMigrationWithClient(baseURL string, migClient *devlake.Client, triggerAttempts int, triggerInterval time.Duration, waitAttempts int, waitInterval time.Duration) error {
+func triggerAndWaitForMigrationWithClient(baseURL string, devlakeClient *devlake.Client, triggerAttempts int, triggerInterval time.Duration, waitAttempts int, waitInterval time.Duration) error {
 	fmt.Println("\n🔄 Triggering database migration...")
 
 	var lastErr error
 	for attempt := 1; attempt <= triggerAttempts; attempt++ {
-		if err := migClient.TriggerMigration(); err == nil {
+		if err := devlakeClient.TriggerMigration(); err == nil {
 			fmt.Println("   ✅ Migration triggered")
 			lastErr = nil
 			break
 		} else {
 			lastErr = err
-			fmt.Printf("   ⚠️  Trigger attempt %d/%d did not complete cleanly: %v\n", attempt, triggerAttempts, err)
+			fmt.Printf("   ⚠️  Trigger attempt %d/%d failed: %v\n", attempt, triggerAttempts, err)
 			if attempt < triggerAttempts {
 				fmt.Println("   DevLake may still be starting or migration may already be running — retrying...")
 				time.Sleep(triggerInterval)
@@ -274,7 +274,7 @@ func triggerAndWaitForMigrationWithClient(baseURL string, migClient *devlake.Cli
 	}
 	if err := waitForMigration(baseURL, waitAttempts, waitInterval); err != nil {
 		if lastErr != nil {
-			return fmt.Errorf("migration trigger did not complete cleanly: %v; %w", lastErr, err)
+			return fmt.Errorf("migration trigger failed: %v; %w", lastErr, err)
 		}
 		return err
 	}

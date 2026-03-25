@@ -32,8 +32,12 @@ func TestTriggerAndWaitForMigrationWithClient_CompletesAfterTriggerTimeout(t *te
 	}))
 	defer srv.Close()
 
-	client := devlake.NewClient(srv.URL)
-	client.HTTPClient.Timeout = 5 * time.Millisecond
+	client := &devlake.Client{
+		BaseURL: srv.URL,
+		HTTPClient: &http.Client{
+			Timeout: 5 * time.Millisecond,
+		},
+	}
 
 	err := triggerAndWaitForMigrationWithClient(srv.URL, client, 1, time.Millisecond, 3, time.Millisecond)
 	if err != nil {
