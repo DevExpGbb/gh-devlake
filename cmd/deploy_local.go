@@ -682,8 +682,34 @@ func rewriteComposePorts(composePath string) error {
 		return fmt.Errorf("no port mappings found to rewrite (expected 8080/3002/4000)")
 	}
 
-	if err := os.WriteFile(composePath, []byte(modified), 0644); err != nil {
-		return fmt.Errorf("writing compose file: %w", err)
+	// Create a backup of the original compose file so users can revert if needed
+	backupPath := composePath + ".bak"
+	if _, statErr := os.Stat(backupPath); os.IsNotExist(statErr) {
+		if err := os.WriteFile(backupPath, data, 0644); err != nil {
+			return fmt.Errorf("creating compose backup %s: %w", backupPath, err)
+		}
+	}
+
+	// Write updated content atomically via temp file + rename to avoid partial writes
+	dir := filepath.Dir(composePath)
+	tmpFile, err := os.CreateTemp(dir, ".compose-*.tmp")
+	if err != nil {
+		return fmt.Errorf("creating temp compose file: %w", err)
+	}
+	// Ensure temp file is removed on failure paths
+	defer os.Remove(tmpFile.Name())
+
+	if _, err := tmpFile.Write([]byte(modified)); err != nil {
+		tmpFile.Close()
+		return fmt.Errorf("writing temp compose file: %w", err)
+	}
+
+	if err := tmpFile.Close(); err != nil {
+		return fmt.Errorf("closing temp compose file: %w", err)
+	}
+
+	if err := os.Rename(tmpFile.Name(), composePath); err != nil {
+		return fmt.Errorf("replacing compose file atomically: %w", err)
 	}
 
 	return nil

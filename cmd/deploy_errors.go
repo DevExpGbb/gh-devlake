@@ -261,7 +261,12 @@ func findPortOwner(port string) (string, string) {
 func printDockerPortConflictError(de *DeployError, customHeader string, nextSteps string) {
 	// Print header
 	if customHeader != "" {
-		fmt.Println(customHeader)
+		// Normalize header to ensure consistent spacing (blank line before emoji-prefixed steps)
+		normalizedHeader := customHeader
+		if !strings.HasPrefix(normalizedHeader, "\n") {
+			normalizedHeader = "\n" + normalizedHeader
+		}
+		fmt.Println(normalizedHeader)
 	} else {
 		if de.Port != "" {
 			fmt.Printf("\n❌ Port conflict detected: port %s is already in use.\n", de.Port)

@@ -68,7 +68,9 @@ docker compose up -d
 | Config UI | http://localhost:4000 or http://localhost:4004 | — |
 | Grafana | http://localhost:3002 or http://localhost:3004 | admin / admin |
 
-**Port Fallback**: When deploying with `--source official` or `--source fork`, the CLI automatically recovers from port conflicts by retrying with alternate ports (`8085/3004/4004`). Custom deployments require manual port conflict resolution.
+**Port Fallback**: When deploying with `--source official` or `--source fork`, the CLI automatically recovers from port conflicts by retrying with alternate ports (`8085/3004/4004`). As part of this recovery, it updates the port mappings in `docker-compose.yml` on disk (creating a backup at `docker-compose.yml.bak` first) so that future `docker compose up` runs use the fallback ports. Custom deployments (`--source custom`) are not modified automatically and require manual port conflict resolution.
+
+To revert fallback changes, restore from the backup file (`docker-compose.yml.bak`), edit `docker-compose.yml` to change the mapped ports back to your preferred values (e.g., `8080/3002/4000`), or re-run the deployment in a clean directory.
 
 ### Examples
 
