@@ -274,7 +274,7 @@ func triggerAndWaitForMigrationWithClient(baseURL string, migClient *devlake.Cli
 	}
 	if err := waitForMigration(baseURL, waitAttempts, waitInterval); err != nil {
 		if lastErr != nil {
-			return fmt.Errorf("migration trigger did not complete cleanly: %w; %w", lastErr, err)
+			return fmt.Errorf("migration trigger did not complete cleanly: %v; %w", lastErr, err)
 		}
 		return err
 	}
