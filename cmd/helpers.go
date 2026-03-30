@@ -247,16 +247,17 @@ func waitForMigration(baseURL string, maxAttempts int, interval time.Duration) e
 }
 
 func triggerAndWaitForMigration(baseURL string) error {
-	return triggerAndWaitForMigrationWithClient(baseURL, devlake.NewClient(baseURL), 3, 10*time.Second, 60, 5*time.Second)
+	return triggerAndWaitForMigrationWithClient(devlake.NewClient(baseURL), 3, 10*time.Second, 60, 5*time.Second)
 }
 
-func triggerAndWaitForMigrationWithClient(baseURL string, devlakeClient *devlake.Client, triggerAttempts int, triggerInterval time.Duration, waitAttempts int, waitInterval time.Duration) error {
+func triggerAndWaitForMigrationWithClient(devlakeClient *devlake.Client, triggerAttempts int, triggerInterval time.Duration, waitAttempts int, waitInterval time.Duration) error {
 	fmt.Println("\n🔄 Triggering database migration...")
 
 	var lastErr error
 	for attempt := 1; attempt <= triggerAttempts; attempt++ {
 		err := devlakeClient.TriggerMigration()
 		if err == nil {
+			lastErr = nil
 			fmt.Println("   ✅ Migration triggered")
 			break
 		}
@@ -272,7 +273,7 @@ func triggerAndWaitForMigrationWithClient(baseURL string, devlakeClient *devlake
 	if lastErr != nil {
 		fmt.Println("   Continuing to monitor migration status anyway...")
 	}
-	if err := waitForMigration(baseURL, waitAttempts, waitInterval); err != nil {
+	if err := waitForMigration(devlakeClient.BaseURL, waitAttempts, waitInterval); err != nil {
 		if lastErr != nil {
 			return fmt.Errorf("migration trigger failed earlier (%v) and waiting for migration completion also failed: %w", lastErr, err)
 		}

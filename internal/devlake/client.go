@@ -506,18 +506,20 @@ func (c *Client) SearchRemoteScopes(plugin string, connID int, search string, pa
 
 // TriggerMigration triggers the DevLake database migration endpoint.
 func (c *Client) TriggerMigration() error {
-	resp, err := c.HTTPClient.Get(c.BaseURL + "/proceed-db-migration")
+	const path = "/proceed-db-migration"
+
+	resp, err := c.HTTPClient.Get(c.BaseURL + path)
 	if err != nil {
-		return fmt.Errorf("triggering migration: %w", err)
+		return fmt.Errorf("GET %s: triggering migration: %w", path, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		bodyText := strings.TrimSpace(string(body))
 		if bodyText != "" {
-			return fmt.Errorf("DevLake returned status %d: %s", resp.StatusCode, bodyText)
+			return fmt.Errorf("GET %s: DevLake returned %s: %s", path, resp.Status, bodyText)
 		}
-		return fmt.Errorf("DevLake returned status %d", resp.StatusCode)
+		return fmt.Errorf("GET %s: DevLake returned %s", path, resp.Status)
 	}
 	return nil
 }

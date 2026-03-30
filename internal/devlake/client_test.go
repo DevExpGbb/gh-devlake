@@ -911,9 +911,11 @@ func TestHealth(t *testing.T) {
 
 func TestTriggerMigration(t *testing.T) {
 	tests := []struct {
-		name       string
-		statusCode int
-		wantErr    bool
+		name        string
+		statusCode  int
+		body        string
+		wantErr     bool
+		wantErrText string
 	}{
 		{
 			name:       "success",
@@ -924,9 +926,17 @@ func TestTriggerMigration(t *testing.T) {
 			statusCode: http.StatusNoContent,
 		},
 		{
-			name:       "server error",
-			statusCode: http.StatusServiceUnavailable,
-			wantErr:    true,
+			name:        "server error with body",
+			statusCode:  http.StatusServiceUnavailable,
+			body:        "warming up",
+			wantErr:     true,
+			wantErrText: "GET /proceed-db-migration: DevLake returned 503 Service Unavailable: warming up",
+		},
+		{
+			name:        "server error without body",
+			statusCode:  http.StatusBadGateway,
+			wantErr:     true,
+			wantErrText: "GET /proceed-db-migration: DevLake returned 502 Bad Gateway",
 		},
 	}
 
@@ -937,6 +947,7 @@ func TestTriggerMigration(t *testing.T) {
 					t.Errorf("path = %s, want /proceed-db-migration", r.URL.Path)
 				}
 				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.body))
 			}))
 			defer srv.Close()
 
@@ -946,6 +957,9 @@ func TestTriggerMigration(t *testing.T) {
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
+				}
+				if err.Error() != tt.wantErrText {
+					t.Fatalf("error = %q, want %q", err.Error(), tt.wantErrText)
 				}
 				return
 			}
