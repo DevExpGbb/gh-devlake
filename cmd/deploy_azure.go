@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -304,14 +303,10 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 
 	if backendReady {
 		fmt.Println("   ✅ Backend is responding!")
-		fmt.Println("\n🔄 Triggering database migration...")
-		httpClient := &http.Client{Timeout: 5 * time.Second}
-		resp, err := httpClient.Get(deployment.BackendEndpoint + "/proceed-db-migration")
-		if err == nil {
-			resp.Body.Close()
-			fmt.Println("   ✅ Migration triggered")
-		} else {
-			fmt.Printf("   ⚠️  Migration may need manual trigger: %v\n", err)
+		if err := triggerAndWaitForMigration(deployment.BackendEndpoint); err != nil {
+			fmt.Printf("   ⚠️  %v\n", err)
+			fmt.Printf("   Trigger migration manually if needed: GET %s/proceed-db-migration\n", deployment.BackendEndpoint)
+			fmt.Println("   Migration may still be running — proceeding anyway")
 		}
 	} else {
 		fmt.Println("   Backend not ready after 30 attempts.")

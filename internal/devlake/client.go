@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -289,6 +290,29 @@ func doGet[T any](c *Client, path string) (*T, error) {
 	return &result, nil
 }
 
+// doGetNoBody is a helper for GET requests that only need a successful 2xx status.
+func doGetNoBody(c *Client, path string) error {
+	resp, err := c.HTTPClient.Get(c.BaseURL + path)
+	if err != nil {
+		return fmt.Errorf("GET %s: %w", path, err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 512))
+	if err != nil {
+		return fmt.Errorf("GET %s: reading response: %w", path, err)
+	}
+	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices {
+		return nil
+	}
+
+	bodyText := strings.TrimSpace(string(body))
+	if bodyText != "" {
+		return fmt.Errorf("GET %s: DevLake returned %s: %s", path, resp.Status, bodyText)
+	}
+	return fmt.Errorf("GET %s: DevLake returned %s", path, resp.Status)
+}
+
 // doPut is a generic helper for PUT requests that return JSON.
 func doPut[T any](c *Client, path string, payload any) (*T, error) {
 	jsonBody, err := json.Marshal(payload)
@@ -505,12 +529,7 @@ func (c *Client) SearchRemoteScopes(plugin string, connID int, search string, pa
 
 // TriggerMigration triggers the DevLake database migration endpoint.
 func (c *Client) TriggerMigration() error {
-	resp, err := c.HTTPClient.Get(c.BaseURL + "/proceed-db-migration")
-	if err != nil {
-		return err
-	}
-	resp.Body.Close()
-	return nil
+	return doGetNoBody(c, "/proceed-db-migration")
 }
 
 // PipelineListResponse is the response from GET /pipelines.
