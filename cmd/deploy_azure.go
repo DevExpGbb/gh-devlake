@@ -82,7 +82,7 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 		case "restart":
 			fmt.Println("\n🧹 To restart, you need to clean up the existing deployment first")
 			fmt.Println("   Note: This will delete all Azure resources in the resource group")
-			fmt.Println("\n   Please run: gh devlake cleanup --azure")
+			fmt.Println("   Please run: gh devlake cleanup --azure")
 			fmt.Println("   Then re-run: gh devlake deploy azure")
 			return nil
 		case "resume":
