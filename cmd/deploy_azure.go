@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/DevExpGBB/gh-devlake/internal/azure"
+	"github.com/DevExpGBB/gh-devlake/internal/devlake"
 	dockerpkg "github.com/DevExpGBB/gh-devlake/internal/docker"
 	"github.com/DevExpGBB/gh-devlake/internal/gitclone"
 	"github.com/DevExpGBB/gh-devlake/internal/prompt"
@@ -71,6 +72,23 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 	}
 	if err := os.MkdirAll(deployAzureDir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", deployAzureDir, err)
+	}
+
+	// ── Check for existing Azure deployment ──
+	if existingState, resumeAction := detectExistingAzureDeployment(deployAzureDir); existingState != nil {
+		switch resumeAction {
+		case "abort":
+			return nil
+		case "restart":
+			fmt.Println("\n🧹 To restart, you need to clean up the existing deployment first")
+			fmt.Println("   Note: This will delete all Azure resources in the resource group")
+			fmt.Println("   Please run: gh devlake cleanup --azure")
+			fmt.Println("   Then re-run: gh devlake deploy azure")
+			return nil
+		case "resume":
+			// Continue with the deployment - may update existing resources
+			fmt.Println("\n   Continuing with deployment (will update existing resources)...")
+		}
 	}
 
 	// ── Interactive image-source prompt (when no explicit flag set) ──
@@ -146,10 +164,21 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		fmt.Println("   Not logged in. Running az login...")
 		if loginErr := azure.Login(); loginErr != nil {
+			fmt.Println("\n💡 Azure CLI login failed")
+			fmt.Println("   Recovery steps:")
+			fmt.Println("   1. Install Azure CLI: https://docs.microsoft.com/cli/azure/install-azure-cli")
+			fmt.Println("   2. Run: az login")
+			fmt.Println("   3. Follow the browser authentication flow")
+			fmt.Println("   4. Re-run: gh devlake deploy azure")
 			return fmt.Errorf("az login failed: %w", loginErr)
 		}
 		acct, err = azure.CheckLogin()
 		if err != nil {
+			fmt.Println("\n💡 Still not authenticated after login")
+			fmt.Println("   Try:")
+			fmt.Println("   • Run 'az account list' to see your subscriptions")
+			fmt.Println("   • Run 'az account set --subscription <id>' if needed")
+			fmt.Println("   • Check Azure CLI version: az --version")
 			return fmt.Errorf("still not logged in after az login: %w", err)
 		}
 	}
@@ -163,7 +192,7 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 	fmt.Println("   ✅ Resource Group created")
 
 	// ── Write early checkpoint — ensures cleanup works even if deployment fails ──
-	savePartialAzureState(azureRG, azureLocation)
+	savePartialAzureState(deployAzureDir, azureRG, azureLocation)
 
 	// ── Generate secrets ──
 	fmt.Println("\n🔐 Generating secrets...")
@@ -289,6 +318,16 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 
 	deployment, err := azure.DeployBicep(azureRG, templatePath, params)
 	if err != nil {
+		fmt.Println("\n❌ Bicep deployment failed")
+		fmt.Println("\n💡 Troubleshooting steps:")
+		fmt.Println("   1. Check Azure portal for deployment details:")
+		fmt.Printf("      https://portal.azure.com/#blade/HubsExtension/DeploymentDetailsBlade/resourceGroup/%s\n", azureRG)
+		fmt.Println("   2. Check if quota limits were exceeded in your subscription")
+		fmt.Println("   3. Verify the resource group location supports all required services")
+		fmt.Println("   4. Check for service principal or permission issues")
+		fmt.Println("\n   To retry:")
+		fmt.Println("   • If partial deployment exists, re-run will attempt to continue")
+		fmt.Println("   • To start fresh: gh devlake cleanup --azure, then deploy again")
 		return fmt.Errorf("Bicep deployment failed: %w", err)
 	}
 
@@ -425,8 +464,9 @@ func conditionalACR() any {
 // Resource Group is created so that cleanup --azure always has a breadcrumb,
 // even when the deployment fails mid-flight (e.g. Docker build errors).
 // The full state write at the end of a successful deployment overwrites this.
-func savePartialAzureState(rg, region string) {
-	stateFile := ".devlake-azure.json"
+func savePartialAzureState(dir, rg, region string) {
+	absDir, _ := filepath.Abs(dir)
+	stateFile := filepath.Join(absDir, ".devlake-azure.json")
 	partial := map[string]any{
 		"deployedAt":    time.Now().Format(time.RFC3339),
 		"resourceGroup": rg,
@@ -437,4 +477,84 @@ func savePartialAzureState(rg, region string) {
 	if err := os.WriteFile(stateFile, data, 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "⚠️  Could not save early state checkpoint: %v\n", err)
 	}
+}
+
+// detectExistingAzureDeployment checks for existing Azure deployment state and prompts for action.
+// Returns any existing state data and the user's choice: "resume", "restart", or "abort".
+func detectExistingAzureDeployment(dir string) (map[string]any, string) {
+	if deployAzureQuiet {
+		// When called from init wizard, don't prompt
+		return nil, ""
+	}
+
+	absDir, _ := filepath.Abs(dir)
+	stateFile := filepath.Join(absDir, ".devlake-azure.json")
+
+	// Check for state file
+	data, err := os.ReadFile(stateFile)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			fmt.Printf("\n⚠️  Could not read Azure state file %s: %v\n", stateFile, err)
+		}
+		// No state file found or unreadable - proceed without state
+		return nil, ""
+	}
+
+	var state map[string]any
+	if err := json.Unmarshal(data, &state); err != nil {
+		// State file is corrupted - warn and proceed
+		fmt.Printf("\n⚠️  Found .devlake-azure.json but could not parse it: %v\n", err)
+		return nil, ""
+	}
+
+	// Display existing deployment info
+	fmt.Println("\n📋 Found existing Azure deployment:")
+	if deployedAt, ok := state["deployedAt"].(string); ok {
+		fmt.Printf("   Deployed: %s\n", deployedAt)
+	}
+	if rg, ok := state["resourceGroup"].(string); ok {
+		fmt.Printf("   Resource Group: %s\n", rg)
+	}
+	if region, ok := state["region"].(string); ok {
+		fmt.Printf("   Region: %s\n", region)
+	}
+
+	// Check if this is a partial deployment (failed mid-way)
+	isPartial := false
+	if partial, ok := state["partial"].(bool); ok && partial {
+		fmt.Println("   Status: ⚠️  Partial deployment (may have failed)")
+		isPartial = true
+	}
+
+	// Check if endpoints are available and reachable
+	if endpoints, ok := state["endpoints"].(map[string]any); ok {
+		if backend, ok := endpoints["backend"].(string); ok && backend != "" {
+			fmt.Printf("   Backend: %s\n", backend)
+			if err := devlake.PingURL(backend); err == nil {
+				fmt.Println("   Status:  ✅ Running")
+			} else {
+				fmt.Println("   Status:  ⚠️  Not responding (may be stopped)")
+			}
+		}
+	}
+
+	fmt.Println()
+	choices := []string{
+		"resume  - Continue/update existing deployment",
+		"restart - Clean up and start fresh (requires manual cleanup)",
+		"abort   - Exit without making changes",
+	}
+
+	if isPartial {
+		// For partial deployments, recommend resume
+		choices[0] = "resume  - Continue deployment from where it failed (recommended)"
+	}
+
+	choice := prompt.Select("What would you like to do?", choices)
+	if choice == "" {
+		return state, "abort"
+	}
+
+	action := strings.SplitN(choice, " ", 2)[0]
+	return state, action
 }
