@@ -51,9 +51,9 @@ Depending on `--source`:
 
 ### After Running
 
-By default (`--start=true`), containers start automatically and you can access the endpoints immediately (wait ~2–3 minutes for all services to initialize).
+Containers start automatically by default. Service endpoints are available immediately (wait ~2–3 minutes for all services to initialize).
 
-To stage files without starting containers, use `--start=false`, then run:
+If you staged files without starting containers (`--start=false`), manually start them with:
 
 ```bash
 cd <dir>
