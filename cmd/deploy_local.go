@@ -681,7 +681,7 @@ func cleanupLocalQuiet(dir string) error {
 		cmd := exec.Command("docker", "compose", "-f", devComposePath, "down", "--rmi", "local")
 		cmd.Dir = absDir
 		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("docker compose down failed: %s\n%s", err, string(out))
+			return fmt.Errorf("docker compose down failed: %w\n%s", err, string(out))
 		}
 	}
 
