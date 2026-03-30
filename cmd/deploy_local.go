@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,6 +47,11 @@ Image source (interactive prompt or flags):
   official  Download the official Apache release (default)
   fork      Clone a DevLake repo and build images from source
   custom    Use your own docker-compose.yml already in the target directory
+
+For official and fork deployments, if the default local port bundle
+(8080/3002/4000) is already in use, the CLI automatically retries once with
+alternate ports (8085/3004/4004). Custom deployments require manual port
+conflict resolution.
 
 Example:
   gh devlake deploy local
@@ -190,7 +198,11 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 		if deployLocalSource == "fork" {
 			services = []string{"mysql", "devlake", "grafana", "config-ui"}
 		}
-		backendURL, err := startLocalContainers(absDir, buildImages, services...)
+
+		// Allow alternate port bundle for official/fork (not custom)
+		allowPortFallback := deployLocalSource != "custom"
+
+		backendURL, err := startLocalContainers(absDir, buildImages, allowPortFallback, services...)
 		if err != nil {
 			return err
 		}
@@ -212,8 +224,11 @@ func runDeployLocal(cmd *cobra.Command, args []string) error {
 		if !deployLocalQuiet {
 			printBanner("✅ DevLake is running!")
 			fmt.Printf("\n  Backend API: %s\n", backendURL)
-			fmt.Println("  Config UI:   http://localhost:4000")
-			fmt.Println("  Grafana:     http://localhost:3002 (admin/admin)")
+			// Infer companion URLs based on compose file ports
+			composePath := findComposeFile(absDir)
+			grafanaURL, configUIURL := inferCompanionURLs(backendURL, composePath)
+			fmt.Printf("  Config UI:   %s\n", configUIURL)
+			fmt.Printf("  Grafana:     %s (admin/admin)\n", grafanaURL)
 			fmt.Println("\nTo stop/remove DevLake:")
 			fmt.Printf("  cd \"%s\" && gh devlake cleanup\n", absDir)
 		}
@@ -424,10 +439,12 @@ func copyDir(src, dst string) error {
 
 // startLocalContainers runs docker compose up -d and polls until DevLake is healthy.
 // If build is true, images are rebuilt from local Dockerfiles (fork mode).
+// If allowPortFallback is true, the function will retry once with alternate ports (8085/3004/4004)
+// when a port conflict is detected on the default bundle (8080/3002/4000).
 // If services are specified, only those services are started (used by fork mode
 // to avoid starting unnecessary services like postgres/authproxy).
 // Returns the backend URL on success.
-func startLocalContainers(dir string, build bool, services ...string) (string, error) {
+func startLocalContainers(dir string, build, allowPortFallback bool, services ...string) (string, error) {
 	absDir, _ := filepath.Abs(dir)
 	if build {
 		fmt.Printf("\n🐳 Building and starting containers in %s...\n", absDir)
@@ -435,101 +452,138 @@ func startLocalContainers(dir string, build bool, services ...string) (string, e
 	} else {
 		fmt.Printf("\n🐳 Starting containers in %s...\n", absDir)
 	}
-	if err := dockerpkg.ComposeUp(absDir, build, services...); err != nil {
-		// Give a friendlier error for port conflicts
-		errStr := err.Error()
-		if strings.Contains(errStr, "port is already allocated") || strings.Contains(errStr, "Bind for") {
-			// Extract the port number from the error
-			port := ""
-			if idx := strings.Index(errStr, "Bind for 0.0.0.0:"); idx != -1 {
-				rest := errStr[idx+len("Bind for 0.0.0.0:"):]
-				if end := strings.IndexAny(rest, " \n"); end > 0 {
-					port = rest[:end]
-				}
-			}
 
-			fmt.Println()
-			if port != "" {
-				fmt.Printf("❌ Port conflict: %s is already in use.\n", port)
-			} else {
-				fmt.Println("❌ Port conflict: a required port is already in use.")
-			}
+	// Attempt 1: Default ports
+	err := dockerpkg.ComposeUp(absDir, build, services...)
+	if err == nil {
+		fmt.Println("   ✅ Containers starting")
+		return waitAndDetectBackendURL(absDir)
+	}
 
-			// Ask Docker which container owns the port
-			conflictCmd := ""
-			if port != "" {
-				out, dockerErr := exec.Command(
-					"docker",
-					"ps",
-					"--filter",
-					"publish="+port,
-					"--format",
-					"{{.Names}}\t{{.Label \"com.docker.compose.project.config_files\"}}\t{{.Label \"com.docker.compose.project.working_dir\"}}",
-				).Output()
-				if dockerErr == nil && len(strings.TrimSpace(string(out))) > 0 {
-					lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-					// Use the first match
-					parts := strings.SplitN(lines[0], "\t", 3)
-					containerName := parts[0]
-					configFiles := ""
-					workDir := ""
-					if len(parts) >= 2 {
-						configFiles = strings.TrimSpace(parts[1])
-					}
-					if len(parts) == 3 {
-						workDir = strings.TrimSpace(parts[2])
-					}
-					fmt.Printf("   Container holding the port: %s\n", containerName)
-					// Prefer the exact compose file path Docker recorded (most reliable).
-					if configFiles != "" {
-						configFile := strings.Split(configFiles, ";")[0]
-						configFile = strings.TrimSpace(configFile)
-						if configFile != "" {
-							if _, statErr := os.Stat(configFile); statErr == nil {
-								fmt.Println("\n   Stop it with:")
-								fmt.Printf("   docker compose -f \"%s\" down\n", configFile)
-								conflictCmd = fmt.Sprintf("docker compose -f \"%s\" down", configFile)
-							} else {
-								fmt.Println("\n   Stop it with:")
-								fmt.Printf("   docker stop %s\n", containerName)
-								fmt.Printf("\n   ⚠️  Compose file not found at: %s\n", configFile)
-								fmt.Println("      (It may have been moved/deleted since the container was created.)")
-								conflictCmd = "docker stop " + containerName
-							}
-						}
-					} else if workDir != "" {
-						// Fallback for older Docker versions: assume docker-compose.yml under working_dir.
-						composePath := filepath.Join(workDir, "docker-compose.yml")
-						if _, statErr := os.Stat(composePath); statErr == nil {
-							fmt.Println("\n   Stop it with:")
-							fmt.Printf("   docker compose -f \"%s\" down\n", composePath)
-							conflictCmd = fmt.Sprintf("docker compose -f \"%s\" down", composePath)
-						}
-					}
-					if conflictCmd == "" {
-						fmt.Println("\n   Stop it with:")
-						fmt.Printf("   docker stop %s\n", containerName)
-						conflictCmd = "docker stop " + containerName
-					}
-				}
-			}
-			if conflictCmd == "" {
-				fmt.Println("\n   Find what's using it:")
-				fmt.Println("   docker ps --format \"table {{.Names}}\\t{{.Ports}}\"")
-			}
-			fmt.Println("\n   Then re-run:")
-			fmt.Println("   gh devlake init")
-			fmt.Println("\n💡 To clean up partial artifacts:")
-			fmt.Println("   gh devlake cleanup --local --force")
-			return "", fmt.Errorf("port conflict — stop the conflicting container and retry")
-		}
+	// Classify the error
+	deployErr := classifyDockerComposeError(err)
+	if deployErr == nil || deployErr.Class != ErrorClassDockerPortConflict {
+		// Not a port conflict or unknown error - print general cleanup and fail
 		fmt.Println("\n💡 To clean up partial artifacts:")
 		fmt.Println("   gh devlake cleanup --local --force")
-		return "", err
+		return "", fmt.Errorf("docker compose up failed: %w", err)
 	}
-	fmt.Println("   ✅ Containers starting")
 
-	backendURLCandidates := []string{"http://localhost:8080", "http://localhost:8085"}
+	// Port conflict detected
+	if !allowPortFallback {
+		// Custom deployments don't get auto-fallback - print friendly error
+		printDockerPortConflictError(deployErr, "", "")
+		return "", fmt.Errorf("port conflict — stop the conflicting container and retry: %w", err)
+	}
+
+	// Bounded recovery: Try alternate port bundle once
+	// Find compose file
+	composePath := findComposeFile(absDir)
+
+	// Detect which port bundle the compose file is using
+	bundle := detectPortBundle(composePath)
+
+	switch bundle {
+	case portBundleAlternate:
+		// Compose file is already on alternate ports - can't fallback further
+		// Build custom header with port/container info
+		header := "\n❌ Port conflict detected on alternate ports (8085/3004/4004)"
+		if deployErr.Port != "" {
+			header += fmt.Sprintf("\n   Port %s is in use", deployErr.Port)
+			if deployErr.Container != "" {
+				header += fmt.Sprintf(" by container: %s", deployErr.Container)
+			}
+		}
+		nextSteps := "   The alternate port bundle is already in use.\n   Free ports 8085/3004/4004, then retry deployment."
+		printDockerPortConflictError(deployErr, header, nextSteps)
+		return "", fmt.Errorf("port conflict on alternate ports: %w", err)
+
+	case portBundleCustom:
+		// Custom ports - don't attempt automatic rewrite
+		// Build custom header with port/container info
+		header := "\n❌ Port conflict detected on custom ports"
+		if deployErr.Port != "" {
+			header += fmt.Sprintf("\n   Port %s is in use", deployErr.Port)
+			if deployErr.Container != "" {
+				header += fmt.Sprintf(" by container: %s", deployErr.Container)
+			}
+		}
+		nextSteps := "   Edit your compose file to use different host ports, or stop the conflicting container."
+		printDockerPortConflictError(deployErr, header, nextSteps)
+		return "", fmt.Errorf("port conflict on custom ports: %w", err)
+
+	case portBundleDefault:
+		// Compose file has default ports - try rewriting to alternate bundle
+		fmt.Println("\n🔧 Port conflict detected on default ports (8080/3002/4000)")
+		if deployErr.Port != "" {
+			fmt.Printf("   Port %s is in use", deployErr.Port)
+			if deployErr.Container != "" {
+				fmt.Printf(" by container: %s", deployErr.Container)
+			}
+			fmt.Println()
+		}
+		fmt.Println("\n🔄 Retrying with alternate ports (8085/3004/4004)...")
+
+		if err := rewriteComposePorts(composePath); err != nil {
+			fmt.Printf("   ⚠️  Could not rewrite ports: %v\n", err)
+			printDockerPortConflictError(deployErr, "", "")
+			return "", fmt.Errorf("port conflict and failed to apply alternate ports: %w", err)
+		}
+
+		fmt.Println("   ✅ Ports updated in compose file")
+
+		// Attempt 2: Retry with alternate ports
+		fmt.Println("   Starting containers with alternate ports...")
+		err = dockerpkg.ComposeUp(absDir, build, services...)
+		if err != nil {
+			// Second attempt failed - classify again
+			retryErr := classifyDockerComposeError(err)
+			if retryErr != nil && retryErr.Class == ErrorClassDockerPortConflict {
+				// Build header that indicates both bundles failed
+				header := "\n❌ Alternate ports are also in use."
+				nextSteps := "   Both default (8080/3002/4000) and alternate (8085/3004/4004) port bundles are occupied.\n   Free at least one bundle, then retry deployment."
+				printDockerPortConflictError(retryErr, header, nextSteps)
+			} else {
+				fmt.Println("\n💡 To clean up partial artifacts:")
+				fmt.Println("   gh devlake cleanup --local --force")
+			}
+			return "", fmt.Errorf("deployment failed after port fallback: %w", err)
+		}
+
+		fmt.Println("   ✅ Containers starting on alternate ports")
+		return waitAndDetectBackendURL(absDir)
+	}
+
+	return "", fmt.Errorf("unexpected port bundle detection result")
+}
+
+// findComposeFile returns the path to the active docker compose file in the given directory.
+// Checks for docker-compose.yml first, then docker-compose-dev.yml.
+func findComposeFile(dir string) string {
+	composePath := filepath.Join(dir, "docker-compose.yml")
+	if _, err := os.Stat(composePath); err == nil {
+		return composePath
+	}
+	return filepath.Join(dir, "docker-compose-dev.yml")
+}
+
+// waitAndDetectBackendURL polls the backend URL extracted from the compose file.
+// Falls back to probing both 8080 and 8085 if extraction fails.
+func waitAndDetectBackendURL(dir string) (string, error) {
+	composePath := findComposeFile(dir)
+
+	// Try to extract the actual backend port from the compose file
+	ports := extractServicePorts(composePath, "devlake")
+	var backendURLCandidates []string
+
+	if backendPort, ok := ports["devlake"]; ok {
+		// Use the extracted port
+		backendURLCandidates = []string{fmt.Sprintf("http://localhost:%d", backendPort)}
+	} else {
+		// Fall back to probing both default and alternate ports
+		backendURLCandidates = []string{"http://localhost:8080", "http://localhost:8085"}
+	}
+
 	fmt.Println("\n⏳ Waiting for DevLake to be ready...")
 	fmt.Println("   Giving MySQL time to initialize (this takes ~30s on first run)...")
 	time.Sleep(30 * time.Second)
@@ -539,4 +593,211 @@ func startLocalContainers(dir string, build bool, services ...string) (string, e
 		return "", fmt.Errorf("DevLake not ready after 6 minutes — check: docker compose logs devlake: %w", err)
 	}
 	return backendURL, nil
+}
+
+// portBundle represents the detected port configuration in a compose file
+type portBundle int
+
+const (
+	portBundleDefault   portBundle = iota // 8080/3002/4000
+	portBundleAlternate                   // 8085/3004/4004
+	portBundleCustom                      // Other custom ports
+)
+
+// detectPortBundle analyzes a compose file to determine which port bundle it uses.
+// Returns:
+// - portBundleDefault if compose file contains any of 8080:8080, 3002:3002, or 4000:4000
+// - portBundleAlternate if compose file contains any of 8085:8080, 3004:3002, or 4004:4000
+// - portBundleCustom if compose file has other custom host ports
+func detectPortBundle(composePath string) portBundle {
+	data, err := os.ReadFile(composePath)
+	if err != nil {
+		return portBundleDefault // Assume default if we can't read - let rewriteComposePorts surface the I/O error
+	}
+
+	content := string(data)
+
+	// Use regex to match port mappings as list items (avoiding substring matches like 18080:8080)
+	// Pattern: start of line, optional whitespace, dash, optional whitespace, optional quotes, port mapping
+	defaultPatterns := []*regexp.Regexp{
+		regexp.MustCompile(`(?m)^\s*-\s*["']?8080:8080["']?`),
+		regexp.MustCompile(`(?m)^\s*-\s*["']?3002:3002["']?`),
+		regexp.MustCompile(`(?m)^\s*-\s*["']?4000:4000["']?`),
+	}
+	for _, re := range defaultPatterns {
+		if re.MatchString(content) {
+			return portBundleDefault
+		}
+	}
+
+	// Check for alternate port bundle
+	alternatePatterns := []*regexp.Regexp{
+		regexp.MustCompile(`(?m)^\s*-\s*["']?8085:8080["']?`),
+		regexp.MustCompile(`(?m)^\s*-\s*["']?3004:3002["']?`),
+		regexp.MustCompile(`(?m)^\s*-\s*["']?4004:4000["']?`),
+	}
+	for _, re := range alternatePatterns {
+		if re.MatchString(content) {
+			return portBundleAlternate
+		}
+	}
+
+	// If neither default nor alternate, it's custom
+	return portBundleCustom
+}
+
+// rewriteComposePorts rewrites the port mappings in a docker-compose.yml file
+// from the default bundle (8080/3002/4000) to the alternate bundle (8085/3004/4004).
+// Uses regex with proper boundaries to avoid rewriting custom ports like 18080:8080.
+func rewriteComposePorts(composePath string) error {
+	data, err := os.ReadFile(composePath)
+	if err != nil {
+		return fmt.Errorf("reading compose file: %w", err)
+	}
+
+	content := string(data)
+	modified := content
+
+	// Port mapping patterns with regex boundaries
+	// Match: "- 8080:8080" or "- "8080:8080" or "- '8080:8080'" at start of list item
+	// Avoid: "- 18080:8080" (custom host port that contains 8080)
+	portReplacements := []struct {
+		pattern     string
+		replacement string
+	}{
+		// Backend: 8080:8080 -> 8085:8080
+		{`(?m)(^\s*-\s*)["']?8080:8080["']?`, `${1}8085:8080`},
+		// Grafana: 3002:3002 -> 3004:3002
+		{`(?m)(^\s*-\s*)["']?3002:3002["']?`, `${1}3004:3002`},
+		// Config UI: 4000:4000 -> 4004:4000
+		{`(?m)(^\s*-\s*)["']?4000:4000["']?`, `${1}4004:4000`},
+	}
+
+	for _, repl := range portReplacements {
+		re := regexp.MustCompile(repl.pattern)
+		modified = re.ReplaceAllString(modified, repl.replacement)
+	}
+
+	if modified == content {
+		return fmt.Errorf("no port mappings found to rewrite (expected 8080/3002/4000)")
+	}
+
+	// Create a backup of the original compose file so users can revert if needed
+	backupPath := composePath + ".bak"
+	if _, statErr := os.Stat(backupPath); os.IsNotExist(statErr) {
+		if err := os.WriteFile(backupPath, data, 0644); err != nil {
+			return fmt.Errorf("creating compose backup %s: %w", backupPath, err)
+		}
+	}
+
+	// Write updated content atomically via temp file + rename to avoid partial writes
+	dir := filepath.Dir(composePath)
+	tmpFile, err := os.CreateTemp(dir, ".compose-*.tmp")
+	if err != nil {
+		return fmt.Errorf("creating temp compose file: %w", err)
+	}
+	// Ensure temp file is removed on failure paths
+	defer os.Remove(tmpFile.Name())
+
+	if _, err := tmpFile.Write([]byte(modified)); err != nil {
+		tmpFile.Close()
+		return fmt.Errorf("writing temp compose file: %w", err)
+	}
+
+	if err := tmpFile.Close(); err != nil {
+		return fmt.Errorf("closing temp compose file: %w", err)
+	}
+
+	if err := os.Rename(tmpFile.Name(), composePath); err != nil {
+		return fmt.Errorf("replacing compose file atomically: %w", err)
+	}
+
+	return nil
+}
+
+// extractServicePorts parses the docker-compose.yml file and extracts host ports for the specified services.
+// Returns a map of service name to host port (e.g., "devlake" -> 8080).
+// Returns empty map if parsing fails or service not found.
+func extractServicePorts(composePath string, serviceNames ...string) map[string]int {
+	result := make(map[string]int)
+
+	// Use docker compose config to parse the compose file reliably
+	cmd := exec.Command("docker", "compose", "-f", composePath, "config", "--format", "json")
+	output, err := cmd.Output()
+	if err != nil {
+		// Silently return empty map - caller will fall back to default behavior
+		return result
+	}
+
+	var config struct {
+		Services map[string]struct {
+			Ports []struct {
+				Published string `json:"published,omitempty"`
+				Target    int    `json:"target,omitempty"`
+			} `json:"ports,omitempty"`
+		} `json:"services"`
+	}
+
+	if err := json.Unmarshal(output, &config); err != nil {
+		return result
+	}
+
+	// Extract host ports for requested services
+	for _, serviceName := range serviceNames {
+		service, exists := config.Services[serviceName]
+		if !exists {
+			continue
+		}
+
+		// Find the first published port mapping
+		for _, port := range service.Ports {
+			if port.Published != "" {
+				// Published can be a port number as string
+				if hostPort, err := strconv.Atoi(port.Published); err == nil {
+					result[serviceName] = hostPort
+					break
+				}
+			}
+		}
+	}
+
+	return result
+}
+
+// inferCompanionURLs extracts and returns the actual Grafana and Config UI URLs from the compose file.
+// Falls back to inferring from backend URL if extraction fails.
+func inferCompanionURLs(backendURL string, composePath string) (grafanaURL, configUIURL string) {
+	// Try to extract actual ports from compose file
+	ports := extractServicePorts(composePath, "grafana", "config-ui")
+
+	if grafanaPort, ok := ports["grafana"]; ok {
+		grafanaURL = fmt.Sprintf("http://localhost:%d", grafanaPort)
+	}
+	if configUIPort, ok := ports["config-ui"]; ok {
+		configUIURL = fmt.Sprintf("http://localhost:%d", configUIPort)
+	}
+
+	// If extraction succeeded for both, return
+	if grafanaURL != "" && configUIURL != "" {
+		return grafanaURL, configUIURL
+	}
+
+	// Fall back to inference from backend URL
+	if strings.Contains(backendURL, ":8085") {
+		if grafanaURL == "" {
+			grafanaURL = "http://localhost:3004"
+		}
+		if configUIURL == "" {
+			configUIURL = "http://localhost:4004"
+		}
+	} else {
+		if grafanaURL == "" {
+			grafanaURL = "http://localhost:3002"
+		}
+		if configUIURL == "" {
+			configUIURL = "http://localhost:4000"
+		}
+	}
+
+	return grafanaURL, configUIURL
 }

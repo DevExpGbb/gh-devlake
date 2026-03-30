@@ -59,7 +59,7 @@ gh devlake status [--url <url>]
 | ⚠️ (code) | Unexpected HTTP status |
 | ❌ | Connection refused or timeout |
 
-Grafana is checked at `/api/health`. Backend and Config UI are checked at their root URL.
+Backend is checked at `/ping`, Grafana at `/api/health`, and Config UI at its root URL. When auto-discovery lands on `http://localhost:8080`, companion URLs infer to Grafana → `http://localhost:3002`, Config UI → `http://localhost:4000`. When it lands on `http://localhost:8085`, companion URLs infer to Grafana → `http://localhost:3004`, Config UI → `http://localhost:4004`.
 
 **Connections** — loaded from the state file. Shows plugin name, connection ID, display name, and org.
 
@@ -73,6 +73,13 @@ If no state file is found but DevLake responds at a well-known port:
 
 ```
   ✅ DevLake reachable at http://localhost:8080
+  Run 'gh devlake configure full' to set up connections.
+```
+
+Or, when the alternate local bundle is active:
+
+```
+  ✅ DevLake reachable at http://localhost:8085
   Run 'gh devlake configure full' to set up connections.
 ```
 
@@ -101,7 +108,7 @@ If no state file is found but DevLake responds at a well-known port:
 ## Examples
 
 ```bash
-# Auto-discover from state file or localhost
+# Auto-discover from state file or localhost (8080 or 8085)
 gh devlake status
 
 # Target a specific instance
