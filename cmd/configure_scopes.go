@@ -1632,3 +1632,117 @@ func scopeArgoCDHandler(client *devlake.Client, connID int, org, enterprise stri
 		Scopes:       blueprintScopes,
 	}, nil
 }
+
+// scopeQDevHandler configures S3-based scopes for Amazon Q Developer.
+// Scopes are time-sliced S3 prefixes (year/month) for Q Developer data collection.
+func scopeQDevHandler(client *devlake.Client, connID int, org, enterprise string, opts *ScopeOpts) (*devlake.BlueprintConnection, error) {
+	// Interactive mode: prompt for scope parameters
+	if opts == nil {
+		opts = &ScopeOpts{}
+	}
+
+	// Determine scope creation mode
+	var accountID, prefix, basePath string
+	var year, month int
+
+	fmt.Println("\n📝 Configuring Amazon Q Developer scope...")
+	fmt.Println("   Scopes represent S3 data slices for Q Developer metrics.")
+	fmt.Println()
+
+	// Prompt for account ID (recommended) or explicit prefix (legacy)
+	accountID = prompt.ReadLine("AWS Account ID (leave empty for explicit prefix)")
+	if accountID != "" {
+		// Account-based scope (new style)
+		basePath = prompt.ReadLine("S3 base path [leave empty for default]")
+		yearStr := prompt.ReadLine("Year for data collection (e.g., 2024)")
+		if yearStr == "" {
+			return nil, fmt.Errorf("year is required")
+		}
+		var err error
+		year, err = strconv.Atoi(yearStr)
+		if err != nil || year < 2020 || year > 2100 {
+			return nil, fmt.Errorf("invalid year: %s", yearStr)
+		}
+
+		monthStr := prompt.ReadLine("Month (1-12, leave empty for full year)")
+		if monthStr != "" {
+			month, err = strconv.Atoi(monthStr)
+			if err != nil || month < 1 || month > 12 {
+				return nil, fmt.Errorf("invalid month: %s (must be 1-12)", monthStr)
+			}
+		}
+	} else {
+		// Explicit prefix (legacy style)
+		prefix = prompt.ReadLine("S3 prefix (full path)")
+		if prefix == "" {
+			return nil, fmt.Errorf("either account ID or explicit prefix is required")
+		}
+		yearStr := prompt.ReadLine("Year for data collection (e.g., 2024)")
+		if yearStr != "" {
+			var err error
+			year, err = strconv.Atoi(yearStr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid year: %s", yearStr)
+			}
+		}
+	}
+
+	// Build scope ID
+	var scopeID, scopeName, scopeFullName string
+	if accountID != "" {
+		if month > 0 {
+			scopeID = fmt.Sprintf("%s_%d_%02d", accountID, year, month)
+			scopeName = fmt.Sprintf("Q Developer %s %d-%02d", accountID, year, month)
+			scopeFullName = fmt.Sprintf("%s/%d/%02d", accountID, year, month)
+		} else {
+			scopeID = fmt.Sprintf("%s_%d", accountID, year)
+			scopeName = fmt.Sprintf("Q Developer %s %d", accountID, year)
+			scopeFullName = fmt.Sprintf("%s/%d", accountID, year)
+		}
+	} else {
+		// Legacy prefix-based scope
+		scopeID = prefix
+		if year > 0 {
+			scopeID = fmt.Sprintf("%s_%d", prefix, year)
+		}
+		scopeName = fmt.Sprintf("Q Developer %s", prefix)
+		scopeFullName = prefix
+	}
+
+	// Build scope data for PUT
+	fmt.Println("\n📝 Adding Q Developer S3 slice scope...")
+	var monthPtr *int
+	if month > 0 {
+		monthPtr = &month
+	}
+
+	scope := devlake.QDevS3Slice{
+		ID:           scopeID,
+		ConnectionID: connID,
+		Prefix:       prefix,
+		BasePath:     basePath,
+		AccountID:    accountID,
+		Year:         year,
+		Month:        monthPtr,
+		Name:         scopeName,
+		FullName:     scopeFullName,
+	}
+
+	scopeData := []any{scope}
+	err := client.PutScopes("q_dev", connID, &devlake.ScopeBatchRequest{Data: scopeData})
+	if err != nil {
+		return nil, fmt.Errorf("failed to add Q Developer scope: %w", err)
+	}
+	fmt.Printf("   ✅ Added S3 slice scope: %s\n", scopeFullName)
+
+	return &devlake.BlueprintConnection{
+		PluginName:   "q_dev",
+		ConnectionID: connID,
+		Scopes: []devlake.BlueprintScope{
+			{
+				ScopeID:   scopeID,
+				ScopeName: scopeName,
+			},
+		},
+	}, nil
+}

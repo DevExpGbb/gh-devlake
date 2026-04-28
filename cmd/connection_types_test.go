@@ -331,6 +331,199 @@ func TestAzureDevOpsRegistryEntry(t *testing.T) {
 	}
 }
 
+// TestConnectionRegistry_QDev verifies the Amazon Q Developer plugin registry entry.
+func TestConnectionRegistry_QDev(t *testing.T) {
+	def := FindConnectionDef("q_dev")
+	if def == nil {
+		t.Fatal("q_dev plugin not found in registry")
+	}
+
+	tests := []struct {
+		name string
+		got  interface{}
+		want interface{}
+	}{
+		{"Plugin", def.Plugin, "q_dev"},
+		{"DisplayName", def.DisplayName, "Amazon Q Developer"},
+		{"Available", def.Available, true},
+		{"Endpoint", def.Endpoint, ""},
+		{"SupportsTest", def.SupportsTest, false}, // S3-based, no test endpoint
+		{"AuthMethod", def.AuthMethod, "AwsCredentials"},
+		{"ScopeIDField", def.ScopeIDField, "id"},
+		{"HasRepoScopes", def.HasRepoScopes, false},
+		{"RateLimitPerHour", def.RateLimitPerHour, 20000},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.got != tt.want {
+				t.Errorf("%s: got %v, want %v", tt.name, tt.got, tt.want)
+			}
+		})
+	}
+
+	if def.ScopeFunc == nil {
+		t.Error("ScopeFunc should not be nil")
+	}
+
+	// Amazon Q Developer uses AWS credentials, not OAuth/PAT scopes
+	if len(def.RequiredScopes) != 0 {
+		t.Errorf("RequiredScopes should be empty for AWS credentials, got %v", def.RequiredScopes)
+	}
+	if def.ScopeHint != "" {
+		t.Errorf("ScopeHint should be empty for AWS credentials, got %q", def.ScopeHint)
+	}
+
+	expectedEnvVars := []string{"AWS_SECRET_ACCESS_KEY"}
+	if len(def.EnvVarNames) != len(expectedEnvVars) {
+		t.Errorf("EnvVarNames length: got %d, want %d", len(def.EnvVarNames), len(expectedEnvVars))
+	} else {
+		for i, v := range expectedEnvVars {
+			if def.EnvVarNames[i] != v {
+				t.Errorf("EnvVarNames[%d]: got %q, want %q", i, def.EnvVarNames[i], v)
+			}
+		}
+	}
+
+	expectedEnvFileKeys := []string{"AWS_SECRET_ACCESS_KEY"}
+	if len(def.EnvFileKeys) != len(expectedEnvFileKeys) {
+		t.Errorf("EnvFileKeys length: got %d, want %d", len(def.EnvFileKeys), len(expectedEnvFileKeys))
+	} else {
+		for i, v := range expectedEnvFileKeys {
+			if def.EnvFileKeys[i] != v {
+				t.Errorf("EnvFileKeys[%d]: got %q, want %q", i, def.EnvFileKeys[i], v)
+			}
+		}
+	}
+
+	// Check ConnectionFlags
+	expectedConnFlags := []string{"access-key-id", "secret-access-key", "region", "bucket", "identity-store-id", "identity-store-region"}
+	if len(def.ConnectionFlags) != len(expectedConnFlags) {
+		t.Errorf("ConnectionFlags length: got %d, want %d", len(def.ConnectionFlags), len(expectedConnFlags))
+	} else {
+		for i, want := range expectedConnFlags {
+			if def.ConnectionFlags[i].Name != want {
+				t.Errorf("ConnectionFlags[%d].Name: got %q, want %q", i, def.ConnectionFlags[i].Name, want)
+			}
+		}
+	}
+
+	// Check ScopeFlags
+	expectedScopeFlags := []string{"account-id", "year", "month", "base-path", "prefix"}
+	if len(def.ScopeFlags) != len(expectedScopeFlags) {
+		t.Errorf("ScopeFlags length: got %d, want %d", len(def.ScopeFlags), len(expectedScopeFlags))
+	} else {
+		for i, want := range expectedScopeFlags {
+			if def.ScopeFlags[i].Name != want {
+				t.Errorf("ScopeFlags[%d].Name: got %q, want %q", i, def.ScopeFlags[i].Name, want)
+			}
+		}
+	}
+}
+
+// TestBuildCreateRequest_AwsCredentials verifies that AWS-specific fields are populated
+// in the connection create request for Amazon Q Developer.
+func TestBuildCreateRequest_AwsCredentials(t *testing.T) {
+	def := &ConnectionDef{
+		Plugin:           "q_dev",
+		DisplayName:      "Amazon Q Developer",
+		Endpoint:         "",
+		AuthMethod:       "AwsCredentials",
+		RateLimitPerHour: 20000,
+	}
+
+	t.Run("AWS fields populated correctly", func(t *testing.T) {
+		req := def.BuildCreateRequest("test-q-dev", ConnectionParams{
+			AccessKeyID:         "AKIAIOSFODNN7EXAMPLE",
+			SecretAccessKey:     "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+			Region:              "us-east-1",
+			Bucket:              "my-q-developer-bucket",
+			IdentityStoreID:     "d-1234567890",
+			IdentityStoreRegion: "us-east-1",
+		})
+		if req.AccessKeyID != "AKIAIOSFODNN7EXAMPLE" {
+			t.Errorf("got AccessKeyID %q, want %q", req.AccessKeyID, "AKIAIOSFODNN7EXAMPLE")
+		}
+		if req.SecretAccessKey != "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" {
+			t.Errorf("got SecretAccessKey %q, want %q", req.SecretAccessKey, "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
+		}
+		if req.Region != "us-east-1" {
+			t.Errorf("got Region %q, want %q", req.Region, "us-east-1")
+		}
+		if req.Bucket != "my-q-developer-bucket" {
+			t.Errorf("got Bucket %q, want %q", req.Bucket, "my-q-developer-bucket")
+		}
+		if req.IdentityStoreID != "d-1234567890" {
+			t.Errorf("got IdentityStoreID %q, want %q", req.IdentityStoreID, "d-1234567890")
+		}
+		if req.IdentityStoreRegion != "us-east-1" {
+			t.Errorf("got IdentityStoreRegion %q, want %q", req.IdentityStoreRegion, "us-east-1")
+		}
+		if req.AuthMethod != "AwsCredentials" {
+			t.Errorf("got AuthMethod %q, want %q", req.AuthMethod, "AwsCredentials")
+		}
+		if req.RateLimitPerHour != 20000 {
+			t.Errorf("got RateLimitPerHour %d, want %d", req.RateLimitPerHour, 20000)
+		}
+	})
+
+	t.Run("optional Identity Store fields omitted when empty", func(t *testing.T) {
+		req := def.BuildCreateRequest("test-q-dev-minimal", ConnectionParams{
+			AccessKeyID:     "AKIAIOSFODNN7EXAMPLE",
+			SecretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+			Region:          "us-west-2",
+			Bucket:          "my-bucket",
+		})
+		if req.IdentityStoreID != "" {
+			t.Errorf("expected empty IdentityStoreID, got %q", req.IdentityStoreID)
+		}
+		if req.IdentityStoreRegion != "" {
+			t.Errorf("expected empty IdentityStoreRegion, got %q", req.IdentityStoreRegion)
+		}
+		if req.AccessKeyID != "AKIAIOSFODNN7EXAMPLE" {
+			t.Errorf("got AccessKeyID %q, want %q", req.AccessKeyID, "AKIAIOSFODNN7EXAMPLE")
+		}
+	})
+}
+
+// TestBuildTestRequest_AwsCredentials verifies that AWS-specific fields are populated
+// in the connection test request for Amazon Q Developer.
+func TestBuildTestRequest_AwsCredentials(t *testing.T) {
+	def := &ConnectionDef{
+		Plugin:           "q_dev",
+		DisplayName:      "Amazon Q Developer",
+		Endpoint:         "",
+		AuthMethod:       "AwsCredentials",
+		RateLimitPerHour: 20000,
+	}
+
+	t.Run("AWS fields populated correctly in test request", func(t *testing.T) {
+		req := def.BuildTestRequest("test-q-dev", ConnectionParams{
+			AccessKeyID:         "AKIAIOSFODNN7EXAMPLE",
+			SecretAccessKey:     "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+			Region:              "us-east-1",
+			Bucket:              "my-q-developer-bucket",
+			IdentityStoreID:     "d-1234567890",
+			IdentityStoreRegion: "us-east-1",
+		})
+		if req.AccessKeyID != "AKIAIOSFODNN7EXAMPLE" {
+			t.Errorf("got AccessKeyID %q, want %q", req.AccessKeyID, "AKIAIOSFODNN7EXAMPLE")
+		}
+		if req.SecretAccessKey != "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" {
+			t.Errorf("got SecretAccessKey %q, want %q", req.SecretAccessKey, "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
+		}
+		if req.Region != "us-east-1" {
+			t.Errorf("got Region %q, want %q", req.Region, "us-east-1")
+		}
+		if req.Bucket != "my-q-developer-bucket" {
+			t.Errorf("got Bucket %q, want %q", req.Bucket, "my-q-developer-bucket")
+		}
+		if req.AuthMethod != "AwsCredentials" {
+			t.Errorf("got AuthMethod %q, want %q", req.AuthMethod, "AwsCredentials")
+		}
+	})
+}
+
 // TestBuildCreateRequest_AuthMethod verifies that AuthMethod defaults to "AccessToken"
 // when empty, and uses the configured value when set.
 func TestBuildCreateRequest_AuthMethod(t *testing.T) {
