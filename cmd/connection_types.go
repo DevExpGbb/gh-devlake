@@ -97,6 +97,14 @@ type ConnectionParams struct {
 	Name       string // override default connection name
 	Proxy      string // HTTP proxy URL
 	Endpoint   string // override default endpoint (e.g. GitHub Enterprise Server)
+
+	// AWS-specific fields (for Amazon Q Developer)
+	AccessKeyID            string
+	SecretAccessKey        string
+	Region                 string
+	Bucket                 string
+	IdentityStoreID        string
+	IdentityStoreRegion    string
 }
 
 // rateLimitOrDefault returns the configured rate limit or a sensible default.
@@ -143,6 +151,25 @@ func (d *ConnectionDef) BuildCreateRequest(name string, params ConnectionParams)
 	if (d.NeedsEnterprise || d.NeedsOrgOrEnt) && params.Enterprise != "" {
 		req.Enterprise = params.Enterprise
 	}
+	// AWS-specific fields (for Amazon Q Developer)
+	if params.AccessKeyID != "" {
+		req.AccessKeyID = params.AccessKeyID
+	}
+	if params.SecretAccessKey != "" {
+		req.SecretAccessKey = params.SecretAccessKey
+	}
+	if params.Region != "" {
+		req.Region = params.Region
+	}
+	if params.Bucket != "" {
+		req.Bucket = params.Bucket
+	}
+	if params.IdentityStoreID != "" {
+		req.IdentityStoreID = params.IdentityStoreID
+	}
+	if params.IdentityStoreRegion != "" {
+		req.IdentityStoreRegion = params.IdentityStoreRegion
+	}
 	return req
 }
 
@@ -173,6 +200,25 @@ func (d *ConnectionDef) BuildTestRequest(name string, params ConnectionParams) *
 	}
 	if (d.NeedsEnterprise || d.NeedsOrgOrEnt) && params.Enterprise != "" {
 		req.Enterprise = params.Enterprise
+	}
+	// AWS-specific fields (for Amazon Q Developer)
+	if params.AccessKeyID != "" {
+		req.AccessKeyID = params.AccessKeyID
+	}
+	if params.SecretAccessKey != "" {
+		req.SecretAccessKey = params.SecretAccessKey
+	}
+	if params.Region != "" {
+		req.Region = params.Region
+	}
+	if params.Bucket != "" {
+		req.Bucket = params.Bucket
+	}
+	if params.IdentityStoreID != "" {
+		req.IdentityStoreID = params.IdentityStoreID
+	}
+	if params.IdentityStoreRegion != "" {
+		req.IdentityStoreRegion = params.IdentityStoreRegion
 	}
 	return req
 }
@@ -397,6 +443,38 @@ var connectionRegistry = []*ConnectionDef{
 		ScopeFunc:      scopeArgoCDHandler,
 		ScopeIDField:   "name",
 		HasRepoScopes:  false,
+	},
+	{
+		Plugin:           "q_dev",
+		DisplayName:      "Amazon Q Developer",
+		Available:        true,
+		Endpoint:         "", // S3-based, no REST endpoint
+		SupportsTest:     false,
+		AuthMethod:       "AwsCredentials",
+		RateLimitPerHour: 20000,
+		RequiredScopes:   []string{},
+		ScopeHint:        "",
+		TokenPrompt:      "AWS Secret Access Key",
+		EnvVarNames:      []string{"AWS_SECRET_ACCESS_KEY"},
+		EnvFileKeys:      []string{"AWS_SECRET_ACCESS_KEY"},
+		ScopeFunc:        scopeQDevHandler,
+		ScopeIDField:     "id",
+		HasRepoScopes:    false,
+		ConnectionFlags: []FlagDef{
+			{Name: "access-key-id", Description: "AWS Access Key ID"},
+			{Name: "secret-access-key", Description: "AWS Secret Access Key"},
+			{Name: "region", Description: "AWS region (e.g., us-east-1)"},
+			{Name: "bucket", Description: "S3 bucket name containing Q Developer data"},
+			{Name: "identity-store-id", Description: "IAM Identity Center store ID (optional)"},
+			{Name: "identity-store-region", Description: "IAM Identity Center region (optional)"},
+		},
+		ScopeFlags: []FlagDef{
+			{Name: "account-id", Description: "AWS account ID for scope generation"},
+			{Name: "year", Description: "Year for data collection (e.g., 2024)"},
+			{Name: "month", Description: "Month for data collection (1-12, optional)"},
+			{Name: "base-path", Description: "S3 base path prefix (optional)"},
+			{Name: "prefix", Description: "Explicit S3 prefix (alternative to account-id)"},
+		},
 	},
 }
 

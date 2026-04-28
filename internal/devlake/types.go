@@ -111,6 +111,20 @@ type ArgoCDAppScope struct {
 	Name         string `json:"name"`
 }
 
+// QDevS3Slice represents an Amazon Q Developer S3 slice scope entry for PUT /scopes.
+// Scopes represent time-sliced S3 prefixes for Q Developer data collection.
+type QDevS3Slice struct {
+	ID           string `json:"id"`
+	ConnectionID int    `json:"connectionId"`
+	Prefix       string `json:"prefix,omitempty"`
+	BasePath     string `json:"basePath,omitempty"`
+	AccountID    string `json:"accountId,omitempty"`
+	Year         int    `json:"year,omitempty"`
+	Month        *int   `json:"month,omitempty"`
+	Name         string `json:"name"`
+	FullName     string `json:"fullName"`
+}
+
 // ScopeBatchRequest is the payload for PUT /scopes (batch upsert).
 type ScopeBatchRequest struct {
 	Data []any `json:"data"`

@@ -79,6 +79,14 @@ type ConnectionCreateRequest struct {
 	Enterprise            string `json:"enterprise,omitempty"`
 	TokenExpiresAt        string `json:"tokenExpiresAt,omitempty"`
 	RefreshTokenExpiresAt string `json:"refreshTokenExpiresAt,omitempty"`
+
+	// AWS-specific fields (for Amazon Q Developer)
+	AccessKeyID         string `json:"accessKeyId,omitempty"`
+	SecretAccessKey     string `json:"secretAccessKey,omitempty"`
+	Region              string `json:"region,omitempty"`
+	Bucket              string `json:"bucket,omitempty"`
+	IdentityStoreID     string `json:"identityStoreId,omitempty"`
+	IdentityStoreRegion string `json:"identityStoreRegion,omitempty"`
 }
 
 // ConnectionTestRequest is the payload for testing a connection before creating.
@@ -94,6 +102,14 @@ type ConnectionTestRequest struct {
 	Proxy            string `json:"proxy"`
 	Organization     string `json:"organization,omitempty"`
 	Enterprise       string `json:"enterprise,omitempty"`
+
+	// AWS-specific fields (for Amazon Q Developer)
+	AccessKeyID         string `json:"accessKeyId,omitempty"`
+	SecretAccessKey     string `json:"secretAccessKey,omitempty"`
+	Region              string `json:"region,omitempty"`
+	Bucket              string `json:"bucket,omitempty"`
+	IdentityStoreID     string `json:"identityStoreId,omitempty"`
+	IdentityStoreRegion string `json:"identityStoreRegion,omitempty"`
 }
 
 // ConnectionTestResult is the response from testing a connection.
