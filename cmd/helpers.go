@@ -178,18 +178,20 @@ func deduplicateResults(results []ConnSetupResult) []ConnSetupResult {
 // maxAttempts is exhausted. interval is the pause between attempts.
 func waitForReady(baseURL string, maxAttempts int, interval time.Duration) error {
 	httpClient := &http.Client{Timeout: 5 * time.Second}
+	bar := newProgressBar(maxAttempts)
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		bar.update(attempt, "waiting for DevLake")
 		resp, err := httpClient.Get(baseURL + "/ping")
 		if err == nil {
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
-				fmt.Println("   ✅ DevLake is responding!")
+				bar.done("✅ DevLake is responding!")
 				return nil
 			}
 		}
-		fmt.Printf("   Attempt %d/%d — waiting...\n", attempt, maxAttempts)
 		time.Sleep(interval)
 	}
+	bar.clear()
 	return fmt.Errorf("DevLake not ready after %d attempts — check logs", maxAttempts)
 }
 
@@ -198,22 +200,24 @@ func waitForReady(baseURL string, maxAttempts int, interval time.Duration) error
 // internal/devlake/discovery.go which checks both 8080 and 8085.
 func waitForReadyAny(baseURLs []string, maxAttempts int, interval time.Duration) (string, error) {
 	httpClient := &http.Client{Timeout: 5 * time.Second}
+	bar := newProgressBar(maxAttempts)
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		bar.update(attempt, "waiting for DevLake")
 		for _, baseURL := range baseURLs {
 			resp, err := httpClient.Get(baseURL + "/ping")
 			if err == nil {
 				resp.Body.Close()
 				if resp.StatusCode == http.StatusOK {
-					fmt.Println("   ✅ DevLake is responding!")
+					bar.done("✅ DevLake is responding!")
 					return baseURL, nil
 				}
 			}
 		}
 		if attempt < maxAttempts {
-			fmt.Printf("   Attempt %d/%d — waiting...\n", attempt, maxAttempts)
 			time.Sleep(interval)
 		}
 	}
+	bar.clear()
 	return "", fmt.Errorf("timed out after %d attempts", maxAttempts)
 }
 
@@ -221,18 +225,20 @@ func waitForReadyAny(baseURLs []string, maxAttempts int, interval time.Duration)
 // During migration the API returns 428 (Precondition Required).
 func waitForMigration(baseURL string, maxAttempts int, interval time.Duration) error {
 	httpClient := &http.Client{Timeout: 5 * time.Second}
+	bar := newProgressBar(maxAttempts)
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		bar.update(attempt, "migrating database")
 		resp, err := httpClient.Get(baseURL + "/ping")
 		if err == nil {
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
-				fmt.Println("   ✅ Migration complete!")
+				bar.done("✅ Migration complete!")
 				return nil
 			}
 		}
-		fmt.Printf("   Migrating... (%d/%d)\n", attempt, maxAttempts)
 		time.Sleep(interval)
 	}
+	bar.clear()
 	return fmt.Errorf("migration did not complete after %d attempts", maxAttempts)
 }
 

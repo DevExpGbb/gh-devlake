@@ -244,8 +244,7 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 		if err := azure.MySQLStart(mysqlName, azureRG); err != nil {
 			fmt.Printf("   ⚠️  Could not start MySQL: %v\n", err)
 		} else {
-			fmt.Println("   Waiting 30s for MySQL...")
-			time.Sleep(30 * time.Second)
+			countdown(30, "waiting for MySQL")
 			fmt.Println("   ✅ MySQL started")
 		}
 	} else if state != "" {
@@ -287,7 +286,12 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 		params["acrName"] = acrName
 	}
 
-	deployment, err := azure.DeployBicep(azureRG, templatePath, params)
+	var deployment *azure.DeploymentOutput
+	err = spinWhile("Deploying Azure resources via Bicep (this takes several minutes)", func() error {
+		var innerErr error
+		deployment, innerErr = azure.DeployBicep(azureRG, templatePath, params)
+		return innerErr
+	})
 	if err != nil {
 		return fmt.Errorf("Bicep deployment failed: %w", err)
 	}
@@ -303,7 +307,6 @@ func runDeployAzure(cmd *cobra.Command, args []string) error {
 	backendReady := waitForReady(deployment.BackendEndpoint, 30, 10*time.Second) == nil
 
 	if backendReady {
-		fmt.Println("   ✅ Backend is responding!")
 		fmt.Println("\n🔄 Triggering database migration...")
 		httpClient := &http.Client{Timeout: 5 * time.Second}
 		resp, err := httpClient.Get(deployment.BackendEndpoint + "/proceed-db-migration")

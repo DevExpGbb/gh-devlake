@@ -442,29 +442,41 @@ func triggerAndPoll(client *devlake.Client, blueprintID int, wait bool, timeout 
 
 	fmt.Println("   Monitoring progress...")
 	deadline := time.Now().Add(timeout)
+	start := time.Now()
+
+	// clearLine erases the current in-place status line so subsequent output
+	// (completion banners, error messages) appears on a clean line.
+	clearLine := func() {
+		fmt.Printf("\r\033[2K")
+	}
+
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
 	for range ticker.C {
 		p, err := client.GetPipeline(pipeline.ID)
+		elapsed := time.Since(start).Truncate(time.Second)
+
 		if err != nil {
-			elapsed := time.Since(deadline.Add(-timeout)).Truncate(time.Second)
-			fmt.Printf("   [%s] Could not check status...\n", elapsed)
+			fmt.Printf("\r\033[2K   ⚠️  Could not check status (%s elapsed)", elapsed)
 		} else {
-			elapsed := time.Since(deadline.Add(-timeout)).Truncate(time.Second)
-			fmt.Printf("   [%s] Status: %s | Tasks: %d/%d\n", elapsed, p.Status, p.FinishedTasks, p.TotalTasks)
+			bar := renderBar(p.FinishedTasks, p.TotalTasks, progressBarWidth)
+			fmt.Printf("\r\033[2K   %s %d/%d tasks — %s (%s elapsed)", bar, p.FinishedTasks, p.TotalTasks, p.Status, elapsed)
 
 			switch p.Status {
 			case "TASK_COMPLETED":
-				fmt.Println("   \u2705 Data sync completed!")
+				clearLine()
+				fmt.Println("   ✅ Data sync completed!")
 				return nil
 			case "TASK_FAILED":
-				return fmt.Errorf("pipeline failed \u2014 check DevLake logs")
+				clearLine()
+				return fmt.Errorf("pipeline failed — check DevLake logs")
 			}
 		}
 
 		if time.Now().After(deadline) {
-			fmt.Println("   \u26a0\ufe0f  Monitoring timed out. Pipeline is still running.")
+			clearLine()
+			fmt.Println("   ⚠️  Monitoring timed out. Pipeline is still running.")
 			fmt.Printf("   Check status: GET /pipelines/%d\n", pipeline.ID)
 			return nil
 		}
