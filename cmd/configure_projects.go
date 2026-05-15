@@ -447,7 +447,7 @@ func triggerAndPoll(client *devlake.Client, blueprintID int, wait bool, timeout 
 	// clearLine erases the current in-place status line so subsequent output
 	// (completion banners, error messages) appears on a clean line.
 	clearLine := func() {
-		fmt.Printf("\r%s\r", strings.Repeat(" ", progressLineWidth))
+		fmt.Printf("\r\033[2K")
 	}
 
 	ticker := time.NewTicker(10 * time.Second)
@@ -458,10 +458,10 @@ func triggerAndPoll(client *devlake.Client, blueprintID int, wait bool, timeout 
 		elapsed := time.Since(start).Truncate(time.Second)
 
 		if err != nil {
-			fmt.Printf("\r   %-*s", progressLineWidth-3, fmt.Sprintf("⚠️  Could not check status (%s elapsed)", elapsed))
+			fmt.Printf("\r\033[2K   ⚠️  Could not check status (%s elapsed)", elapsed)
 		} else {
 			bar := renderBar(p.FinishedTasks, p.TotalTasks, progressBarWidth)
-			fmt.Printf("\r   %-*s", progressLineWidth-3, fmt.Sprintf("%s %d/%d tasks — %s (%s elapsed)", bar, p.FinishedTasks, p.TotalTasks, p.Status, elapsed))
+			fmt.Printf("\r\033[2K   %s %d/%d tasks — %s (%s elapsed)", bar, p.FinishedTasks, p.TotalTasks, p.Status, elapsed)
 
 			switch p.Status {
 			case "TASK_COMPLETED":

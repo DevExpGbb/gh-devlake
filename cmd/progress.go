@@ -8,11 +8,6 @@ import (
 
 // ── Progress bar ─────────────────────────────────────────────────
 
-// progressLineWidth is the terminal column count used to clear in-place status
-// lines written with \r. Must be wide enough to overwrite the longest possible
-// progress or spinner line.
-const progressLineWidth = 72
-
 // progressBarWidth is the number of block characters in every progress bar.
 const progressBarWidth = 24
 
@@ -43,16 +38,16 @@ func renderBar(current, total, width int) string {
 }
 
 // update redraws the progress bar at position current.
-// It uses \r to overwrite the current line in the terminal.
+// It uses \r and the ANSI erase-line sequence to overwrite the current line.
 func (p *progressBar) update(current int, label string) {
 	bar := renderBar(current, p.total, p.width)
 	elapsed := time.Since(p.start).Truncate(time.Second)
-	fmt.Printf("\r   %s %2d/%-2d  %s (%s elapsed)  ", bar, current, p.total, label, elapsed)
+	fmt.Printf("\r\033[2K   %s %2d/%-2d  %s (%s elapsed)", bar, current, p.total, label, elapsed)
 }
 
 // clear erases the progress bar line and returns the cursor to column 0.
 func (p *progressBar) clear() {
-	fmt.Printf("\r%s\r", strings.Repeat(" ", progressLineWidth))
+	fmt.Printf("\r\033[2K")
 }
 
 // done clears the bar and prints a completion message.
@@ -97,14 +92,14 @@ func spinWhile(label string, fn func() error) error {
 		select {
 		case err := <-done:
 			elapsed := time.Since(start).Truncate(time.Second)
-			fmt.Printf("\r%s\r", strings.Repeat(" ", progressLineWidth))
+			fmt.Printf("\r\033[2K")
 			if err == nil {
 				fmt.Printf("   ✅ Done (%s)\n", elapsed)
 			}
 			return err
 		case <-ticker.C:
 			elapsed := time.Since(start).Truncate(time.Second)
-			fmt.Printf("\r   %s %s (%s elapsed)  ", spinChars[i%len(spinChars)], label, elapsed)
+			fmt.Printf("\r\033[2K   %s %s (%s elapsed)", spinChars[i%len(spinChars)], label, elapsed)
 			i++
 		}
 	}
